@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
+import * as XLSX from 'xlsx';
 
 const fmt = n => n >= 1000000 ? 'PKR ' + (n / 1000000).toFixed(1) + 'M' : n > 0 ? 'PKR ' + (n / 1000).toFixed(0) + 'K' : 'PKR 0';
 const PLOT_SIZES = ['5 Marla', '7 Marla', '10 Marla', '1 Kanal'];
@@ -62,6 +63,17 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   const [plotForm, setPlotForm] = useState({ number: '', size: '5 Marla', price: '', status: 'available', category: 'residential', description: '', area: '' });
   const [plotSaving, setPlotSaving] = useState(false);
   const [plotMsg, setPlotMsg] = useState('');
+
+  // ── Bulk / Import ──
+  const [bulkMode, setBulkMode] = useState(null); // null | 'manual' | 'import'
+  const emptyBulkRow = () => ({ number: '', area: '', size: '5 Marla', price: '', category: 'residential', status: 'available', description: '' });
+  const [bulkRows, setBulkRows] = useState([emptyBulkRow()]);
+  const [bulkSaving, setBulkSaving] = useState(false);
+  const [bulkMsg, setBulkMsg] = useState('');
+  const [importRows, setImportRows] = useState([]);
+  const [importMsg, setImportMsg] = useState('');
+  const [importSaving, setImportSaving] = useState(false);
+  const fileInputRef = useRef(null);
 
   // ── Deals tab ──
   const [deals, setDeals] = useState([]);
@@ -230,6 +242,85 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
     const res = await fetch(`/api/admin/plots/${plot.id}?force=true`, { method: 'DELETE' });
     if (!res.ok) { const d = await res.json(); alert(d.error); return; }
     loadPlots();
+  };
+
+  // ── Bulk manual add ──
+  const updateBulkRow = (idx, field, val) => {
+    setBulkRows(rows => rows.map((r, i) => i === idx ? { ...r, [field]: val } : r));
+  };
+  const addBulkRow = () => setBulkRows(r => [...r, emptyBulkRow()]);
+  const removeBulkRow = (idx) => setBulkRows(r => r.filter((_, i) => i !== idx));
+
+  const handleBulkSubmit = async () => {
+    const valid = bulkRows.filter(r => r.number.trim() && r.area.trim() && r.price);
+    if (valid.length === 0) { setBulkMsg('❌ Fill in at least one complete row (Number, Area, Price required).'); return; }
+    setBulkSaving(true); setBulkMsg('');
+    try {
+      const res = await fetch('/api/admin/plots/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plots: valid }) });
+      const data = await res.json();
+      const parts = [];
+      if (data.added?.length) parts.push(`✅ ${data.added.length} plot${data.added.length > 1 ? 's' : ''} added`);
+      if (data.skipped?.length) parts.push(`⚠️ ${data.skipped.length} skipped (duplicate numbers)`);
+      if (data.errors?.length) parts.push(`❌ ${data.errors.length} failed`);
+      setBulkMsg(parts.join(' · ') || '✅ Done');
+      if (data.added?.length) { loadPlots(); setBulkRows([emptyBulkRow()]); }
+    } catch { setBulkMsg('❌ Import failed, please try again.'); } finally { setBulkSaving(false); }
+  };
+
+  // ── Excel import ──
+  const downloadTemplate = () => {
+    const ws = XLSX.utils.aoa_to_sheet([
+      ['Plot Number', 'Area', 'Size', 'Price (PKR)', 'Category', 'Status', 'Description'],
+      ['E-501', 'Block E', '5 Marla', 2500000, 'residential', 'available', 'Corner plot'],
+      ['E-502', 'Block E', '10 Marla', 5000000, 'residential', 'available', 'Park facing'],
+    ]);
+    ws['!cols'] = [14, 12, 10, 14, 14, 12, 30].map(w => ({ wch: w }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Plots');
+    XLSX.writeFile(wb, 'plots_import_template.xlsx');
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportMsg(''); setImportRows([]);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const wb = XLSX.read(ev.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        const mapped = raw.map(row => ({
+          number: String(row['Plot Number'] || row['number'] || '').trim(),
+          area: String(row['Area'] || row['area'] || '').trim(),
+          size: String(row['Size'] || row['size'] || '5 Marla').trim(),
+          price: parseInt(row['Price (PKR)'] || row['price'] || 0) || 0,
+          category: String(row['Category'] || row['category'] || 'residential').toLowerCase().trim(),
+          status: String(row['Status'] || row['status'] || 'available').toLowerCase().trim(),
+          description: String(row['Description'] || row['description'] || '').trim(),
+        })).filter(r => r.number || r.area);
+        if (mapped.length === 0) { setImportMsg('❌ No valid rows found. Make sure the file uses the correct column headers.'); return; }
+        setImportRows(mapped);
+        setImportMsg(`📋 ${mapped.length} row${mapped.length > 1 ? 's' : ''} ready to import. Review below then click Import.`);
+      } catch (err) { setImportMsg('❌ Could not read the file. Use .xlsx or .csv format.'); }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
+
+  const handleImportSubmit = async () => {
+    if (importRows.length === 0) return;
+    setImportSaving(true); setImportMsg('');
+    try {
+      const res = await fetch('/api/admin/plots/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plots: importRows }) });
+      const data = await res.json();
+      const parts = [];
+      if (data.added?.length) parts.push(`✅ ${data.added.length} added`);
+      if (data.skipped?.length) parts.push(`⚠️ ${data.skipped.length} skipped (duplicates)`);
+      if (data.errors?.length) parts.push(`❌ ${data.errors.length} errors`);
+      setImportMsg(parts.join(' · ') || '✅ Done');
+      if (data.added?.length) { loadPlots(); setImportRows([]); }
+    } catch { setImportMsg('❌ Import failed, please try again.'); } finally { setImportSaving(false); }
   };
 
   // ── Deals ──
@@ -728,91 +819,235 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
 
         {/* ─── INVENTORY TAB ─── */}
         {tab === 'Inventory' && (
-          <div style={{ display: 'grid', gridTemplateColumns: plotEdit ? '1fr 380px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
-            <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-                <div>
-                  <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Plot Inventory</h3>
-                  <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{plots.length} plots total — add, edit, or remove plots</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+            {/* ── Bulk Manual Add Panel ── */}
+            {bulkMode === 'manual' && (
+              <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                <div style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)', color: '#fff', padding: '1.1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>Bulk Add Plots</div>
+                    <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '0.1rem' }}>Fill in each row — Number, Area and Price are required</div>
+                  </div>
+                  <button onClick={() => { setBulkMode(null); setBulkMsg(''); setBulkRows([emptyBulkRow()]); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>✕</button>
                 </div>
-                <button className="btn btn-primary btn-sm" onClick={() => openPlotForm(null)}>+ Add Plot</button>
-              </div>
-              {plotsLoading ? <div className="loading"><div className="spinner"></div>Loading...</div> : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
-                        {['Plot', 'Area', 'Size', 'Category', 'Price', 'Status', ''].map(h => (
-                          <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {plots.map(p => (
-                        <tr key={p.id} style={{ borderBottom: '1px solid #f8fafc' }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                          <td style={{ padding: '0.875rem', fontWeight: 700, color: '#1a6b3c', fontFamily: 'monospace' }}>{p.number}</td>
-                          <td style={{ padding: '0.875rem', color: '#374151' }}>{p.area}</td>
-                          <td style={{ padding: '0.875rem', color: '#374151' }}>{p.size}</td>
-                          <td style={{ padding: '0.875rem', color: '#64748b', textTransform: 'capitalize', fontSize: '0.8rem' }}>{p.category}</td>
-                          <td style={{ padding: '0.875rem', fontWeight: 700 }}>{fmt(p.price)}</td>
-                          <td style={{ padding: '0.875rem' }}>
-                            <span style={{ background: p.status === 'available' ? '#d1fae5' : p.status === 'booked' ? '#fef3c7' : '#fee2e2', color: statusColor[p.status], borderRadius: 9999, padding: '0.2rem 0.5rem', fontSize: '0.72rem', fontWeight: 700, textTransform: 'capitalize' }}>{p.status}</span>
-                          </td>
-                          <td style={{ padding: '0.875rem' }}>
-                            <div style={{ display: 'flex', gap: '0.4rem' }}>
-                              <button onClick={() => openPlotForm(p)} style={{ padding: '0.3rem 0.6rem', background: '#f1f5f9', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}>✏️</button>
-                              <button onClick={() => handleDeletePlot(p)} style={{ padding: '0.3rem 0.6rem', background: '#fef2f2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#dc2626' }}>🗑️</button>
-                            </div>
-                          </td>
+                <div style={{ padding: '1.5rem' }}>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem', minWidth: 820 }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
+                          {['#', 'Plot Number *', 'Area / Block *', 'Size', 'Price (PKR) *', 'Category', 'Status', 'Description', ''].map(h => (
+                            <th key={h} style={{ padding: '0.5rem 0.6rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {bulkRows.map((row, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid #f8fafc' }}>
+                            <td style={{ padding: '0.4rem 0.6rem', color: '#94a3b8', fontWeight: 700, fontSize: '0.75rem' }}>{idx + 1}</td>
+                            <td style={{ padding: '0.3rem 0.4rem' }}><input value={row.number} onChange={e => updateBulkRow(idx, 'number', e.target.value)} placeholder="e.g. E-501" style={{ width: 90, padding: '0.35rem 0.5rem', border: '1.5px solid #e2e8f0', borderRadius: 7, fontFamily: 'inherit', fontSize: '0.82rem' }} /></td>
+                            <td style={{ padding: '0.3rem 0.4rem' }}><input value={row.area} onChange={e => updateBulkRow(idx, 'area', e.target.value)} placeholder="Block E" style={{ width: 90, padding: '0.35rem 0.5rem', border: '1.5px solid #e2e8f0', borderRadius: 7, fontFamily: 'inherit', fontSize: '0.82rem' }} /></td>
+                            <td style={{ padding: '0.3rem 0.4rem' }}>
+                              <select value={row.size} onChange={e => updateBulkRow(idx, 'size', e.target.value)} style={{ padding: '0.35rem 0.5rem', border: '1.5px solid #e2e8f0', borderRadius: 7, fontFamily: 'inherit', fontSize: '0.82rem' }}>
+                                {ALL_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+                              </select>
+                            </td>
+                            <td style={{ padding: '0.3rem 0.4rem' }}><input type="number" value={row.price} onChange={e => updateBulkRow(idx, 'price', e.target.value)} placeholder="2500000" style={{ width: 110, padding: '0.35rem 0.5rem', border: '1.5px solid #e2e8f0', borderRadius: 7, fontFamily: 'inherit', fontSize: '0.82rem' }} /></td>
+                            <td style={{ padding: '0.3rem 0.4rem' }}>
+                              <select value={row.category} onChange={e => updateBulkRow(idx, 'category', e.target.value)} style={{ padding: '0.35rem 0.5rem', border: '1.5px solid #e2e8f0', borderRadius: 7, fontFamily: 'inherit', fontSize: '0.82rem' }}>
+                                <option value="residential">Residential</option>
+                                <option value="commercial">Commercial</option>
+                              </select>
+                            </td>
+                            <td style={{ padding: '0.3rem 0.4rem' }}>
+                              <select value={row.status} onChange={e => updateBulkRow(idx, 'status', e.target.value)} style={{ padding: '0.35rem 0.5rem', border: '1.5px solid #e2e8f0', borderRadius: 7, fontFamily: 'inherit', fontSize: '0.82rem' }}>
+                                <option value="available">Available</option>
+                                <option value="booked">Booked</option>
+                                <option value="sold">Sold</option>
+                              </select>
+                            </td>
+                            <td style={{ padding: '0.3rem 0.4rem' }}><input value={row.description} onChange={e => updateBulkRow(idx, 'description', e.target.value)} placeholder="Optional" style={{ width: 130, padding: '0.35rem 0.5rem', border: '1.5px solid #e2e8f0', borderRadius: 7, fontFamily: 'inherit', fontSize: '0.82rem' }} /></td>
+                            <td style={{ padding: '0.3rem 0.4rem' }}>
+                              {bulkRows.length > 1 && <button onClick={() => removeBulkRow(idx)} style={{ padding: '0.3rem 0.5rem', background: '#fef2f2', border: 'none', borderRadius: 6, cursor: 'pointer', color: '#dc2626', fontWeight: 700, fontSize: '0.75rem' }}>✕</button>}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                    <button onClick={addBulkRow} style={{ padding: '0.45rem 1rem', background: '#f8fafc', border: '1.5px dashed #cbd5e1', borderRadius: 8, cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, color: '#475569' }}>+ Add Row</button>
+                    <button onClick={handleBulkSubmit} disabled={bulkSaving} className="btn btn-primary btn-sm" style={{ background: 'linear-gradient(135deg, #7c3aed, #6d28d9)' }}>
+                      {bulkSaving ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }}></div> Saving...</> : `✓ Import ${bulkRows.filter(r => r.number.trim() && r.area.trim() && r.price).length} Plot(s)`}
+                    </button>
+                    {bulkMsg && <span style={{ fontSize: '0.82rem', fontWeight: 600, color: bulkMsg.startsWith('✅') ? '#065f46' : '#b91c1c' }}>{bulkMsg}</span>}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Excel Import Panel ── */}
+            {bulkMode === 'import' && (
+              <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                <div style={{ background: 'linear-gradient(135deg, #0ea5e9, #0369a1)', color: '#fff', padding: '1.1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>Import from Excel / CSV</div>
+                    <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '0.1rem' }}>Upload a .xlsx or .csv file — download the template for the correct format</div>
+                  </div>
+                  <button onClick={() => { setBulkMode(null); setImportRows([]); setImportMsg(''); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>✕</button>
+                </div>
+                <div style={{ padding: '1.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                    <button onClick={downloadTemplate} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 9, cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, color: '#065f46' }}>
+                      ⬇️ Download Template
+                    </button>
+                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} style={{ display: 'none' }} />
+                    <button onClick={() => fileInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 9, cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, color: '#1d4ed8' }}>
+                      📂 Choose File (.xlsx / .csv)
+                    </button>
+                  </div>
+
+                  {importMsg && (
+                    <div style={{ marginBottom: '1rem', padding: '0.6rem 1rem', borderRadius: 9, background: importMsg.startsWith('❌') ? '#fef2f2' : '#f0f9ff', border: `1px solid ${importMsg.startsWith('❌') ? '#fecaca' : '#bae6fd'}`, fontSize: '0.85rem', fontWeight: 600, color: importMsg.startsWith('❌') ? '#b91c1c' : '#0369a1' }}>
+                      {importMsg}
+                    </div>
+                  )}
+
+                  {importRows.length > 0 && (
+                    <>
+                      <div style={{ overflowX: 'auto', marginBottom: '1rem', maxHeight: 320, overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: 10 }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: 700 }}>
+                          <thead style={{ position: 'sticky', top: 0, background: '#f8fafc', zIndex: 1 }}>
+                            <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
+                              {['Plot Number', 'Area', 'Size', 'Price (PKR)', 'Category', 'Status', 'Description'].map(h => (
+                                <th key={h} style={{ padding: '0.5rem 0.75rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {importRows.map((r, i) => (
+                              <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700, color: '#1a6b3c', fontFamily: 'monospace' }}>{r.number || <span style={{ color: '#ef4444' }}>—</span>}</td>
+                                <td style={{ padding: '0.5rem 0.75rem', color: '#374151' }}>{r.area || <span style={{ color: '#ef4444' }}>—</span>}</td>
+                                <td style={{ padding: '0.5rem 0.75rem', color: '#374151' }}>{r.size}</td>
+                                <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700 }}>{r.price ? fmt(r.price) : <span style={{ color: '#ef4444' }}>—</span>}</td>
+                                <td style={{ padding: '0.5rem 0.75rem', color: '#64748b', textTransform: 'capitalize' }}>{r.category}</td>
+                                <td style={{ padding: '0.5rem 0.75rem' }}><span style={{ background: r.status === 'available' ? '#d1fae5' : r.status === 'booked' ? '#fef3c7' : '#fee2e2', color: statusColor[r.status] || '#374151', borderRadius: 9999, padding: '0.15rem 0.5rem', fontSize: '0.7rem', fontWeight: 700, textTransform: 'capitalize' }}>{r.status}</span></td>
+                                <td style={{ padding: '0.5rem 0.75rem', color: '#64748b', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <button onClick={handleImportSubmit} disabled={importSaving} className="btn btn-primary btn-sm" style={{ background: 'linear-gradient(135deg, #0ea5e9, #0369a1)' }}>
+                          {importSaving ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }}></div> Importing...</> : `✓ Import ${importRows.length} Plot(s)`}
+                        </button>
+                        <button onClick={() => { setImportRows([]); setImportMsg(''); }} style={{ padding: '0.45rem 0.875rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#64748b' }}>Clear</button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── Plots Table ── */}
+            <div style={{ display: 'grid', gridTemplateColumns: plotEdit ? '1fr 380px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+              <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                  <div>
+                    <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Plot Inventory</h3>
+                    <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{plots.length} plots total — add, edit, or remove plots</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <button onClick={() => { setBulkMode(bulkMode === 'import' ? null : 'import'); setImportRows([]); setImportMsg(''); setPlotEdit(null); }} className="btn btn-sm" style={{ background: bulkMode === 'import' ? '#eff6ff' : '#f8fafc', border: `1.5px solid ${bulkMode === 'import' ? '#bfdbfe' : '#e2e8f0'}`, color: bulkMode === 'import' ? '#1d4ed8' : '#374151', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.45rem 0.875rem', borderRadius: 9, cursor: 'pointer', fontSize: '0.8rem' }}>
+                      📊 Import Excel
+                    </button>
+                    <button onClick={() => { setBulkMode(bulkMode === 'manual' ? null : 'manual'); setBulkMsg(''); setBulkRows([emptyBulkRow()]); setPlotEdit(null); }} className="btn btn-sm" style={{ background: bulkMode === 'manual' ? '#f5f3ff' : '#f8fafc', border: `1.5px solid ${bulkMode === 'manual' ? '#ddd6fe' : '#e2e8f0'}`, color: bulkMode === 'manual' ? '#7c3aed' : '#374151', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem', padding: '0.45rem 0.875rem', borderRadius: 9, cursor: 'pointer', fontSize: '0.8rem' }}>
+                      📋 Bulk Add
+                    </button>
+                    <button className="btn btn-primary btn-sm" onClick={() => { openPlotForm(null); setBulkMode(null); }}>+ Add Plot</button>
+                  </div>
+                </div>
+                {plotsLoading ? <div className="loading"><div className="spinner"></div>Loading...</div> : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
+                          {['Plot', 'Area', 'Size', 'Category', 'Price', 'Status', ''].map(h => (
+                            <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {plots.map(p => (
+                          <tr key={p.id} style={{ borderBottom: '1px solid #f8fafc' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                            <td style={{ padding: '0.875rem', fontWeight: 700, color: '#1a6b3c', fontFamily: 'monospace' }}>{p.number}</td>
+                            <td style={{ padding: '0.875rem', color: '#374151' }}>{p.area}</td>
+                            <td style={{ padding: '0.875rem', color: '#374151' }}>{p.size}</td>
+                            <td style={{ padding: '0.875rem', color: '#64748b', textTransform: 'capitalize', fontSize: '0.8rem' }}>{p.category}</td>
+                            <td style={{ padding: '0.875rem', fontWeight: 700 }}>{fmt(p.price)}</td>
+                            <td style={{ padding: '0.875rem' }}>
+                              <span style={{ background: p.status === 'available' ? '#d1fae5' : p.status === 'booked' ? '#fef3c7' : '#fee2e2', color: statusColor[p.status], borderRadius: 9999, padding: '0.2rem 0.5rem', fontSize: '0.72rem', fontWeight: 700, textTransform: 'capitalize' }}>{p.status}</span>
+                            </td>
+                            <td style={{ padding: '0.875rem' }}>
+                              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                <button onClick={() => { openPlotForm(p); setBulkMode(null); }} style={{ padding: '0.3rem 0.6rem', background: '#f1f5f9', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}>✏️</button>
+                                <button onClick={() => handleDeletePlot(p)} style={{ padding: '0.3rem 0.6rem', background: '#fef2f2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#dc2626' }}>🗑️</button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {plotEdit && (
+                <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', position: 'sticky', top: 80, overflow: 'hidden' }}>
+                  <div style={{ background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', color: '#fff', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>{plotEdit === 'new' ? 'Add Plot' : `Edit ${plotEdit.number}`}</div>
+                    <button onClick={() => { setPlotEdit(null); setPlotMsg(''); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                  </div>
+                  <form onSubmit={handleSavePlot} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <div className="form-group"><label>Plot Number</label><input required value={plotForm.number} onChange={e => setPlotForm(f => ({ ...f, number: e.target.value }))} placeholder="e.g. E-501" /></div>
+                    <div className="form-group"><label>Block / Area</label><input required value={plotForm.area} onChange={e => setPlotForm(f => ({ ...f, area: e.target.value }))} placeholder="e.g. Block E" /></div>
+                    <div className="form-group">
+                      <label>Size</label>
+                      <select value={plotForm.size} onChange={e => setPlotForm(f => ({ ...f, size: e.target.value }))} style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.9rem' }}>
+                        {ALL_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group"><label>Price (PKR)</label><input required type="number" value={plotForm.price} onChange={e => setPlotForm(f => ({ ...f, price: e.target.value }))} placeholder="e.g. 2500000" /></div>
+                    <div className="form-group">
+                      <label>Category</label>
+                      <select value={plotForm.category} onChange={e => setPlotForm(f => ({ ...f, category: e.target.value }))} style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.9rem' }}>
+                        <option value="residential">Residential</option>
+                        <option value="commercial">Commercial</option>
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label>Status</label>
+                      <select value={plotForm.status} onChange={e => setPlotForm(f => ({ ...f, status: e.target.value }))} style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.9rem' }}>
+                        <option value="available">Available</option>
+                        <option value="booked">Booked</option>
+                        <option value="sold">Sold</option>
+                      </select>
+                    </div>
+                    <div className="form-group"><label>Description</label><input value={plotForm.description} onChange={e => setPlotForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief description" /></div>
+                    {plotMsg && <div className={plotMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ fontSize: '0.85rem' }}>{plotMsg}</div>}
+                    <button type="submit" className="btn btn-primary" disabled={plotSaving} style={{ justifyContent: 'center', padding: '0.75rem' }}>
+                      {plotSaving ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> Saving...</> : '✓ Save Plot'}
+                    </button>
+                  </form>
                 </div>
               )}
             </div>
-
-            {plotEdit && (
-              <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', position: 'sticky', top: 80, overflow: 'hidden' }}>
-                <div style={{ background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', color: '#fff', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>{plotEdit === 'new' ? 'Add Plot' : `Edit ${plotEdit.number}`}</div>
-                  <button onClick={() => { setPlotEdit(null); setPlotMsg(''); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-                </div>
-                <form onSubmit={handleSavePlot} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div className="form-group"><label>Plot Number</label><input required value={plotForm.number} onChange={e => setPlotForm(f => ({ ...f, number: e.target.value }))} placeholder="e.g. E-501" /></div>
-                  <div className="form-group"><label>Block / Area</label><input required value={plotForm.area} onChange={e => setPlotForm(f => ({ ...f, area: e.target.value }))} placeholder="e.g. Block E" /></div>
-                  <div className="form-group">
-                    <label>Size</label>
-                    <select value={plotForm.size} onChange={e => setPlotForm(f => ({ ...f, size: e.target.value }))} style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.9rem' }}>
-                      {ALL_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  </div>
-                  <div className="form-group"><label>Price (PKR)</label><input required type="number" value={plotForm.price} onChange={e => setPlotForm(f => ({ ...f, price: e.target.value }))} placeholder="e.g. 2500000" /></div>
-                  <div className="form-group">
-                    <label>Category</label>
-                    <select value={plotForm.category} onChange={e => setPlotForm(f => ({ ...f, category: e.target.value }))} style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.9rem' }}>
-                      <option value="residential">Residential</option>
-                      <option value="commercial">Commercial</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Status</label>
-                    <select value={plotForm.status} onChange={e => setPlotForm(f => ({ ...f, status: e.target.value }))} style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.9rem' }}>
-                      <option value="available">Available</option>
-                      <option value="booked">Booked</option>
-                      <option value="sold">Sold</option>
-                    </select>
-                  </div>
-                  <div className="form-group"><label>Description</label><input value={plotForm.description} onChange={e => setPlotForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief description" /></div>
-                  {plotMsg && <div className={plotMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ fontSize: '0.85rem' }}>{plotMsg}</div>}
-                  <button type="submit" className="btn btn-primary" disabled={plotSaving} style={{ justifyContent: 'center', padding: '0.75rem' }}>
-                    {plotSaving ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> Saving...</> : '✓ Save Plot'}
-                  </button>
-                </form>
-              </div>
-            )}
           </div>
         )}
 

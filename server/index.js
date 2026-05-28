@@ -487,6 +487,39 @@ app.delete('/api/admin/packages/:id', (req, res) => {
   res.json({ success: true });
 });
 
+// ─── Admin: Bulk Import Plots ─────────────────────────────────────────────────
+app.post('/api/admin/plots/bulk', (req, res) => {
+  const { plots: incoming } = req.body;
+  if (!Array.isArray(incoming) || incoming.length === 0)
+    return res.status(400).json({ error: 'plots array required' });
+
+  const results = { added: [], skipped: [], errors: [] };
+  for (const item of incoming) {
+    const { number, size, price, status, category, description, area } = item;
+    if (!number || !size || !price || !area) {
+      results.errors.push({ number: number || '?', reason: 'Missing required fields (number, size, price, area)' });
+      continue;
+    }
+    if (plots.find(p => p.number === String(number).trim())) {
+      results.skipped.push({ number, reason: 'Plot number already exists' });
+      continue;
+    }
+    const plot = {
+      id: ++plotCounter,
+      number: String(number).trim(),
+      size: String(size).trim(),
+      price: parseInt(price) || 0,
+      status: status || 'available',
+      category: category || 'residential',
+      description: description || '',
+      area: String(area).trim(),
+    };
+    plots.push(plot);
+    results.added.push(plot);
+  }
+  res.status(201).json(results);
+});
+
 // ─── Admin: Plot Inventory CRUD ───────────────────────────────────────────────
 app.post('/api/admin/plots', (req, res) => {
   const { number, size, price, status, category, description, area } = req.body;
