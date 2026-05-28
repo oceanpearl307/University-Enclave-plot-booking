@@ -9,6 +9,15 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json());
 
+// ─── Sectors ─────────────────────────────────────────────────────────────────
+let sectors = [
+  { id: 1, name: 'Block A', type: 'residential', description: 'Main residential block near the entrance', totalPlots: 0, createdAt: '2026-01-01T00:00:00.000Z' },
+  { id: 2, name: 'Block B', type: 'residential', description: 'Quiet residential area near the mosque', totalPlots: 0, createdAt: '2026-01-01T00:00:00.000Z' },
+  { id: 3, name: 'Block C', type: 'residential', description: 'Elevated block with community center', totalPlots: 0, createdAt: '2026-01-01T00:00:00.000Z' },
+  { id: 4, name: 'Block D', type: 'commercial', description: 'Commercial zone near main boulevard', totalPlots: 0, createdAt: '2026-01-01T00:00:00.000Z' },
+];
+let sectorCounter = 4;
+
 // ─── Plot Inventory ──────────────────────────────────────────────────────────
 let plots = [
   { id: 1, number: 'A-101', size: '5 Marla', price: 2500000, status: 'available', category: 'residential', description: 'Corner plot with park facing, excellent location', area: 'Block A' },
@@ -220,6 +229,70 @@ function getDealerStats(dealerId) {
   });
   return { myBookings, achieved, paymentsCollected, achievedBySize };
 }
+
+// ─── Sectors (public) ────────────────────────────────────────────────────────
+app.get('/api/sectors', (req, res) => {
+  const result = sectors.map(s => ({
+    ...s,
+    totalPlots: plots.filter(p => p.area === s.name).length,
+  }));
+  res.json(result);
+});
+
+// ─── Admin: Sectors CRUD ──────────────────────────────────────────────────────
+app.get('/api/admin/sectors', (req, res) => {
+  const result = sectors.map(s => ({
+    ...s,
+    totalPlots: plots.filter(p => p.area === s.name).length,
+    availablePlots: plots.filter(p => p.area === s.name && p.status === 'available').length,
+    bookedPlots: plots.filter(p => p.area === s.name && p.status === 'booked').length,
+    soldPlots: plots.filter(p => p.area === s.name && p.status === 'sold').length,
+  }));
+  res.json(result);
+});
+
+app.post('/api/admin/sectors', (req, res) => {
+  const { name, type, description } = req.body;
+  if (!name) return res.status(400).json({ error: 'Sector name is required' });
+  if (sectors.find(s => s.name.toLowerCase() === name.trim().toLowerCase()))
+    return res.status(409).json({ error: 'A sector with this name already exists' });
+  const sector = {
+    id: ++sectorCounter,
+    name: name.trim(),
+    type: type || 'residential',
+    description: description || '',
+    createdAt: new Date().toISOString(),
+  };
+  sectors.push(sector);
+  res.status(201).json({ ...sector, totalPlots: 0, availablePlots: 0, bookedPlots: 0, soldPlots: 0 });
+});
+
+app.put('/api/admin/sectors/:id', (req, res) => {
+  const sector = sectors.find(s => s.id === parseInt(req.params.id));
+  if (!sector) return res.status(404).json({ error: 'Sector not found' });
+  const { name, type, description } = req.body;
+  if (name && name.trim() !== sector.name) {
+    if (sectors.find(s => s.id !== sector.id && s.name.toLowerCase() === name.trim().toLowerCase()))
+      return res.status(409).json({ error: 'A sector with this name already exists' });
+    const oldName = sector.name;
+    sector.name = name.trim();
+    plots.forEach(p => { if (p.area === oldName) p.area = sector.name; });
+  }
+  if (type) sector.type = type;
+  if (description !== undefined) sector.description = description;
+  res.json({ ...sector, totalPlots: plots.filter(p => p.area === sector.name).length });
+});
+
+app.delete('/api/admin/sectors/:id', (req, res) => {
+  const idx = sectors.findIndex(s => s.id === parseInt(req.params.id));
+  if (idx === -1) return res.status(404).json({ error: 'Sector not found' });
+  const sectorName = sectors[idx].name;
+  const plotCount = plots.filter(p => p.area === sectorName).length;
+  if (plotCount > 0 && !req.query.force)
+    return res.status(409).json({ error: `This sector has ${plotCount} plot(s). Use ?force=true to delete anyway.`, plotCount });
+  sectors.splice(idx, 1);
+  res.json({ success: true });
+});
 
 // ─── Public Stats ─────────────────────────────────────────────────────────────
 app.get('/api/stats', (req, res) => {

@@ -64,6 +64,14 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   const [plotSaving, setPlotSaving] = useState(false);
   const [plotMsg, setPlotMsg] = useState('');
 
+  // ── Sectors ──
+  const [sectors, setSectors] = useState([]);
+  const [inventoryView, setInventoryView] = useState('plots'); // 'plots' | 'sectors'
+  const [sectorEdit, setSectorEdit] = useState(null); // null | 'new' | sector object
+  const [sectorForm, setSectorForm] = useState({ name: '', type: 'residential', description: '' });
+  const [sectorSaving, setSectorSaving] = useState(false);
+  const [sectorMsg, setSectorMsg] = useState('');
+
   // ── Bulk / Import ──
   const [bulkMode, setBulkMode] = useState(null); // null | 'manual' | 'import'
   const emptyBulkRow = () => ({ number: '', area: '', size: '5 Marla', price: '', category: 'residential', status: 'available', description: '' });
@@ -99,13 +107,14 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   const loadPackages = () => fetch('/api/admin/packages').then(r => r.json()).then(setPackages).catch(() => {});
   const loadRegs = () => { setRegsLoading(true); fetch('/api/admin/registrations').then(r => r.json()).then(d => { setRegs(d); setRegsLoading(false); }).catch(() => setRegsLoading(false)); };
   const loadPlots = () => { setPlotsLoading(true); fetch('/api/plots').then(r => r.json()).then(d => { setPlots(d); setPlotsLoading(false); }).catch(() => setPlotsLoading(false)); };
+  const loadSectors = () => fetch('/api/admin/sectors').then(r => r.json()).then(setSectors).catch(() => {});
   const loadDeals = () => { setDealsLoading(true); fetch('/api/admin/deals').then(r => r.json()).then(d => { setDeals(d); setDealsLoading(false); }).catch(() => setDealsLoading(false)); };
   const loadStaff = () => { setStaffLoading(true); fetch('/api/admin/staff').then(r => r.json()).then(d => { setStaff(d); setStaffLoading(false); }).catch(() => setStaffLoading(false)); };
 
   useEffect(() => { loadDealers(); loadPackages(); }, []);
   useEffect(() => {
     if (tab === 'Registrations') loadRegs();
-    if (tab === 'Inventory') loadPlots();
+    if (tab === 'Inventory') { loadPlots(); loadSectors(); }
     if (tab === 'Deals') { loadDeals(); loadPlots(); }
     if (tab === 'Staff') loadStaff();
   }, [tab]);
@@ -242,6 +251,43 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
     const res = await fetch(`/api/admin/plots/${plot.id}?force=true`, { method: 'DELETE' });
     if (!res.ok) { const d = await res.json(); alert(d.error); return; }
     loadPlots();
+  };
+
+  // ── Sector CRUD ──
+  const openSectorForm = (s) => {
+    setSectorMsg('');
+    if (s) {
+      setSectorEdit(s);
+      setSectorForm({ name: s.name, type: s.type, description: s.description });
+    } else {
+      setSectorEdit('new');
+      setSectorForm({ name: '', type: 'residential', description: '' });
+    }
+  };
+
+  const handleSaveSector = async (e) => {
+    e.preventDefault(); setSectorSaving(true); setSectorMsg('');
+    try {
+      const isNew = sectorEdit === 'new';
+      const url = isNew ? '/api/admin/sectors' : `/api/admin/sectors/${sectorEdit.id}`;
+      const res = await fetch(url, { method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sectorForm) });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSectorMsg('✅ Saved!');
+      setTimeout(() => { setSectorEdit(null); setSectorMsg(''); }, 700);
+      loadSectors();
+    } catch (err) { setSectorMsg('❌ ' + (err.message || 'Save failed')); } finally { setSectorSaving(false); }
+  };
+
+  const handleDeleteSector = async (s) => {
+    if (s.totalPlots > 0) {
+      if (!confirm(`"${s.name}" has ${s.totalPlots} plot(s). Deleting the sector will NOT delete the plots — they will just have no sector. Continue?`)) return;
+      await fetch(`/api/admin/sectors/${s.id}?force=true`, { method: 'DELETE' });
+    } else {
+      if (!confirm(`Delete sector "${s.name}"?`)) return;
+      await fetch(`/api/admin/sectors/${s.id}`, { method: 'DELETE' });
+    }
+    loadSectors();
   };
 
   // ── Bulk manual add ──
@@ -821,6 +867,107 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
         {tab === 'Inventory' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
+            {/* ── View Toggle ── */}
+            <div style={{ display: 'flex', gap: '0.375rem', background: '#fff', borderRadius: 12, padding: '0.3rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', width: 'fit-content' }}>
+              {[{ key: 'plots', label: '🏘️ Plots', count: plots.length }, { key: 'sectors', label: '🗺️ Sectors', count: sectors.length }].map(v => (
+                <button key={v.key} onClick={() => { setInventoryView(v.key); setBulkMode(null); setPlotEdit(null); setSectorEdit(null); }} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1.1rem', borderRadius: 9, border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700, background: inventoryView === v.key ? 'linear-gradient(135deg, #1a6b3c, #059669)' : 'transparent', color: inventoryView === v.key ? '#fff' : '#64748b', transition: 'all 0.15s' }}>
+                  {v.label} <span style={{ background: inventoryView === v.key ? 'rgba(255,255,255,0.25)' : '#f1f5f9', color: inventoryView === v.key ? '#fff' : '#64748b', borderRadius: 9999, fontSize: '0.7rem', fontWeight: 800, padding: '0.05rem 0.45rem', minWidth: 18, textAlign: 'center' }}>{v.count}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* ════ SECTORS VIEW ════ */}
+            {inventoryView === 'sectors' && (
+              <div style={{ display: 'grid', gridTemplateColumns: sectorEdit ? '1fr 360px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                    <div>
+                      <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Sectors / Blocks</h3>
+                      <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Define named zones — sectors are used as the "Area" when adding plots</p>
+                    </div>
+                    <button className="btn btn-primary btn-sm" onClick={() => openSectorForm(null)}>+ New Sector</button>
+                  </div>
+
+                  {sectors.length === 0 ? (
+                    <div style={{ background: '#fff', borderRadius: 16, padding: '3rem', textAlign: 'center', color: '#94a3b8', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                      <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🗺️</div>
+                      <div style={{ fontWeight: 600 }}>No sectors yet. Create one to organize your plot inventory.</div>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.1rem' }}>
+                      {sectors.map(s => (
+                        <div key={s.id} style={{ background: '#fff', borderRadius: 16, padding: '1.25rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: `1.5px solid ${sectorEdit?.id === s.id ? '#86efac' : '#f1f5f9'}`, position: 'relative', overflow: 'hidden', transition: 'border-color 0.15s' }}>
+                          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: s.type === 'commercial' ? 'linear-gradient(90deg, #f59e0b, #d97706)' : 'linear-gradient(90deg, #1a6b3c, #059669)', borderRadius: '16px 16px 0 0' }} />
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.875rem' }}>
+                            <div>
+                              <div style={{ fontWeight: 900, fontSize: '1.1rem', color: '#0f172a', marginBottom: '0.2rem' }}>{s.name}</div>
+                              <span style={{ background: s.type === 'commercial' ? '#fffbeb' : '#f0fdf4', color: s.type === 'commercial' ? '#92400e' : '#065f46', border: `1px solid ${s.type === 'commercial' ? '#fcd34d' : '#bbf7d0'}`, borderRadius: 9999, padding: '0.1rem 0.5rem', fontSize: '0.7rem', fontWeight: 700, textTransform: 'capitalize' }}>{s.type}</span>
+                            </div>
+                            <div style={{ display: 'flex', gap: '0.35rem' }}>
+                              <button onClick={() => openSectorForm(s)} style={{ padding: '0.3rem 0.55rem', background: '#f1f5f9', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}>✏️</button>
+                              <button onClick={() => handleDeleteSector(s)} style={{ padding: '0.3rem 0.55rem', background: '#fef2f2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#dc2626' }}>🗑️</button>
+                            </div>
+                          </div>
+                          {s.description && <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '0.875rem', lineHeight: 1.5 }}>{s.description}</div>}
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem' }}>
+                            {[
+                              { label: 'Total', value: s.totalPlots, bg: '#f8fafc', color: '#0f172a' },
+                              { label: 'Available', value: s.availablePlots, bg: '#f0fdf4', color: '#059669' },
+                              { label: 'Sold/Booked', value: (s.bookedPlots || 0) + (s.soldPlots || 0), bg: '#fef9f0', color: '#d97706' },
+                            ].map(stat => (
+                              <div key={stat.label} style={{ background: stat.bg, borderRadius: 8, padding: '0.4rem 0.5rem', textAlign: 'center' }}>
+                                <div style={{ fontSize: '1.1rem', fontWeight: 900, color: stat.color }}>{stat.value}</div>
+                                <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{stat.label}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {sectorEdit && (
+                  <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', position: 'sticky', top: 80, overflow: 'hidden' }}>
+                    <div style={{ background: 'linear-gradient(135deg, #1a6b3c, #145530)', color: '#fff', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>{sectorEdit === 'new' ? 'New Sector' : `Edit ${sectorEdit.name}`}</div>
+                      <button onClick={() => { setSectorEdit(null); setSectorMsg(''); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                    </div>
+                    <form onSubmit={handleSaveSector} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <div className="form-group">
+                        <label>Sector Name *</label>
+                        <input required value={sectorForm.name} onChange={e => setSectorForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Block E, Sector F, Commercial Zone" />
+                      </div>
+                      <div className="form-group">
+                        <label>Type</label>
+                        <select value={sectorForm.type} onChange={e => setSectorForm(f => ({ ...f, type: e.target.value }))} style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.9rem' }}>
+                          <option value="residential">Residential</option>
+                          <option value="commercial">Commercial</option>
+                          <option value="mixed">Mixed Use</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label>Description</label>
+                        <textarea value={sectorForm.description} onChange={e => setSectorForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief description of this sector..." rows={3} style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.9rem', resize: 'vertical' }} />
+                      </div>
+                      {sectorEdit !== 'new' && (
+                        <div style={{ background: '#fef9f0', border: '1px solid #fcd34d', borderRadius: 9, padding: '0.625rem 0.875rem', fontSize: '0.8rem', color: '#92400e' }}>
+                          ⚠️ Renaming a sector will automatically update the area on all its existing plots.
+                        </div>
+                      )}
+                      {sectorMsg && <div className={sectorMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ fontSize: '0.85rem' }}>{sectorMsg}</div>}
+                      <button type="submit" className="btn btn-primary" disabled={sectorSaving} style={{ justifyContent: 'center', padding: '0.75rem' }}>
+                        {sectorSaving ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> Saving...</> : '✓ Save Sector'}
+                      </button>
+                    </form>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ════ PLOTS VIEW ════ */}
+            {inventoryView === 'plots' && <>
+
             {/* ── Bulk Manual Add Panel ── */}
             {bulkMode === 'manual' && (
               <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
@@ -846,7 +993,16 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                           <tr key={idx} style={{ borderBottom: '1px solid #f8fafc' }}>
                             <td style={{ padding: '0.4rem 0.6rem', color: '#94a3b8', fontWeight: 700, fontSize: '0.75rem' }}>{idx + 1}</td>
                             <td style={{ padding: '0.3rem 0.4rem' }}><input value={row.number} onChange={e => updateBulkRow(idx, 'number', e.target.value)} placeholder="e.g. E-501" style={{ width: 90, padding: '0.35rem 0.5rem', border: '1.5px solid #e2e8f0', borderRadius: 7, fontFamily: 'inherit', fontSize: '0.82rem' }} /></td>
-                            <td style={{ padding: '0.3rem 0.4rem' }}><input value={row.area} onChange={e => updateBulkRow(idx, 'area', e.target.value)} placeholder="Block E" style={{ width: 90, padding: '0.35rem 0.5rem', border: '1.5px solid #e2e8f0', borderRadius: 7, fontFamily: 'inherit', fontSize: '0.82rem' }} /></td>
+                            <td style={{ padding: '0.3rem 0.4rem' }}>
+                              {sectors.length > 0 ? (
+                                <select value={row.area} onChange={e => updateBulkRow(idx, 'area', e.target.value)} style={{ padding: '0.35rem 0.5rem', border: '1.5px solid #e2e8f0', borderRadius: 7, fontFamily: 'inherit', fontSize: '0.82rem' }}>
+                                  <option value="">— Select —</option>
+                                  {sectors.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
+                                </select>
+                              ) : (
+                                <input value={row.area} onChange={e => updateBulkRow(idx, 'area', e.target.value)} placeholder="Block E" style={{ width: 90, padding: '0.35rem 0.5rem', border: '1.5px solid #e2e8f0', borderRadius: 7, fontFamily: 'inherit', fontSize: '0.82rem' }} />
+                              )}
+                            </td>
                             <td style={{ padding: '0.3rem 0.4rem' }}>
                               <select value={row.size} onChange={e => updateBulkRow(idx, 'size', e.target.value)} style={{ padding: '0.35rem 0.5rem', border: '1.5px solid #e2e8f0', borderRadius: 7, fontFamily: 'inherit', fontSize: '0.82rem' }}>
                                 {ALL_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1016,7 +1172,17 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                   </div>
                   <form onSubmit={handleSavePlot} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div className="form-group"><label>Plot Number</label><input required value={plotForm.number} onChange={e => setPlotForm(f => ({ ...f, number: e.target.value }))} placeholder="e.g. E-501" /></div>
-                    <div className="form-group"><label>Block / Area</label><input required value={plotForm.area} onChange={e => setPlotForm(f => ({ ...f, area: e.target.value }))} placeholder="e.g. Block E" /></div>
+                    <div className="form-group">
+                      <label>Sector / Area</label>
+                      {sectors.length > 0 ? (
+                        <select required value={plotForm.area} onChange={e => setPlotForm(f => ({ ...f, area: e.target.value }))} style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.9rem' }}>
+                          <option value="">— Select sector —</option>
+                          {sectors.map(s => <option key={s.id} value={s.name}>{s.name} ({s.type})</option>)}
+                        </select>
+                      ) : (
+                        <input required value={plotForm.area} onChange={e => setPlotForm(f => ({ ...f, area: e.target.value }))} placeholder="e.g. Block E (no sectors defined yet)" />
+                      )}
+                    </div>
                     <div className="form-group">
                       <label>Size</label>
                       <select value={plotForm.size} onChange={e => setPlotForm(f => ({ ...f, size: e.target.value }))} style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.9rem' }}>
@@ -1048,6 +1214,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                 </div>
               )}
             </div>
+            </>}
           </div>
         )}
 
