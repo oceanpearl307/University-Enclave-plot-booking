@@ -98,6 +98,8 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   const [genPwd, setGenPwd] = useState(null);
   const [genPwdSaving, setGenPwdSaving] = useState(false);
   const [genPwdCopied, setGenPwdCopied] = useState(false);
+  const [customPwdInput, setCustomPwdInput] = useState('');
+  const [customPwdMsg, setCustomPwdMsg] = useState('');
   const [accessSec, setAccessSec] = useState({ vpnRestricted: false, ipLocked: false, trustedIPs: [] });
   const [accessSecSaving, setAccessSecSaving] = useState(false);
   const [accessSecMsg, setAccessSecMsg] = useState('');
@@ -280,13 +282,16 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
     setLoginHistoryLoading(false);
   };
 
-  const handleGeneratePassword = async () => {
-    setGenPwdSaving(true); setGenPwd(null); setGenPwdCopied(false);
+  const handleGeneratePassword = async (custom) => {
+    setGenPwdSaving(true); setGenPwd(null); setGenPwdCopied(false); setCustomPwdMsg('');
     try {
-      const res = await fetch(`/api/admin/dealers/${accessDealer.id}/generate-password`, { method: 'POST' });
+      const body = custom ? { password: custom } : {};
+      const res = await fetch(`/api/admin/dealers/${accessDealer.id}/generate-password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed');
       setGenPwd(data.password);
-    } catch { /* ignore */ } finally { setGenPwdSaving(false); }
+      if (custom) setCustomPwdInput('');
+    } catch (err) { setCustomPwdMsg('❌ ' + (err.message || 'Failed')); } finally { setGenPwdSaving(false); }
   };
 
   const handleSaveAccessSec = async () => {
@@ -763,9 +768,34 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                       <p style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.75rem', lineHeight: 1.5 }}>
                         Generate a new secure password for <strong>{accessDealer.username}</strong>. The old password will be immediately replaced — share it with the dealer before closing.
                       </p>
-                      <button onClick={handleGeneratePassword} disabled={genPwdSaving} style={{ padding: '0.55rem 1.1rem', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        {genPwdSaving ? <><div className="spinner" style={{ width: 13, height: 13, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }}></div> Generating...</> : '⚡ Generate New Password'}
+                      <button onClick={() => handleGeneratePassword()} disabled={genPwdSaving} style={{ padding: '0.55rem 1.1rem', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        {genPwdSaving ? <><div className="spinner" style={{ width: 13, height: 13, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }}></div> Setting...</> : '⚡ Generate Random Password'}
                       </button>
+
+                      {/* ── Custom password input ── */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.5rem 0' }}>
+                        <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+                        <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 600 }}>or set manually</span>
+                        <div style={{ flex: 1, height: 1, background: '#e2e8f0' }} />
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <input
+                          type="text"
+                          value={customPwdInput}
+                          onChange={e => { setCustomPwdInput(e.target.value); setCustomPwdMsg(''); }}
+                          onKeyDown={e => e.key === 'Enter' && customPwdInput.trim().length >= 6 && handleGeneratePassword(customPwdInput.trim())}
+                          placeholder="Type a custom password (min 6 chars)"
+                          style={{ flex: 1, padding: '0.5rem 0.7rem', border: `1.5px solid ${customPwdMsg.startsWith('❌') ? '#fca5a5' : '#e2e8f0'}`, borderRadius: 8, fontFamily: 'monospace', fontSize: '0.85rem', background: '#fff' }}
+                        />
+                        <button
+                          onClick={() => handleGeneratePassword(customPwdInput.trim())}
+                          disabled={genPwdSaving || customPwdInput.trim().length < 6}
+                          style={{ padding: '0.5rem 0.875rem', background: customPwdInput.trim().length >= 6 ? '#0f172a' : '#e2e8f0', color: customPwdInput.trim().length >= 6 ? '#fff' : '#94a3b8', border: 'none', borderRadius: 8, cursor: customPwdInput.trim().length >= 6 ? 'pointer' : 'not-allowed', fontWeight: 700, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                          Set Password
+                        </button>
+                      </div>
+                      {customPwdMsg && <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#b91c1c', marginTop: '0.25rem' }}>{customPwdMsg}</div>}
+
                       {genPwd && (
                         <div style={{ marginTop: '0.875rem', background: '#0f172a', borderRadius: 10, padding: '0.875rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
                           <code style={{ color: '#86efac', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 700, letterSpacing: '0.08em', flex: 1 }}>{genPwd}</code>

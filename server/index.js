@@ -552,10 +552,16 @@ app.post('/api/admin/dealers/:id/reward', (req, res) => {
   res.json({ success: true });
 });
 
-// ─── Admin: Generate Password ─────────────────────────────────────────────────
+// ─── Admin: Generate / Set Password ──────────────────────────────────────────
 app.post('/api/admin/dealers/:id/generate-password', (req, res) => {
   const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
   if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
+  const custom = req.body?.password;
+  if (custom !== undefined) {
+    if (typeof custom !== 'string' || custom.length < 6) return res.status(400).json({ error: 'Custom password must be at least 6 characters' });
+    dealer.password = custom;
+    return res.json({ success: true, password: custom });
+  }
   const pwd = generatePassword();
   dealer.password = pwd;
   res.json({ success: true, password: pwd });
