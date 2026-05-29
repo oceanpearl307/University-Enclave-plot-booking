@@ -77,8 +77,8 @@ export default function BookingReceipt({ booking, onClose }) {
             <div style={{ padding: '1.5rem 2rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
               {/* Crest */}
               <div style={{
-                width: 70, height: 70, borderRadius: '50%',
-                border: '3px solid rgba(212,160,23,0.7)',
+                width: 70, height: 70, borderRadius: '5px',
+                border: '3px solid transparent',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: 'transparent', flexShrink: 0, overflow: 'hidden',
               }}><img src={ueLogo} alt="UE Logo" style={{ width: 66, height: 66, objectFit: 'contain' }} /></div>
