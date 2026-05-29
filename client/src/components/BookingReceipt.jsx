@@ -1,4 +1,5 @@
 import React from 'react';
+import ueLogo from '../assets/ue-logo.png';
 
 const pkr = n => 'PKR ' + Number(n || 0).toLocaleString('en-US');
 const fmtDate = iso => {
@@ -79,9 +80,8 @@ export default function BookingReceipt({ booking, onClose }) {
                 width: 70, height: 70, borderRadius: '50%',
                 border: '3px solid rgba(212,160,23,0.7)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'rgba(0,0,0,0.2)', flexShrink: 0,
-                fontSize: '2rem',
-              }}>🏡</div>
+                background: 'rgba(0,0,0,0.2)', flexShrink: 0, overflow: 'hidden',
+              }}><img src={ueLogo} alt="UE Logo" style={{ width: 54, height: 54, objectFit: 'contain' }} /></div>
 
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.25em', color: '#f0c040', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
