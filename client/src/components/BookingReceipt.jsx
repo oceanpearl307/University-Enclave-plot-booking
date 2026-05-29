@@ -91,7 +91,7 @@ export default function BookingReceipt({ booking, onClose }) {
                   University Enclave Housing Society
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#a3e4b8', marginTop: '0.25rem', lineHeight: 1.6 }}>
-                  Housing Complex, University Road, Lahore, Punjab, Pakistan &nbsp;|&nbsp; Tel: +92-42-35880000 &nbsp;|&nbsp; info@universityenclave.pk
+                  Housing Complex, University Road, Lahore, Punjab, Pakistan &nbsp;|&nbsp; Tel:111-002 001 &nbsp;|&nbsp; info@universityenclave.pk
                 </div>
               </div>
 
@@ -237,7 +237,7 @@ export default function BookingReceipt({ booking, onClose }) {
               <div>Confirmed on {fmtDate(booking.approvedAt)}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div>Tel: +92-42-35880000</div>
+              <div>Tel:111-002 001</div>
               <div>info@universityenclave.pk</div>
             </div>
           </div>
