@@ -63,9 +63,9 @@ export default function About({ navigate }) {
             <h2 style={{ fontSize: '1.875rem', fontWeight: 800, marginBottom: '2rem', textAlign: 'center' }}>Contact Us</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
               {[
-                { icon: '📞', title: 'Phone', value: '+92 300-1234567\n+92 51-1234567' },
+                { icon: '📞', title: 'Phone', value: '111-002 001' },
                 { icon: '✉️', title: 'Email', value: 'info@universityenclave.pk\nsales@universityenclave.pk' },
-                { icon: '📍', title: 'Office Address', value: 'Main Office, Block A\nUniversity Enclave, Islamabad' },
+                { icon: '📍', title: 'Office Address', value: 'Nathiyaglai Bypass, Havelian\nAbbottabad, Pakistan' },
                 { icon: '🕒', title: 'Office Hours', value: 'Mon – Sat: 9:00 AM – 6:00 PM\nSunday: Closed' },
               ].map(c => (
                 <div key={c.title} style={{ textAlign: 'center', padding: '1.25rem', background: '#fff', borderRadius: 10, border: '1px solid #e5e7eb' }}>

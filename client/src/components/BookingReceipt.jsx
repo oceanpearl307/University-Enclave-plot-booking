@@ -80,8 +80,8 @@ export default function BookingReceipt({ booking, onClose }) {
                 width: 70, height: 70, borderRadius: '50%',
                 border: '3px solid rgba(212,160,23,0.7)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'rgba(0,0,0,0.2)', flexShrink: 0, overflow: 'hidden',
-              }}><img src={ueLogo} alt="UE Logo" style={{ width: 54, height: 54, objectFit: 'contain' }} /></div>
+                background: 'transparent', flexShrink: 0, overflow: 'hidden',
+              }}><img src={ueLogo} alt="UE Logo" style={{ width: 66, height: 66, objectFit: 'contain' }} /></div>
 
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.25em', color: '#f0c040', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
@@ -91,7 +91,7 @@ export default function BookingReceipt({ booking, onClose }) {
                   University Enclave Housing Society
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#a3e4b8', marginTop: '0.25rem', lineHeight: 1.6 }}>
-                  Housing Complex, University Road, Lahore, Punjab, Pakistan &nbsp;|&nbsp; Tel:111-002 001 &nbsp;|&nbsp; info@universityenclave.pk
+                  Nathiyaglai Bypass, Havelian, Abbottabad &nbsp;|&nbsp; Tel: 111-002 001 &nbsp;|&nbsp; info@universityenclave.pk
                 </div>
               </div>
 
@@ -230,7 +230,7 @@ export default function BookingReceipt({ booking, onClose }) {
           <div style={{ background: 'linear-gradient(135deg, #0d2d1a, #1a4a28)', color: '#a3e4b8', padding: '0.875rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.68rem' }}>
             <div>
               <div style={{ color: '#f0c040', fontWeight: 800, marginBottom: '0.1rem' }}>University Enclave Housing Society</div>
-              <div>Housing Complex, University Road, Lahore, Punjab, Pakistan</div>
+              <div>Nathiyaglai Bypass, Havelian, Abbottabad</div>
             </div>
             <div style={{ textAlign: 'center' }}>
               <div style={{ color: '#fff', fontWeight: 700 }}>Booking Ref: {booking.bookingRef}</div>
