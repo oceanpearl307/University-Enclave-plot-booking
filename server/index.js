@@ -8,6 +8,47 @@ const PORT = 3001;
 
 app.use(cors());
 app.use(express.json());
+app.set('trust proxy', true);
+
+// ─── Utility: IP helpers ──────────────────────────────────────────────────────
+function getClientIP(req) {
+  const fwd = req.headers['x-forwarded-for'];
+  if (fwd) return fwd.split(',')[0].trim();
+  return req.socket?.remoteAddress || req.ip || 'unknown';
+}
+
+async function checkVPN(ip) {
+  if (!ip || ip === 'unknown' || ip === '127.0.0.1' || ip === '::1' || /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(ip)) {
+    return { isVpn: false, isp: 'Local/Private', country: 'Local' };
+  }
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 3000);
+    const r = await fetch(`http://ip-api.com/json/${ip}?fields=status,country,isp,org,proxy,hosting`, { signal: ctrl.signal });
+    clearTimeout(t);
+    const d = await r.json();
+    return { isVpn: !!(d.proxy || d.hosting), isp: d.isp || d.org || 'Unknown', country: d.country || 'Unknown' };
+  } catch { return { isVpn: false, isp: 'Unknown', country: 'Unknown', checkFailed: true }; }
+}
+
+function generatePassword() {
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower = 'abcdefghjkmnpqrstuvwxyz';
+  const digits = '23456789';
+  const special = '!@#$%&*';
+  const all = upper + lower + digits + special;
+  let pwd = upper[Math.floor(Math.random() * upper.length)] + lower[Math.floor(Math.random() * lower.length)] + digits[Math.floor(Math.random() * digits.length)] + special[Math.floor(Math.random() * special.length)];
+  for (let i = 4; i < 12; i++) pwd += all[Math.floor(Math.random() * all.length)];
+  return pwd.split('').sort(() => Math.random() - 0.5).join('');
+}
+
+function recordLogin(dealer, ip, extra) {
+  if (!dealer.loginHistory) dealer.loginHistory = [];
+  dealer.loginHistory.unshift({ ip, at: new Date().toISOString(), ...extra });
+  if (dealer.loginHistory.length > 30) dealer.loginHistory = dealer.loginHistory.slice(0, 30);
+  dealer.lastLoginIP = ip;
+  dealer.lastLoginAt = new Date().toISOString();
+}
 
 // ─── Sectors ─────────────────────────────────────────────────────────────────
 let sectors = [
@@ -73,6 +114,7 @@ let dealers = [
     mobilePhone: '0321-1234567', officePhone: '042-35111111',
     proprietorName: 'Ahmed Raza', proprietorPhone: '0321-1234567',
     securityDepositRequired: 200000, securityDepositPaid: true, rewardGiven: false,
+    vpnRestricted: false, ipLocked: false, trustedIPs: [], loginHistory: [],
   },
   {
     id: 3, username: 'dealer2', password: 'dealer456', name: 'Sara Khan', role: 'dealer',
@@ -82,6 +124,7 @@ let dealers = [
     mobilePhone: '0312-7654321', officePhone: '042-35222222',
     proprietorName: 'Sara Khan', proprietorPhone: '0312-7654321',
     securityDepositRequired: 200000, securityDepositPaid: false, rewardGiven: false,
+    vpnRestricted: false, ipLocked: false, trustedIPs: [], loginHistory: [],
   },
   {
     id: 4, username: 'dealer3', password: 'dealer789', name: 'Usman Ali', role: 'dealer',
@@ -91,6 +134,7 @@ let dealers = [
     mobilePhone: '0333-1111111', officePhone: '042-35333333',
     proprietorName: 'Usman Ali', proprietorPhone: '0333-1111111',
     securityDepositRequired: 200000, securityDepositPaid: false, rewardGiven: false,
+    vpnRestricted: false, ipLocked: false, trustedIPs: [], loginHistory: [],
   },
 ];
 let dealerCounter = 4;
@@ -341,20 +385,44 @@ app.get('/api/announcements', (req, res) => {
 });
 
 // ─── Dealer / Operations Login ────────────────────────────────────────────────
-app.post('/api/dealer/login', (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
-  const dealer = dealers.find(d => d.username === username && d.password === password);
-  if (dealer) {
-    const { password: _, ...safe } = dealer;
-    return res.json({ success: true, dealer: safe, token: `dealer-${dealer.id}-${Date.now()}` });
+app.post('/api/dealer/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
+
+    const clientIP = getClientIP(req);
+
+    const dealer = dealers.find(d => d.username === username && d.password === password);
+    if (dealer) {
+      // IP lock check
+      if (dealer.ipLocked && dealer.trustedIPs?.length > 0 && !dealer.trustedIPs.includes(clientIP)) {
+        recordLogin(dealer, clientIP, { blocked: true, reason: 'ip_locked', vpnDetected: false, isp: 'Unknown', country: 'Unknown' });
+        return res.status(403).json({ error: 'Access denied: your IP address is not authorised. Please contact the admin to whitelist your device.' });
+      }
+
+      // VPN check (always run to gather info; block only if vpnRestricted)
+      const vpnInfo = await checkVPN(clientIP);
+      if (dealer.vpnRestricted && vpnInfo.isVpn) {
+        recordLogin(dealer, clientIP, { blocked: true, reason: 'vpn_detected', vpnDetected: true, isp: vpnInfo.isp, country: vpnInfo.country });
+        return res.status(403).json({ error: 'Access denied: VPN / proxy usage is not allowed. Please disable your VPN and try again.' });
+      }
+
+      recordLogin(dealer, clientIP, { blocked: false, vpnDetected: vpnInfo.isVpn, isp: vpnInfo.isp, country: vpnInfo.country });
+      const { password: _, ...safe } = dealer;
+      return res.json({ success: true, dealer: safe, token: `dealer-${dealer.id}-${Date.now()}` });
+    }
+
+    const ops = operationsStaff.find(o => o.username === username && o.password === password);
+    if (ops) {
+      const { password: _, ...safe } = ops;
+      return res.json({ success: true, dealer: safe, token: `ops-${ops.id}-${Date.now()}` });
+    }
+
+    return res.status(401).json({ error: 'Invalid credentials' });
+  } catch (err) {
+    console.error('Login error:', err);
+    return res.status(500).json({ error: 'Server error during login' });
   }
-  const ops = operationsStaff.find(o => o.username === username && o.password === password);
-  if (ops) {
-    const { password: _, ...safe } = ops;
-    return res.json({ success: true, dealer: safe, token: `ops-${ops.id}-${Date.now()}` });
-  }
-  return res.status(401).json({ error: 'Invalid credentials' });
 });
 
 // ─── Per-Dealer Dashboard ─────────────────────────────────────────────────────
@@ -484,6 +552,44 @@ app.post('/api/admin/dealers/:id/reward', (req, res) => {
   res.json({ success: true });
 });
 
+// ─── Admin: Generate Password ─────────────────────────────────────────────────
+app.post('/api/admin/dealers/:id/generate-password', (req, res) => {
+  const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
+  if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
+  const pwd = generatePassword();
+  dealer.password = pwd;
+  res.json({ success: true, password: pwd });
+});
+
+// ─── Admin: Security Settings ─────────────────────────────────────────────────
+app.get('/api/admin/dealers/:id/security', (req, res) => {
+  const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
+  if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
+  res.json({
+    vpnRestricted: dealer.vpnRestricted || false,
+    ipLocked: dealer.ipLocked || false,
+    trustedIPs: dealer.trustedIPs || [],
+    lastLoginIP: dealer.lastLoginIP || null,
+    lastLoginAt: dealer.lastLoginAt || null,
+  });
+});
+
+app.put('/api/admin/dealers/:id/security', (req, res) => {
+  const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
+  if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
+  if (typeof req.body.vpnRestricted === 'boolean') dealer.vpnRestricted = req.body.vpnRestricted;
+  if (typeof req.body.ipLocked === 'boolean') dealer.ipLocked = req.body.ipLocked;
+  if (Array.isArray(req.body.trustedIPs)) dealer.trustedIPs = req.body.trustedIPs;
+  res.json({ success: true });
+});
+
+// ─── Admin: Login History ─────────────────────────────────────────────────────
+app.get('/api/admin/dealers/:id/login-history', (req, res) => {
+  const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
+  if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
+  res.json(dealer.loginHistory || []);
+});
+
 // ─── Admin: Registrations ─────────────────────────────────────────────────────
 app.get('/api/admin/registrations', (req, res) => {
   res.json([...dealerRegistrations].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
@@ -505,6 +611,7 @@ app.post('/api/admin/registrations/:id/approve', (req, res) => {
     mobilePhone: reg.mobilePhone, officePhone: reg.officePhone,
     proprietorName: reg.proprietorName, proprietorPhone: reg.proprietorPhone,
     securityDepositRequired: 200000, securityDepositPaid: false, rewardGiven: false,
+    vpnRestricted: false, ipLocked: false, trustedIPs: [], loginHistory: [],
     registrationId: reg.id,
   };
   dealers.push(newDealer);

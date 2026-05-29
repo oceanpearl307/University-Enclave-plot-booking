@@ -91,6 +91,18 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   const [dealSaving, setDealSaving] = useState(false);
   const [dealMsg, setDealMsg] = useState('');
 
+  // ── Access Control panel ──
+  const [accessDealer, setAccessDealer] = useState(null);
+  const [loginHistory, setLoginHistory] = useState([]);
+  const [loginHistoryLoading, setLoginHistoryLoading] = useState(false);
+  const [genPwd, setGenPwd] = useState(null);
+  const [genPwdSaving, setGenPwdSaving] = useState(false);
+  const [genPwdCopied, setGenPwdCopied] = useState(false);
+  const [accessSec, setAccessSec] = useState({ vpnRestricted: false, ipLocked: false, trustedIPs: [] });
+  const [accessSecSaving, setAccessSecSaving] = useState(false);
+  const [accessSecMsg, setAccessSecMsg] = useState('');
+  const [newTrustedIP, setNewTrustedIP] = useState('');
+
   // ── Staff tab ──
   const [staff, setStaff] = useState([]);
   const [staffLoading, setStaffLoading] = useState(false);
@@ -252,6 +264,52 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
     if (!res.ok) { const d = await res.json(); alert(d.error); return; }
     loadPlots();
   };
+
+  // ── Access Control ──
+  const openAccessPanel = async (d) => {
+    setSelected(null); setSaveMsg('');
+    setAccessDealer(d);
+    setGenPwd(null); setGenPwdCopied(false); setAccessSecMsg(''); setNewTrustedIP('');
+    setLoginHistoryLoading(true);
+    const [hist, sec] = await Promise.all([
+      fetch(`/api/admin/dealers/${d.id}/login-history`).then(r => r.json()).catch(() => []),
+      fetch(`/api/admin/dealers/${d.id}/security`).then(r => r.json()).catch(() => ({ vpnRestricted: false, ipLocked: false, trustedIPs: [] })),
+    ]);
+    setLoginHistory(hist);
+    setAccessSec({ vpnRestricted: sec.vpnRestricted || false, ipLocked: sec.ipLocked || false, trustedIPs: sec.trustedIPs || [] });
+    setLoginHistoryLoading(false);
+  };
+
+  const handleGeneratePassword = async () => {
+    setGenPwdSaving(true); setGenPwd(null); setGenPwdCopied(false);
+    try {
+      const res = await fetch(`/api/admin/dealers/${accessDealer.id}/generate-password`, { method: 'POST' });
+      const data = await res.json();
+      setGenPwd(data.password);
+    } catch { /* ignore */ } finally { setGenPwdSaving(false); }
+  };
+
+  const handleSaveAccessSec = async () => {
+    setAccessSecSaving(true); setAccessSecMsg('');
+    try {
+      const res = await fetch(`/api/admin/dealers/${accessDealer.id}/security`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(accessSec),
+      });
+      if (!res.ok) throw new Error();
+      setAccessSecMsg('✅ Settings saved!');
+      setTimeout(() => setAccessSecMsg(''), 2500);
+      loadDealers();
+    } catch { setAccessSecMsg('❌ Save failed'); } finally { setAccessSecSaving(false); }
+  };
+
+  const addTrustedIP = () => {
+    const ip = newTrustedIP.trim();
+    if (!ip || accessSec.trustedIPs.includes(ip)) return;
+    setAccessSec(s => ({ ...s, trustedIPs: [...s.trustedIPs, ip] }));
+    setNewTrustedIP('');
+  };
+
+  const removeTrustedIP = (ip) => setAccessSec(s => ({ ...s, trustedIPs: s.trustedIPs.filter(x => x !== ip) }));
 
   // ── Sector CRUD ──
   const openSectorForm = (s) => {
@@ -528,12 +586,12 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
               ) : <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>No dealer data yet</div>}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 440px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: (selected || accessDealer) ? '1fr 460px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
               <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                   <div>
                     <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>All Dealers</h3>
-                    <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Click a dealer to assign or edit their target & deposit</p>
+                    <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Click a dealer to assign targets · use 🔐 to manage passwords & access</p>
                   </div>
                 </div>
                 {dealersLoading ? <div className="loading"><div className="spinner"></div>Loading...</div> : (
@@ -541,7 +599,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                       <thead>
                         <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
-                          {['Dealer', 'Package', 'Target', 'Achieved', 'Progress', 'Deposit', 'Reward', ''].map(h => (
+                          {['Dealer', 'Package', 'Target', 'Achieved', 'Progress', 'Deposit', 'Reward', 'Actions'].map(h => (
                             <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                           ))}
                         </tr>
@@ -595,9 +653,14 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                                 {pct < 100 && <span style={{ color: '#e5e7eb', fontSize: '0.8rem' }}>—</span>}
                               </td>
                               <td style={{ padding: '0.875rem' }}>
-                                <button className="btn btn-outline btn-sm" onClick={e => { e.stopPropagation(); openAssign(d); }} style={{ fontSize: '0.7rem' }}>
-                                  {d.hasTarget ? '✏️ Edit' : '+ Assign'}
-                                </button>
+                                <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                                  <button className="btn btn-outline btn-sm" onClick={e => { e.stopPropagation(); openAssign(d); setAccessDealer(null); }} style={{ fontSize: '0.7rem' }}>
+                                    {d.hasTarget ? '✏️ Target' : '+ Target'}
+                                  </button>
+                                  <button onClick={e => { e.stopPropagation(); openAccessPanel(d); }} style={{ padding: '0.3rem 0.55rem', background: accessDealer?.id === d.id ? '#1e293b' : '#f8fafc', border: `1.5px solid ${accessDealer?.id === d.id ? '#334155' : '#e2e8f0'}`, color: accessDealer?.id === d.id ? '#fff' : '#374151', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }} title="Password & Access Control">
+                                    🔐
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -676,6 +739,141 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                       {saving ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> Saving...</> : '✓ Save Target & Deposit'}
                     </button>
                   </form>
+                </div>
+              )}
+
+              {/* ── Access Control Panel ── */}
+              {accessDealer && (
+                <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', position: 'sticky', top: 80, overflow: 'hidden' }}>
+                  <div style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#fff', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.6, marginBottom: '0.2rem' }}>Password & Access Control</div>
+                      <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>{accessDealer.name}</div>
+                    </div>
+                    <button onClick={() => { setAccessDealer(null); setGenPwd(null); }} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                  </div>
+
+                  <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+
+                    {/* ── Password Generator ── */}
+                    <div style={{ background: '#f8fafc', borderRadius: 12, padding: '1.1rem', border: '1px solid #e2e8f0' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0f172a', marginBottom: '0.625rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        🔑 Password Generator
+                      </div>
+                      <p style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: '0.75rem', lineHeight: 1.5 }}>
+                        Generate a new secure password for <strong>{accessDealer.username}</strong>. The old password will be immediately replaced — share it with the dealer before closing.
+                      </p>
+                      <button onClick={handleGeneratePassword} disabled={genPwdSaving} style={{ padding: '0.55rem 1.1rem', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        {genPwdSaving ? <><div className="spinner" style={{ width: 13, height: 13, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }}></div> Generating...</> : '⚡ Generate New Password'}
+                      </button>
+                      {genPwd && (
+                        <div style={{ marginTop: '0.875rem', background: '#0f172a', borderRadius: 10, padding: '0.875rem 1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
+                          <code style={{ color: '#86efac', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 700, letterSpacing: '0.08em', flex: 1 }}>{genPwd}</code>
+                          <button onClick={() => { navigator.clipboard.writeText(genPwd); setGenPwdCopied(true); setTimeout(() => setGenPwdCopied(false), 2000); }} style={{ padding: '0.3rem 0.75rem', background: genPwdCopied ? '#059669' : 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 7, cursor: 'pointer', color: '#fff', fontSize: '0.75rem', fontWeight: 700, whiteSpace: 'nowrap', transition: 'background 0.2s' }}>
+                            {genPwdCopied ? '✓ Copied!' : '📋 Copy'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── Login History ── */}
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0f172a', marginBottom: '0.625rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        🌐 Login History
+                      </div>
+                      {loginHistoryLoading ? (
+                        <div style={{ textAlign: 'center', padding: '1rem', color: '#94a3b8', fontSize: '0.8rem' }}><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2, margin: '0 auto 0.4rem' }}></div>Loading…</div>
+                      ) : loginHistory.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '1.25rem', color: '#94a3b8', fontSize: '0.8rem', background: '#f8fafc', borderRadius: 10, border: '1px dashed #e2e8f0' }}>No login records yet</div>
+                      ) : (
+                        <div style={{ maxHeight: 240, overflowY: 'auto', borderRadius: 10, border: '1px solid #f1f5f9' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                            <thead style={{ position: 'sticky', top: 0, background: '#f8fafc', zIndex: 1 }}>
+                              <tr>
+                                {['Time', 'IP Address', 'ISP / Country', 'Status'].map(h => (
+                                  <th key={h} style={{ padding: '0.5rem 0.625rem', textAlign: 'left', fontSize: '0.67rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {loginHistory.map((entry, i) => (
+                                <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                  <td style={{ padding: '0.45rem 0.625rem', color: '#374151', whiteSpace: 'nowrap' }}>{new Date(entry.at).toLocaleString('en-PK', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</td>
+                                  <td style={{ padding: '0.45rem 0.625rem', fontFamily: 'monospace', fontWeight: 700, color: '#0f172a' }}>{entry.ip}</td>
+                                  <td style={{ padding: '0.45rem 0.625rem', color: '#64748b', maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${entry.isp || '—'} · ${entry.country || '—'}`}>{entry.isp || '—'} · {entry.country || '—'}</td>
+                                  <td style={{ padding: '0.45rem 0.625rem' }}>
+                                    {entry.blocked ? (
+                                      <span style={{ background: '#fee2e2', color: '#b91c1c', borderRadius: 9999, padding: '0.1rem 0.45rem', fontWeight: 700, fontSize: '0.67rem' }}>
+                                        {entry.reason === 'vpn_detected' ? '🚫 VPN' : '🚫 IP Lock'}
+                                      </span>
+                                    ) : entry.vpnDetected ? (
+                                      <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 9999, padding: '0.1rem 0.45rem', fontWeight: 700, fontSize: '0.67rem' }}>⚠️ VPN</span>
+                                    ) : (
+                                      <span style={{ background: '#d1fae5', color: '#065f46', borderRadius: 9999, padding: '0.1rem 0.45rem', fontWeight: 700, fontSize: '0.67rem' }}>✓ OK</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* ── Security Settings ── */}
+                    <div style={{ background: '#f8fafc', borderRadius: 12, padding: '1.1rem', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>🛡️ Access Restrictions</div>
+
+                      {/* VPN restriction toggle */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', borderRadius: 10, padding: '0.75rem 0.875rem', border: '1px solid #e2e8f0' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0f172a' }}>Block VPN / Proxy</div>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.1rem' }}>Deny login if VPN or proxy is detected</div>
+                        </div>
+                        <button type="button" onClick={() => setAccessSec(s => ({ ...s, vpnRestricted: !s.vpnRestricted }))} style={{ width: 42, height: 24, borderRadius: 9999, border: 'none', cursor: 'pointer', background: accessSec.vpnRestricted ? '#dc2626' : '#e2e8f0', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                          <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: accessSec.vpnRestricted ? 21 : 3, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                        </button>
+                      </div>
+
+                      {/* IP lock toggle */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', borderRadius: 10, padding: '0.75rem 0.875rem', border: '1px solid #e2e8f0' }}>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0f172a' }}>Lock to Trusted IPs</div>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.1rem' }}>Only allow login from whitelisted IPs below</div>
+                        </div>
+                        <button type="button" onClick={() => setAccessSec(s => ({ ...s, ipLocked: !s.ipLocked }))} style={{ width: 42, height: 24, borderRadius: 9999, border: 'none', cursor: 'pointer', background: accessSec.ipLocked ? '#1a6b3c' : '#e2e8f0', position: 'relative', transition: 'background 0.2s', flexShrink: 0 }}>
+                          <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: accessSec.ipLocked ? 21 : 3, transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }} />
+                        </button>
+                      </div>
+
+                      {/* Trusted IPs list */}
+                      <div>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' }}>Trusted IP Addresses</div>
+                        {accessSec.trustedIPs.length === 0 ? (
+                          <div style={{ fontSize: '0.75rem', color: '#94a3b8', padding: '0.4rem 0', fontStyle: 'italic' }}>No IPs whitelisted — any IP can log in</div>
+                        ) : (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.5rem' }}>
+                            {accessSec.trustedIPs.map(ip => (
+                              <span key={ip} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', background: '#e0f2fe', color: '#0369a1', borderRadius: 9999, padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 700, fontFamily: 'monospace' }}>
+                                {ip}
+                                <button onClick={() => removeTrustedIP(ip)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#0369a1', fontSize: '0.8rem', padding: 0, lineHeight: 1 }}>✕</button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          <input value={newTrustedIP} onChange={e => setNewTrustedIP(e.target.value)} onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addTrustedIP())} placeholder="e.g. 203.0.113.42" style={{ flex: 1, padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontFamily: 'monospace', fontSize: '0.8rem' }} />
+                          <button onClick={addTrustedIP} style={{ padding: '0.45rem 0.75rem', background: '#0369a1', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: '0.78rem' }}>+ Add</button>
+                        </div>
+                      </div>
+
+                      {accessSecMsg && <div className={accessSecMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ fontSize: '0.82rem' }}>{accessSecMsg}</div>}
+                      <button onClick={handleSaveAccessSec} disabled={accessSecSaving} style={{ padding: '0.65rem', background: 'linear-gradient(135deg, #1e293b, #0f172a)', color: '#fff', border: 'none', borderRadius: 9, cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                        {accessSecSaving ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)', borderTopColor: '#fff' }}></div> Saving…</> : '✓ Save Security Settings'}
+                      </button>
+                    </div>
+
+                  </div>
                 </div>
               )}
             </div>
