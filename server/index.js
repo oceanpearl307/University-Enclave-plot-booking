@@ -814,6 +814,7 @@ app.post('/api/bookings', (req, res) => {
     residentialAddress, postalAddress, photo,
     nomineeName, nomineeFatherName, nomineeCnic,
     nomineeRelation, nomineePhone, nomineeAddress,
+    downPayment,
   } = req.body;
   if (!plotId || !name || !fatherName || !cnic || !phone || !residentialAddress || !postalAddress || !photo)
     return res.status(400).json({ error: 'Missing required fields' });
@@ -830,6 +831,7 @@ app.post('/api/bookings', (req, res) => {
     residentialAddress, postalAddress, photo,
     nominee: { name: nomineeName, fatherName: nomineeFatherName, cnic: nomineeCnic, relation: nomineeRelation, phone: nomineePhone, address: nomineeAddress },
     dealerId: resolvedDealerId,
+    downPayment: Number(downPayment) || 0,
     status: 'pending', createdAt: new Date().toISOString(),
   };
   bookings.push(booking);

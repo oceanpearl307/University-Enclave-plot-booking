@@ -3,6 +3,7 @@ import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
+import PaymentPlanTable from '../components/PaymentPlanTable.jsx';
 
 const fmt = n => n >= 1000000 ? 'PKR ' + (n / 1000000).toFixed(1) + 'M' : n > 0 ? 'PKR ' + (n / 1000).toFixed(0) + 'K' : 'PKR 0';
 
@@ -337,6 +338,18 @@ export default function DealerDashboard({ dealer, onLogout, navigate }) {
             </div>
           </div>
         )}
+
+        {/* Payment Plan */}
+        <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', marginBottom: '1.5rem' }}>
+          <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div>
+              <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Society Payment Plan</h3>
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>4-year installment schedule for all plot sizes</p>
+            </div>
+            <button className="btn btn-outline btn-sm" onClick={() => navigate('booking')}>📋 Book a Plot</button>
+          </div>
+          <PaymentPlanTable />
+        </div>
 
         {/* Recent Bookings */}
         <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>

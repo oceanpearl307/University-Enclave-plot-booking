@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import DealerLoginModal from '../components/DealerLoginModal.jsx';
 import SignUpModal from '../components/SignUpModal.jsx';
 import DealerRegisterModal from '../components/DealerRegisterModal.jsx';
+import PaymentPlanTable from '../components/PaymentPlanTable.jsx';
 
 export default function Home({ navigate, dealer, customer, onDealerLogin, onCustomerLogin, onLogout }) {
   const [stats, setStats] = useState(null);
@@ -237,6 +238,8 @@ export default function Home({ navigate, dealer, customer, onDealerLogin, onCust
           )}
         </div>
       </section>
+
+      <PaymentPlanTable />
 
       <section style={{ padding: '3.5rem 1.5rem' }}>
         <div className="container">
