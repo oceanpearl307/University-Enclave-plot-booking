@@ -2,14 +2,15 @@ import React, { useState, useRef } from 'react';
 import { PAYMENT_PLANS, PaymentPlanCard, generatePaymentSchedule, pkr } from '../components/PaymentPlanTable.jsx';
 
 export default function BookingForm({ plot, navigate, dealer }) {
-  const stdPlan = plot ? PAYMENT_PLANS[plot.size] : null;
+  const plotPrice = plot ? (plot.effectivePrice || plot.price) : 0;
+  const minDownPayment = plot ? Math.round(plotPrice * 0.10) : 0;
   const [form, setForm] = useState({
     name: '', fatherName: '', cnic: '', phone: '', email: '',
     residentialAddress: '', postalAddress: '',
     nomineeName: '', nomineeFatherName: '', nomineeCnic: '',
     nomineeRelation: '', nomineePhone: '', nomineeAddress: '',
   });
-  const [downPayment, setDownPayment] = useState(stdPlan ? stdPlan.downPayment : 0);
+  const [downPayment, setDownPayment] = useState(minDownPayment);
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [photoError, setPhotoError] = useState('');
@@ -30,7 +31,7 @@ export default function BookingForm({ plot, navigate, dealer }) {
   }
 
   if (result) {
-    const schedule = generatePaymentSchedule(result.plotSize, result.downPayment || 0);
+    const schedule = generatePaymentSchedule(result.plotSize, result.downPayment || 0, result.plotPrice);
     return (
       <div style={{ padding: '3rem 1.5rem', maxWidth: 720, margin: '0 auto' }}>
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
@@ -102,6 +103,12 @@ export default function BookingForm({ plot, navigate, dealer }) {
                     <td style={{ padding: '0.875rem 1rem', fontWeight: 800, color: '#065f46', fontSize: '0.88rem' }}>TOTAL</td>
                     <td colSpan={3} style={{ padding: '0.875rem 1rem', fontWeight: 900, color: '#1a6b3c', fontSize: '1rem' }}>PKR {schedule.total.toLocaleString('en-US')}</td>
                   </tr>
+                  {schedule.extraCredit > 0 && (
+                    <tr style={{ background: '#f0fdf4', borderTop: '1px solid #bbf7d0' }}>
+                      <td style={{ padding: '0.625rem 1rem', fontWeight: 600, color: '#065f46', fontSize: '0.8rem' }}>✅ Extra Credit Applied</td>
+                      <td colSpan={3} style={{ padding: '0.625rem 1rem', fontWeight: 800, color: '#059669', fontSize: '0.9rem' }}>- PKR {schedule.extraCredit.toLocaleString('en-US')}</td>
+                    </tr>
+                  )}
                   <tr style={{ background: '#fffbeb', borderTop: '1px solid #fde68a' }}>
                     <td style={{ padding: '0.625rem 1rem', fontWeight: 600, color: '#92400e', fontSize: '0.8rem' }}>Remaining After Down Payment</td>
                     <td colSpan={3} style={{ padding: '0.625rem 1rem', fontWeight: 800, color: '#b45309', fontSize: '0.9rem' }}>PKR {schedule.remaining.toLocaleString('en-US')}</td>
@@ -151,6 +158,10 @@ export default function BookingForm({ plot, navigate, dealer }) {
     if (!photo) {
       setPhotoError('Buyer photo is required.');
       fileRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (Number(downPayment) < minDownPayment) {
+      setError(`Down payment must be at least PKR ${minDownPayment.toLocaleString('en-US')} (10% of the total price).`);
       return;
     }
     setLoading(true);
@@ -336,32 +347,54 @@ export default function BookingForm({ plot, navigate, dealer }) {
               <div style={sectionStyle}>
                 <div style={sectionHeader}>💳 Down Payment</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-                  <p style={{ fontSize: '0.85rem', color: '#64748b', lineHeight: 1.6, margin: 0 }}>
-                    Enter the actual down payment amount being collected for this booking.
-                    {stdPlan && <> Standard down payment for <strong>{plot.size}</strong> is <strong>PKR {stdPlan.downPayment.toLocaleString('en-US')}</strong>.</>}
-                  </p>
+                  <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 9, padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#1e40af', lineHeight: 1.6 }}>
+                    ℹ️ Minimum down payment is <strong>10% of the total price</strong> — PKR {minDownPayment.toLocaleString('en-US')}.
+                    You may pay more; any extra amount will be credited towards your remaining balance.
+                  </div>
                   <div className="form-group" style={{ margin: 0 }}>
                     <label>Down Payment Amount (PKR) <span className="required">*</span></label>
                     <input
                       type="number"
-                      min={1}
+                      min={minDownPayment}
                       value={downPayment}
                       onChange={e => setDownPayment(e.target.value)}
-                      placeholder={stdPlan ? stdPlan.downPayment : 'Enter amount'}
+                      placeholder={minDownPayment}
                       required
-                      style={{ fontWeight: 700, fontSize: '1rem' }}
+                      style={{ fontWeight: 700, fontSize: '1rem', borderColor: Number(downPayment) > 0 && Number(downPayment) < minDownPayment ? '#ef4444' : undefined }}
                     />
+                    {Number(downPayment) > 0 && Number(downPayment) < minDownPayment && (
+                      <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.35rem', fontWeight: 600 }}>
+                        ❌ Minimum down payment is PKR {minDownPayment.toLocaleString('en-US')} (10% of {pkr(plotPrice)})
+                      </div>
+                    )}
                   </div>
-                  {stdPlan && Number(downPayment) > 0 && (
-                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '0.875rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                      <div style={{ fontSize: '0.82rem', color: '#065f46', fontWeight: 600 }}>
-                        💰 Remaining balance after booking:
+                  {Number(downPayment) >= minDownPayment && Number(downPayment) > 0 && (() => {
+                    const dp = Number(downPayment);
+                    const extra = dp - minDownPayment;
+                    const remaining = plotPrice - dp;
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {extra > 0 && (
+                          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 9, padding: '0.7rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <div style={{ fontSize: '0.82rem', color: '#065f46', fontWeight: 600 }}>
+                              ✅ Extra credit (above minimum):
+                            </div>
+                            <div style={{ fontWeight: 800, color: '#1a6b3c', fontSize: '0.9rem' }}>
+                              + PKR {extra.toLocaleString('en-US')}
+                            </div>
+                          </div>
+                        )}
+                        <div style={{ background: remaining < 0 ? '#fef2f2' : '#fffbeb', border: `1px solid ${remaining < 0 ? '#fecaca' : '#fde68a'}`, borderRadius: 9, padding: '0.7rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          <div style={{ fontSize: '0.82rem', color: remaining < 0 ? '#dc2626' : '#92400e', fontWeight: 600 }}>
+                            {remaining < 0 ? '⚠️ Down payment exceeds total price' : '💰 Remaining balance after booking:'}
+                          </div>
+                          <div style={{ fontWeight: 800, color: remaining < 0 ? '#dc2626' : '#b45309', fontSize: '0.95rem' }}>
+                            PKR {Math.abs(remaining).toLocaleString('en-US')}
+                          </div>
+                        </div>
                       </div>
-                      <div style={{ fontWeight: 800, color: '#1a6b3c', fontSize: '0.95rem' }}>
-                        PKR {(stdPlan.total - Number(downPayment)).toLocaleString('en-US')}
-                      </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -416,7 +449,7 @@ export default function BookingForm({ plot, navigate, dealer }) {
               <div className="alert alert-success" style={{ fontSize: '0.8rem' }}>✅ This plot is available for booking</div>
             </div>
           </div>
-          {stdPlan && (
+          {PAYMENT_PLANS[plot.size] && (
             <PaymentPlanCard plotSize={plot.size} downPaymentPaid={Number(downPayment) || 0} />
           )}
         </div>

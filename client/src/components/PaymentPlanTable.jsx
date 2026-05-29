@@ -47,24 +47,30 @@ export const PLAN_SIZES = ['5 Marla', '7 Marla', '10 Marla', '1 Kanal'];
 
 export const pkr = n => 'PKR ' + Number(n).toLocaleString('en-US');
 
-export function generatePaymentSchedule(plotSize, downPaymentPaid) {
+export function generatePaymentSchedule(plotSize, downPaymentPaid, totalPrice) {
   const plan = PAYMENT_PLANS[plotSize];
   if (!plan) return null;
-  const dp = downPaymentPaid > 0 ? downPaymentPaid : plan.downPayment;
+  const total = totalPrice > 0 ? totalPrice : plan.total;
+  const minDownPayment = Math.round(total * 0.10);
+  const dp = downPaymentPaid > 0 ? downPaymentPaid : minDownPayment;
+  const extra = Math.max(0, dp - minDownPayment);
+  const scale = total / plan.total;
   return {
     plotSize,
     downPaymentPaid: dp,
-    standardDownPayment: plan.downPayment,
-    confirmation: plan.confirmation,
-    monthlyInstallment: plan.monthlyInstallment,
+    minDownPayment,
+    extraCredit: extra,
+    standardDownPayment: minDownPayment,
+    confirmation: Math.round(plan.confirmation * scale),
+    monthlyInstallment: Math.round(plan.monthlyInstallment * scale),
     monthlyCount: plan.monthlyCount,
-    monthlyTotal: plan.monthlyInstallment * plan.monthlyCount,
-    semiAnnualInstallment: plan.semiAnnualInstallment,
+    monthlyTotal: Math.round(plan.monthlyInstallment * plan.monthlyCount * scale),
+    semiAnnualInstallment: Math.round(plan.semiAnnualInstallment * scale),
     semiAnnualCount: plan.semiAnnualCount,
-    semiAnnualTotal: plan.semiAnnualInstallment * plan.semiAnnualCount,
-    possession: plan.possession,
-    total: plan.total,
-    remaining: plan.total - dp,
+    semiAnnualTotal: Math.round(plan.semiAnnualInstallment * plan.semiAnnualCount * scale),
+    possession: Math.round(plan.possession * scale),
+    total,
+    remaining: total - dp,
   };
 }
 
