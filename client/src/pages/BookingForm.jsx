@@ -384,13 +384,34 @@ export default function BookingForm({ plot, navigate, dealer }) {
                 ['📍 Area', plot.area],
                 ['📐 Size', plot.size],
                 ['🏷️ Category', plot.category],
-                ['💰 Price', 'PKR ' + (plot.price / 1000000).toFixed(1) + 'M'],
               ].map(([label, value]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.75rem' }}>
                   <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>{label}</span>
                   <span style={{ fontWeight: 700, fontSize: '0.85rem', textTransform: 'capitalize' }}>{value}</span>
                 </div>
               ))}
+              {plot.tags && plot.tags.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.75rem' }}>
+                  <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>✨ Premium Tags</span>
+                  <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                    {plot.tags.map(tag => (
+                      <span key={tag} style={{ background: tag === 'Main Boulevard' ? '#fef3c7' : '#e0f2fe', color: tag === 'Main Boulevard' ? '#92400e' : '#075985', borderRadius: 6, padding: '0.2rem 0.5rem', fontSize: '0.7rem', fontWeight: 700 }}>★ {tag}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.75rem' }}>
+                <span style={{ color: '#6b7280', fontSize: '0.85rem' }}>💰 Base Price</span>
+                <span style={{ fontWeight: 600, fontSize: '0.85rem', color: plot.effectivePrice !== plot.price ? '#94a3b8' : '#0f172a', textDecoration: plot.effectivePrice !== plot.price ? 'line-through' : 'none' }}>
+                  PKR {(plot.price / 1000000).toFixed(2)}M
+                </span>
+              </div>
+              {plot.effectivePrice && plot.effectivePrice !== plot.price && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.75rem', background: '#fffbeb', margin: '0 -1.25rem', padding: '0.625rem 1.25rem' }}>
+                  <span style={{ color: '#92400e', fontSize: '0.85rem', fontWeight: 700 }}>💸 Effective Price</span>
+                  <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#b45309' }}>PKR {(plot.effectivePrice / 1000000).toFixed(2)}M</span>
+                </div>
+              )}
               <p style={{ color: '#6b7280', fontSize: '0.8rem', lineHeight: 1.5 }}>{plot.description}</p>
               <div className="alert alert-success" style={{ fontSize: '0.8rem' }}>✅ This plot is available for booking</div>
             </div>

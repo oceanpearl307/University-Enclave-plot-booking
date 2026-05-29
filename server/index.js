@@ -60,17 +60,24 @@ let sectors = [
 let sectorCounter = 4;
 
 // ─── Plot Inventory ──────────────────────────────────────────────────────────
+// ─── Premium Tag Pricing ──────────────────────────────────────────────────────
+const TAG_PREMIUMS = { 'Corner Plot': 0.10, 'Park Facing': 0.10, 'Main Road': 0.10, 'Main Boulevard': 0.15 };
+const PREMIUM_TAGS = Object.keys(TAG_PREMIUMS);
+const computeEffectivePrice = (basePrice, tags = []) =>
+  Math.round(basePrice * (1 + (tags || []).reduce((s, t) => s + (TAG_PREMIUMS[t] || 0), 0)));
+const withEffectivePrice = p => ({ ...p, effectivePrice: computeEffectivePrice(p.price, p.tags), tags: p.tags || [] });
+
 let plots = [
-  { id: 1, number: 'A-101', size: '5 Marla', price: 2500000, status: 'available', category: 'residential', description: 'Corner plot with park facing, excellent location', area: 'Block A' },
-  { id: 2, number: 'A-102', size: '7 Marla', price: 3500000, status: 'booked', category: 'residential', description: 'Prime location near main gate', area: 'Block A' },
-  { id: 3, number: 'A-103', size: '10 Marla', price: 5000000, status: 'available', category: 'residential', description: 'Spacious plot with green belt view', area: 'Block A' },
-  { id: 4, number: 'B-201', size: '5 Marla', price: 2200000, status: 'available', category: 'residential', description: 'Quiet neighborhood, near mosque', area: 'Block B' },
-  { id: 5, number: 'B-202', size: '7 Marla', price: 3200000, status: 'sold', category: 'residential', description: 'Boulevard facing plot', area: 'Block B' },
-  { id: 6, number: 'B-203', size: '1 Kanal', price: 9000000, status: 'available', category: 'residential', description: 'Large plot, ideal for luxury home', area: 'Block B' },
-  { id: 7, number: 'C-301', size: '5 Marla', price: 2800000, status: 'available', category: 'residential', description: 'Near community center', area: 'Block C' },
-  { id: 8, number: 'C-302', size: '10 Marla', price: 5500000, status: 'available', category: 'residential', description: 'Elevated plot with great view', area: 'Block C' },
-  { id: 9, number: 'D-401', size: '2 Kanal', price: 18000000, status: 'available', category: 'commercial', description: 'Prime commercial plot near main boulevard', area: 'Block D' },
-  { id: 10, number: 'D-402', size: '4 Marla', price: 4000000, status: 'booked', category: 'commercial', description: 'Shop-facing commercial plot', area: 'Block D' },
+  { id: 1, number: 'A-101', size: '5 Marla', price: 2500000, status: 'available', category: 'residential', description: 'Corner plot with park facing, excellent location', area: 'Block A', tags: ['Corner Plot', 'Park Facing'] },
+  { id: 2, number: 'A-102', size: '7 Marla', price: 3500000, status: 'booked', category: 'residential', description: 'Prime location near main gate', area: 'Block A', tags: [] },
+  { id: 3, number: 'A-103', size: '10 Marla', price: 5000000, status: 'available', category: 'residential', description: 'Spacious plot with green belt view', area: 'Block A', tags: [] },
+  { id: 4, number: 'B-201', size: '5 Marla', price: 2200000, status: 'available', category: 'residential', description: 'Quiet neighborhood, near mosque', area: 'Block B', tags: [] },
+  { id: 5, number: 'B-202', size: '7 Marla', price: 3200000, status: 'sold', category: 'residential', description: 'Boulevard facing plot', area: 'Block B', tags: ['Main Boulevard'] },
+  { id: 6, number: 'B-203', size: '1 Kanal', price: 9000000, status: 'available', category: 'residential', description: 'Large plot, ideal for luxury home', area: 'Block B', tags: [] },
+  { id: 7, number: 'C-301', size: '5 Marla', price: 2800000, status: 'available', category: 'residential', description: 'Near community center, on main road', area: 'Block C', tags: ['Main Road'] },
+  { id: 8, number: 'C-302', size: '10 Marla', price: 5500000, status: 'available', category: 'residential', description: 'Elevated corner plot with great view', area: 'Block C', tags: ['Corner Plot'] },
+  { id: 9, number: 'D-401', size: '2 Kanal', price: 18000000, status: 'available', category: 'commercial', description: 'Prime commercial plot on main boulevard', area: 'Block D', tags: ['Main Boulevard'] },
+  { id: 10, number: 'D-402', size: '4 Marla', price: 4000000, status: 'booked', category: 'commercial', description: 'Shop-facing commercial plot on main road', area: 'Block D', tags: ['Main Road'] },
 ];
 let plotCounter = 10;
 
@@ -708,22 +715,23 @@ app.post('/api/admin/plots/bulk', (req, res) => {
 
 // ─── Admin: Plot Inventory CRUD ───────────────────────────────────────────────
 app.post('/api/admin/plots', (req, res) => {
-  const { number, size, price, status, category, description, area } = req.body;
+  const { number, size, price, status, category, description, area, tags } = req.body;
   if (!number || !size || !price || !area) return res.status(400).json({ error: 'number, size, price, area required' });
   if (plots.find(p => p.number === number)) return res.status(409).json({ error: 'Plot number already exists' });
+  const validTags = (Array.isArray(tags) ? tags : []).filter(t => PREMIUM_TAGS.includes(t));
   const plot = {
     id: ++plotCounter, number, size, price: parseInt(price),
     status: status || 'available', category: category || 'residential',
-    description: description || '', area,
+    description: description || '', area, tags: validTags,
   };
   plots.push(plot);
-  res.status(201).json(plot);
+  res.status(201).json(withEffectivePrice(plot));
 });
 
 app.put('/api/admin/plots/:id', (req, res) => {
   const plot = plots.find(p => p.id === parseInt(req.params.id));
   if (!plot) return res.status(404).json({ error: 'Plot not found' });
-  const { number, size, price, status, category, description, area } = req.body;
+  const { number, size, price, status, category, description, area, tags } = req.body;
   if (number) plot.number = number;
   if (size) plot.size = size;
   if (price) plot.price = parseInt(price);
@@ -731,7 +739,8 @@ app.put('/api/admin/plots/:id', (req, res) => {
   if (category) plot.category = category;
   if (description !== undefined) plot.description = description;
   if (area) plot.area = area;
-  res.json(plot);
+  if (Array.isArray(tags)) plot.tags = tags.filter(t => PREMIUM_TAGS.includes(t));
+  res.json(withEffectivePrice(plot));
 });
 
 app.delete('/api/admin/plots/:id', (req, res) => {
@@ -797,13 +806,13 @@ app.get('/api/plots', (req, res) => {
   if (status) filtered = filtered.filter(p => p.status === status);
   if (category) filtered = filtered.filter(p => p.category === category);
   if (area) filtered = filtered.filter(p => p.area === area);
-  res.json(filtered);
+  res.json(filtered.map(withEffectivePrice));
 });
 
 app.get('/api/plots/:id', (req, res) => {
   const plot = plots.find(p => p.id === parseInt(req.params.id));
   if (!plot) return res.status(404).json({ error: 'Plot not found' });
-  res.json(plot);
+  res.json(withEffectivePrice(plot));
 });
 
 // ─── Bookings ─────────────────────────────────────────────────────────────────

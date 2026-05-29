@@ -60,7 +60,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   const [plots, setPlots] = useState([]);
   const [plotsLoading, setPlotsLoading] = useState(false);
   const [plotEdit, setPlotEdit] = useState(null);
-  const [plotForm, setPlotForm] = useState({ number: '', size: '5 Marla', price: '', status: 'available', category: 'residential', description: '', area: '' });
+  const [plotForm, setPlotForm] = useState({ number: '', size: '5 Marla', price: '', status: 'available', category: 'residential', description: '', area: '', tags: [] });
   const [plotSaving, setPlotSaving] = useState(false);
   const [plotMsg, setPlotMsg] = useState('');
 
@@ -235,13 +235,17 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   };
 
   // ── Plot CRUD ──
+  const PREMIUM_TAGS = ['Corner Plot', 'Park Facing', 'Main Road', 'Main Boulevard'];
+  const TAG_PREMIUMS = { 'Corner Plot': 10, 'Park Facing': 10, 'Main Road': 10, 'Main Boulevard': 15 };
+  const effectivePrice = (base, tags = []) => Math.round(base * (1 + (tags || []).reduce((s, t) => s + (TAG_PREMIUMS[t] || 0) / 100, 0)));
+
   const openPlotForm = (plot) => {
     if (plot) {
       setPlotEdit(plot);
-      setPlotForm({ number: plot.number, size: plot.size, price: plot.price, status: plot.status, category: plot.category, description: plot.description, area: plot.area });
+      setPlotForm({ number: plot.number, size: plot.size, price: plot.price, status: plot.status, category: plot.category, description: plot.description, area: plot.area, tags: plot.tags || [] });
     } else {
       setPlotEdit('new');
-      setPlotForm({ number: '', size: '5 Marla', price: '', status: 'available', category: 'residential', description: '', area: '' });
+      setPlotForm({ number: '', size: '5 Marla', price: '', status: 'available', category: 'residential', description: '', area: '', tags: [] });
     }
     setPlotMsg('');
   };
@@ -1360,13 +1364,16 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                       <thead>
                         <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
-                          {['Plot', 'Area', 'Size', 'Category', 'Price', 'Status', ''].map(h => (
+                          {['Plot', 'Area', 'Size', 'Category', 'Base Price', 'Premium Tags', 'Effective Price', 'Status', ''].map(h => (
                             <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {plots.map(p => (
+                        {plots.map(p => {
+                          const ep = p.effectivePrice || effectivePrice(p.price, p.tags);
+                          const hasPremium = p.tags && p.tags.length > 0;
+                          return (
                           <tr key={p.id} style={{ borderBottom: '1px solid #f8fafc' }}
                             onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
                             onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
@@ -1374,7 +1381,22 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                             <td style={{ padding: '0.875rem', color: '#374151' }}>{p.area}</td>
                             <td style={{ padding: '0.875rem', color: '#374151' }}>{p.size}</td>
                             <td style={{ padding: '0.875rem', color: '#64748b', textTransform: 'capitalize', fontSize: '0.8rem' }}>{p.category}</td>
-                            <td style={{ padding: '0.875rem', fontWeight: 700 }}>{fmt(p.price)}</td>
+                            <td style={{ padding: '0.875rem', color: hasPremium ? '#94a3b8' : '#0f172a', fontWeight: hasPremium ? 500 : 700, textDecoration: hasPremium ? 'line-through' : 'none', fontSize: '0.82rem' }}>{fmt(p.price)}</td>
+                            <td style={{ padding: '0.875rem' }}>
+                              {hasPremium ? (
+                                <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                                  {p.tags.map(tag => (
+                                    <span key={tag} style={{ background: tag === 'Main Boulevard' ? '#fef3c7' : '#e0f2fe', color: tag === 'Main Boulevard' ? '#92400e' : '#075985', borderRadius: 6, padding: '0.15rem 0.45rem', fontSize: '0.65rem', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                      {tag} +{TAG_PREMIUMS[tag]}%
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : <span style={{ color: '#cbd5e1', fontSize: '0.75rem' }}>—</span>}
+                            </td>
+                            <td style={{ padding: '0.875rem', fontWeight: 800, color: hasPremium ? '#b45309' : '#0f172a' }}>
+                              {fmt(ep)}
+                              {hasPremium && <div style={{ fontSize: '0.65rem', color: '#b45309', fontWeight: 600 }}>+{p.tags.reduce((s, t) => s + (TAG_PREMIUMS[t] || 0), 0)}% premium</div>}
+                            </td>
                             <td style={{ padding: '0.875rem' }}>
                               <span style={{ background: p.status === 'available' ? '#d1fae5' : p.status === 'booked' ? '#fef3c7' : '#fee2e2', color: statusColor[p.status], borderRadius: 9999, padding: '0.2rem 0.5rem', fontSize: '0.72rem', fontWeight: 700, textTransform: 'capitalize' }}>{p.status}</span>
                             </td>
@@ -1385,7 +1407,8 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                               </div>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -1434,6 +1457,46 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                       </select>
                     </div>
                     <div className="form-group"><label>Description</label><input value={plotForm.description} onChange={e => setPlotForm(f => ({ ...f, description: e.target.value }))} placeholder="Brief description" /></div>
+                    <div className="form-group">
+                      <label>Premium Tags (adds to base price)</label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+                        {[
+                          { tag: 'Corner Plot', pct: 10 },
+                          { tag: 'Park Facing', pct: 10 },
+                          { tag: 'Main Road', pct: 10 },
+                          { tag: 'Main Boulevard', pct: 15 },
+                        ].map(({ tag, pct }) => {
+                          const checked = (plotForm.tags || []).includes(tag);
+                          return (
+                            <label key={tag} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.875rem', fontWeight: checked ? 700 : 400, color: checked ? '#0f172a' : '#374151' }}>
+                              <input
+                                type="checkbox"
+                                checked={checked}
+                                onChange={e => setPlotForm(f => ({
+                                  ...f,
+                                  tags: e.target.checked ? [...(f.tags || []), tag] : (f.tags || []).filter(t => t !== tag)
+                                }))}
+                                style={{ width: 15, height: 15, accentColor: '#1a6b3c' }}
+                              />
+                              <span>{tag}</span>
+                              <span style={{ background: pct === 15 ? '#fef3c7' : '#e0f2fe', color: pct === 15 ? '#92400e' : '#075985', borderRadius: 6, padding: '0.1rem 0.4rem', fontSize: '0.7rem', fontWeight: 700 }}>+{pct}%</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                      {plotForm.price && (plotForm.tags || []).length > 0 && (
+                        <div style={{ marginTop: '0.625rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '0.625rem 0.875rem', fontSize: '0.82rem' }}>
+                          <span style={{ color: '#92400e', fontWeight: 600 }}>Effective price: </span>
+                          <span style={{ textDecoration: 'line-through', color: '#94a3b8', marginRight: '0.5rem' }}>PKR {Number(plotForm.price).toLocaleString('en-US')}</span>
+                          <span style={{ fontWeight: 800, color: '#b45309' }}>
+                            PKR {effectivePrice(Number(plotForm.price), plotForm.tags || []).toLocaleString('en-US')}
+                          </span>
+                          <span style={{ color: '#b45309', marginLeft: '0.375rem' }}>
+                            (+{(plotForm.tags || []).reduce((s, t) => s + (TAG_PREMIUMS[t] || 0), 0)}%)
+                          </span>
+                        </div>
+                      )}
+                    </div>
                     {plotMsg && <div className={plotMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ fontSize: '0.85rem' }}>{plotMsg}</div>}
                     <button type="submit" className="btn btn-primary" disabled={plotSaving} style={{ justifyContent: 'center', padding: '0.75rem' }}>
                       {plotSaving ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> Saving...</> : '✓ Save Plot'}

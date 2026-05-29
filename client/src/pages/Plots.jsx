@@ -35,6 +35,13 @@ export default function Plots({ navigate }) {
   const statusColor = { available: '#059669', booked: '#d97706', sold: '#dc2626' };
   const statusBg = { available: '#d1fae5', booked: '#fef3c7', sold: '#fee2e2' };
 
+  const TAG_STYLE = {
+    'Corner Plot':    { bg: '#e0f2fe', color: '#075985' },
+    'Park Facing':    { bg: '#d1fae5', color: '#065f46' },
+    'Main Road':      { bg: '#f3e8ff', color: '#6b21a8' },
+    'Main Boulevard': { bg: '#fef3c7', color: '#92400e' },
+  };
+
   return (
     <div style={{ padding: '2rem 1.5rem', maxWidth: 1200, margin: '0 auto' }}>
       <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>Available Plots</h1>
@@ -116,6 +123,15 @@ export default function Plots({ navigate }) {
                   </div>
                 </div>
                 <div style={{ padding: '1.25rem' }}>
+                  {plot.tags && plot.tags.length > 0 && (
+                    <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                      {plot.tags.map(tag => (
+                        <span key={tag} style={{ background: TAG_STYLE[tag]?.bg || '#f3f4f6', color: TAG_STYLE[tag]?.color || '#374151', borderRadius: 6, padding: '0.2rem 0.5rem', fontSize: '0.68rem', fontWeight: 700 }}>
+                          ★ {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
                     <div>
                       <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Size</div>
@@ -123,7 +139,15 @@ export default function Plots({ navigate }) {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Price</div>
-                      <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#1a6b3c' }}>{formatPrice(plot.price)}</div>
+                      {plot.effectivePrice && plot.effectivePrice !== plot.price ? (
+                        <>
+                          <div style={{ fontWeight: 500, fontSize: '0.78rem', color: '#94a3b8', textDecoration: 'line-through' }}>{formatPrice(plot.price)}</div>
+                          <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#b45309' }}>{formatPrice(plot.effectivePrice)}</div>
+                          <div style={{ fontSize: '0.65rem', color: '#b45309', fontWeight: 600 }}>incl. premium</div>
+                        </>
+                      ) : (
+                        <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#1a6b3c' }}>{formatPrice(plot.price)}</div>
+                      )}
                     </div>
                   </div>
                   <p style={{ color: '#6b7280', fontSize: '0.85rem', lineHeight: 1.5, marginBottom: '1rem' }}>{plot.description}</p>
