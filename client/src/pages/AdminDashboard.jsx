@@ -3,6 +3,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
 import * as XLSX from 'xlsx';
+import BookingReceipt from '../components/BookingReceipt.jsx';
 
 const fmt = n => n >= 1000000 ? 'PKR ' + (n / 1000000).toFixed(1) + 'M' : n > 0 ? 'PKR ' + (n / 1000).toFixed(0) + 'K' : 'PKR 0';
 const PLOT_SIZES = ['5 Marla', '7 Marla', '10 Marla', '1 Kanal'];
@@ -20,8 +21,8 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-const TABS = ['Dealers', 'Registrations', 'Packages', 'Inventory', 'Deals', 'Staff'];
-const tabIcons = { Dealers: '👥', Registrations: '📋', Packages: '📦', Inventory: '🏘️', Deals: '🏷️', Staff: '⚙️' };
+const TABS = ['Dealers', 'Registrations', 'Bookings', 'Packages', 'Inventory', 'Deals', 'Staff'];
+const tabIcons = { Dealers: '👥', Registrations: '📋', Bookings: '📩', Packages: '📦', Inventory: '🏘️', Deals: '🏷️', Staff: '⚙️' };
 const PRIV_OPTIONS = [
   { key: 'approveBookings', label: 'View & Approve Bookings' },
   { key: 'viewPlots', label: 'View Plot Inventory' },
@@ -83,6 +84,17 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   const [importSaving, setImportSaving] = useState(false);
   const fileInputRef = useRef(null);
 
+  // ── Bookings tab ──
+  const [bkgs, setBkgs] = useState([]);
+  const [bkgsLoading, setBkgsLoading] = useState(false);
+  const [selectedBkg, setSelectedBkg] = useState(null);
+  const [rejectBkg, setRejectBkg] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [bkgMsg, setBkgMsg] = useState('');
+  const [showReceipt, setShowReceipt] = useState(null);
+  const loadBookings = () => { setBkgsLoading(true); fetch('/api/admin/bookings').then(r => r.json()).then(d => { setBkgs(d); setBkgsLoading(false); }).catch(() => setBkgsLoading(false)); };
+  const pendingBkgCount = bkgs.filter(b => b.status === 'pending').length;
+
   // ── Deals tab ──
   const [deals, setDeals] = useState([]);
   const [dealsLoading, setDealsLoading] = useState(false);
@@ -125,9 +137,10 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   const loadDeals = () => { setDealsLoading(true); fetch('/api/admin/deals').then(r => r.json()).then(d => { setDeals(d); setDealsLoading(false); }).catch(() => setDealsLoading(false)); };
   const loadStaff = () => { setStaffLoading(true); fetch('/api/admin/staff').then(r => r.json()).then(d => { setStaff(d); setStaffLoading(false); }).catch(() => setStaffLoading(false)); };
 
-  useEffect(() => { loadDealers(); loadPackages(); }, []);
+  useEffect(() => { loadDealers(); loadPackages(); fetch('/api/admin/notifications').then(r => r.json()).then(d => { if (d.pendingBookings > 0) setBkgs(prev => prev.length === 0 ? [{ _placeholder: true }] : prev); }).catch(() => {}); }, []);
   useEffect(() => {
     if (tab === 'Registrations') loadRegs();
+    if (tab === 'Bookings') loadBookings();
     if (tab === 'Inventory') { loadPlots(); loadSectors(); }
     if (tab === 'Deals') { loadDeals(); loadPlots(); }
     if (tab === 'Staff') loadStaff();
@@ -554,6 +567,9 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
               {tabIcons[t]} {t}
               {t === 'Registrations' && regs.filter(r => r.status === 'pending').length > 0 && (
                 <span style={{ background: '#dc2626', color: '#fff', borderRadius: 9999, fontSize: '0.65rem', fontWeight: 800, padding: '0.1rem 0.4rem', minWidth: 18, textAlign: 'center' }}>{regs.filter(r => r.status === 'pending').length}</span>
+              )}
+              {t === 'Bookings' && pendingBkgCount > 0 && (
+                <span style={{ background: '#dc2626', color: '#fff', borderRadius: 9999, fontSize: '0.65rem', fontWeight: 800, padding: '0.1rem 0.4rem', minWidth: 18, textAlign: 'center' }}>{pendingBkgCount}</span>
               )}
             </button>
           ))}
@@ -1008,6 +1024,181 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                 </form>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ─── BOOKINGS TAB ─── */}
+        {tab === 'Bookings' && (
+          <div>
+            {bkgMsg && <div className={bkgMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ marginBottom: '1.25rem' }}>{bkgMsg}</div>}
+            <div style={{ display: 'grid', gridTemplateColumns: selectedBkg ? '1fr 400px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+              <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                  <div>
+                    <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Plot Bookings</h3>
+                    <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Click a row to view full details. Approve or reject pending bookings.</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {[['All', ''], ['Pending', 'pending'], ['Confirmed', 'confirmed'], ['Rejected', 'rejected']].map(([label, val]) => (
+                      <span key={label} style={{ background: val === 'pending' && pendingBkgCount > 0 ? '#fef3c7' : '#f1f5f9', color: val === 'pending' && pendingBkgCount > 0 ? '#92400e' : '#374151', borderRadius: 8, padding: '0.25rem 0.625rem', fontSize: '0.75rem', fontWeight: 700 }}>
+                        {label}: {val ? bkgs.filter(b => b.status === val).length : bkgs.length}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {bkgsLoading ? <div className="loading"><div className="spinner"></div>Loading...</div> : bkgs.filter(b => !b._placeholder).length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+                    <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📋</div>
+                    <div style={{ fontWeight: 600 }}>No bookings yet</div>
+                  </div>
+                ) : (
+                  <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
+                          {['Ref', 'Buyer', 'Plot', 'Dealer', 'Amount', 'Date', 'Status', 'Actions'].map(h => (
+                            <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bkgs.filter(b => !b._placeholder).map(b => (
+                          <tr key={b.id}
+                            style={{ borderBottom: '1px solid #f8fafc', background: selectedBkg?.id === b.id ? '#f0fdf4' : 'transparent', cursor: 'pointer' }}
+                            onClick={() => setSelectedBkg(selectedBkg?.id === b.id ? null : b)}
+                            onMouseEnter={e => { if (selectedBkg?.id !== b.id) e.currentTarget.style.background = '#f8fafc'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = selectedBkg?.id === b.id ? '#f0fdf4' : 'transparent'; }}>
+                            <td style={{ padding: '0.875rem', fontFamily: 'monospace', fontWeight: 700, color: '#059669', fontSize: '0.8rem' }}>{b.bookingRef}</td>
+                            <td style={{ padding: '0.875rem' }}>
+                              <div style={{ fontWeight: 700, color: '#0f172a' }}>{b.name}</div>
+                              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{b.cnic}</div>
+                            </td>
+                            <td style={{ padding: '0.875rem', fontWeight: 700, color: '#1a6b3c', fontFamily: 'monospace' }}>{b.plotNumber}</td>
+                            <td style={{ padding: '0.875rem', fontSize: '0.8rem', color: '#374151' }}>{b.dealerName || '—'}</td>
+                            <td style={{ padding: '0.875rem', fontWeight: 700 }}>{fmt(b.plotPrice)}</td>
+                            <td style={{ padding: '0.875rem', fontSize: '0.78rem', color: '#64748b' }}>{new Date(b.createdAt).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                            <td style={{ padding: '0.875rem' }}>
+                              <span style={{ background: b.status === 'pending' ? '#fef3c7' : b.status === 'confirmed' ? '#d1fae5' : '#fee2e2', color: b.status === 'pending' ? '#92400e' : b.status === 'confirmed' ? '#065f46' : '#dc2626', borderRadius: 9999, padding: '0.2rem 0.5rem', fontSize: '0.72rem', fontWeight: 700, textTransform: 'capitalize' }}>{b.status}</span>
+                            </td>
+                            <td style={{ padding: '0.875rem' }}>
+                              <div style={{ display: 'flex', gap: '0.375rem' }} onClick={e => e.stopPropagation()}>
+                                {b.status === 'pending' && (<>
+                                  <button onClick={async () => { setBkgMsg(''); const res = await fetch(`/api/admin/bookings/${b.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approvedBy: 'Admin' }) }); if (res.ok) { const data = await res.json(); setBkgMsg('✅ Booking approved.'); setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Failed.'); }} style={{ padding: '0.3rem 0.55rem', background: '#d1fae5', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#065f46' }}>✓</button>
+                                  <button onClick={() => { setRejectBkg(b); setRejectReason(''); }} style={{ padding: '0.3rem 0.55rem', background: '#fee2e2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#dc2626' }}>✕</button>
+                                </>)}
+                                {b.status === 'confirmed' && (
+                                  <button onClick={() => setShowReceipt(b)} style={{ padding: '0.3rem 0.55rem', background: '#eff6ff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#1d4ed8' }}>🖨️</button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {selectedBkg && (
+                <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', position: 'sticky', top: 20, overflow: 'hidden', maxHeight: '90vh', overflowY: 'auto' }}>
+                  <div style={{ background: 'linear-gradient(135deg, #1a6b3c, #059669)', color: '#fff', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.75, marginBottom: '0.2rem' }}>Booking Details</div>
+                      <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>{selectedBkg.bookingRef}</div>
+                    </div>
+                    <button onClick={() => setSelectedBkg(null)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                  </div>
+                  <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    {selectedBkg.photo && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+                        <img src={selectedBkg.photo} alt="Buyer" style={{ width: 90, height: 110, objectFit: 'cover', borderRadius: 8, border: '2px solid #e5e7eb' }} />
+                        <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>Buyer Photo</div>
+                      </div>
+                    )}
+                    <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '0.875rem 1rem' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.375rem' }}>Plot</div>
+                      <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#0f172a' }}>{selectedBkg.plotNumber}</div>
+                      <div style={{ fontSize: '0.8rem', color: '#374151' }}>{selectedBkg.plotSize} · {selectedBkg.area} · {fmt(selectedBkg.plotPrice)}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.625rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.4rem' }}>Buyer Information</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        {[
+                          ['Name', selectedBkg.name],
+                          ['Father Name', selectedBkg.fatherName || '—'],
+                          ['CNIC', selectedBkg.cnic],
+                          ['Phone', selectedBkg.phone],
+                          ['Email', selectedBkg.email || '—'],
+                          ['Residential Address', selectedBkg.residentialAddress || selectedBkg.address || '—'],
+                          ['Postal Address', selectedBkg.postalAddress || '—'],
+                        ].map(([label, value]) => (
+                          <div key={label} style={{ display: 'flex', gap: '0.5rem', fontSize: '0.82rem' }}>
+                            <span style={{ color: '#64748b', minWidth: 115, flexShrink: 0, fontWeight: 600 }}>{label}:</span>
+                            <span style={{ color: '#0f172a', fontWeight: 600 }}>{value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {selectedBkg.nominee && (
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.625rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.4rem' }}>Nominee Information</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          {[
+                            ['Name', selectedBkg.nominee.name],
+                            ['Father Name', selectedBkg.nominee.fatherName],
+                            ['CNIC', selectedBkg.nominee.cnic],
+                            ['Relation', selectedBkg.nominee.relation],
+                            ['Phone', selectedBkg.nominee.phone],
+                            ['Address', selectedBkg.nominee.address],
+                          ].map(([label, value]) => (
+                            <div key={label} style={{ display: 'flex', gap: '0.5rem', fontSize: '0.82rem' }}>
+                              <span style={{ color: '#64748b', minWidth: 115, flexShrink: 0, fontWeight: 600 }}>{label}:</span>
+                              <span style={{ color: '#0f172a', fontWeight: 600 }}>{value || '—'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {selectedBkg.status === 'pending' && (
+                      <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <button onClick={async () => { setBkgMsg(''); const res = await fetch(`/api/admin/bookings/${selectedBkg.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approvedBy: 'Admin' }) }); if (res.ok) { const data = await res.json(); setBkgMsg('✅ Booking approved.'); setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Failed.'); }} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#059669', borderColor: 'transparent' }}>✓ Approve</button>
+                        <button onClick={() => { setRejectBkg(selectedBkg); setRejectReason(''); }} className="btn btn-outline" style={{ flex: 1, justifyContent: 'center', color: '#dc2626', borderColor: '#dc2626' }}>✕ Reject</button>
+                      </div>
+                    )}
+                    {selectedBkg.status === 'confirmed' && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                        <div style={{ background: '#d1fae5', border: '1px solid #6ee7b733', borderRadius: 10, padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 700, color: '#065f46' }}>
+                          ✅ Approved
+                          {selectedBkg.approvedBy && <div style={{ fontSize: '0.75rem', fontWeight: 400, marginTop: '0.2rem' }}>by {selectedBkg.approvedBy}</div>}
+                        </div>
+                        <button onClick={() => setShowReceipt(selectedBkg)} style={{ background: 'linear-gradient(135deg, #1d4ed8, #2563eb)', color: '#fff', border: 'none', borderRadius: 10, padding: '0.7rem 1rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>🖨️ Print Receipt</button>
+                      </div>
+                    )}
+                    {selectedBkg.status === 'rejected' && (
+                      <div style={{ background: '#fee2e2', border: '1px solid #fca5a533', borderRadius: 10, padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 700, color: '#dc2626' }}>
+                        ❌ Rejected
+                        {selectedBkg.rejectionReason && <div style={{ fontSize: '0.75rem', fontWeight: 400, marginTop: '0.2rem' }}>Reason: {selectedBkg.rejectionReason}</div>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {rejectBkg && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 5000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                <div style={{ background: '#fff', borderRadius: 16, padding: '2rem', maxWidth: 480, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+                  <h3 style={{ marginBottom: '1rem', color: '#dc2626' }}>Reject Booking</h3>
+                  <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem' }}>Provide a reason for rejecting <strong>{rejectBkg.bookingRef}</strong>:</p>
+                  <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Enter rejection reason..." rows={3} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: '0.85rem', resize: 'vertical', boxSizing: 'border-box' }} />
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+                    <button onClick={async () => { const res = await fetch(`/api/admin/bookings/${rejectBkg.id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: rejectReason, rejectedBy: 'Admin' }) }); if (res.ok) { setBkgMsg('✅ Booking rejected.'); setRejectBkg(null); setRejectReason(''); setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Failed.'); }} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#dc2626', borderColor: 'transparent' }}>Confirm Reject</button>
+                    <button onClick={() => setRejectBkg(null)} className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {showReceipt && <BookingReceipt booking={showReceipt} onClose={() => setShowReceipt(null)} />}
           </div>
         )}
 

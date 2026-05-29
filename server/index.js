@@ -835,7 +835,8 @@ app.post('/api/bookings', (req, res) => {
   const resolvedDealerId = dealerId ? (dealers.find(d => d.id === dealerId && d.role !== 'admin') ? dealerId : null) : null;
   const booking = {
     id: ++bookingCounter, bookingRef: `UE-${bookingCounter}`,
-    plotId, plotNumber: plot.number, plotSize: plot.size, plotPrice: plot.price, area: plot.area,
+    plotId, plotNumber: plot.number, plotSize: plot.size,
+    plotPrice: computeEffectivePrice(plot.price, plot.tags || []), area: plot.area,
     name, fatherName, cnic, phone, email: email || '',
     residentialAddress, postalAddress, photo,
     nominee: { name: nomineeName, fatherName: nomineeFatherName, cnic: nomineeCnic, relation: nomineeRelation, phone: nomineePhone, address: nomineeAddress },
@@ -872,9 +873,15 @@ app.post('/api/admin/bookings/:id/approve', (req, res) => {
   booking.status = 'confirmed';
   booking.approvedAt = new Date().toISOString();
   booking.approvedBy = req.body.approvedBy || 'Operations';
+  booking.receiptNumber = `UE-RCPT-${booking.id}`;
   const plot = plots.find(p => p.id === booking.plotId);
   if (plot) plot.status = 'sold';
   res.json({ success: true, booking });
+});
+
+app.get('/api/admin/notifications', (req, res) => {
+  const pendingBookings = bookings.filter(b => b.status === 'pending').length;
+  res.json({ pendingBookings });
 });
 
 app.post('/api/admin/bookings/:id/reject', (req, res) => {

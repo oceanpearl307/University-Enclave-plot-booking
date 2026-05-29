@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import BookingReceipt from '../components/BookingReceipt.jsx';
 
 const fmt = n => n >= 1000000 ? 'PKR ' + (n / 1000000).toFixed(1) + 'M' : n > 0 ? 'PKR ' + (n / 1000).toFixed(0) + 'K' : 'PKR 0';
 const statusColor = { pending: '#d97706', confirmed: '#059669', rejected: '#dc2626' };
@@ -23,6 +24,7 @@ export default function OperationsDashboard({ staff, onLogout }) {
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [rejectModal, setRejectModal] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [showReceipt, setShowReceipt] = useState(null);
 
   const [plots, setPlots] = useState([]);
   const [plotsLoading, setPlotsLoading] = useState(false);
@@ -57,7 +59,13 @@ export default function OperationsDashboard({ staff, onLogout }) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approvedBy: staff.name }),
     });
-    if (res.ok) { setActionMsg('✅ Booking approved — plot marked as sold.'); setSelectedBooking(null); reloadBookings(); }
+    if (res.ok) {
+      const data = await res.json();
+      setActionMsg('✅ Booking approved — plot marked as sold.');
+      setSelectedBooking(null);
+      reloadBookings();
+      setShowReceipt(data.booking);
+    }
     else setActionMsg('❌ Failed to approve booking.');
   };
 
@@ -257,10 +265,15 @@ export default function OperationsDashboard({ staff, onLogout }) {
                     </div>
                   )}
                   {selectedBooking.status !== 'pending' && (
-                    <div style={{ background: statusBg[selectedBooking.status], border: `1px solid ${statusColor[selectedBooking.status]}33`, borderRadius: 10, padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 700, color: statusColor[selectedBooking.status] }}>
-                      {selectedBooking.status === 'confirmed' ? '✅ Approved' : '❌ Rejected'}
-                      {selectedBooking.approvedBy && <div style={{ fontSize: '0.75rem', fontWeight: 400, marginTop: '0.2rem' }}>by {selectedBooking.approvedBy}</div>}
-                      {selectedBooking.rejectionReason && <div style={{ fontSize: '0.75rem', fontWeight: 400, marginTop: '0.2rem' }}>Reason: {selectedBooking.rejectionReason}</div>}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      <div style={{ background: statusBg[selectedBooking.status], border: `1px solid ${statusColor[selectedBooking.status]}33`, borderRadius: 10, padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 700, color: statusColor[selectedBooking.status] }}>
+                        {selectedBooking.status === 'confirmed' ? '✅ Approved' : '❌ Rejected'}
+                        {selectedBooking.approvedBy && <div style={{ fontSize: '0.75rem', fontWeight: 400, marginTop: '0.2rem' }}>by {selectedBooking.approvedBy}</div>}
+                        {selectedBooking.rejectionReason && <div style={{ fontSize: '0.75rem', fontWeight: 400, marginTop: '0.2rem' }}>Reason: {selectedBooking.rejectionReason}</div>}
+                      </div>
+                      {selectedBooking.status === 'confirmed' && (
+                        <button onClick={() => setShowReceipt(selectedBooking)} style={{ background: 'linear-gradient(135deg, #1d4ed8, #2563eb)', color: '#fff', border: 'none', borderRadius: 10, padding: '0.7rem 1rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>🖨️ Print Receipt</button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -448,6 +461,8 @@ export default function OperationsDashboard({ staff, onLogout }) {
       </div>
 
       {/* Reject Modal */}
+      {showReceipt && <BookingReceipt booking={showReceipt} onClose={() => setShowReceipt(null)} />}
+
       {rejectModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
           <div style={{ background: '#fff', borderRadius: 16, padding: '2rem', maxWidth: 440, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
