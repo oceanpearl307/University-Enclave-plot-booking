@@ -221,7 +221,7 @@ export default function BookingReceipt({ booking, onClose }) {
                 1. This receipt confirms the booking of the above mentioned plot. Plot ownership is subject to full payment of the agreed amount.
                 &nbsp; 2. Down payment collected is non-refundable in case of cancellation by the buyer.
                 &nbsp; 3. The remaining balance is payable as per the installment schedule agreed upon at the time of booking.
-                &nbsp; 4. Any dispute shall be subject to the jurisdiction of courts in Lahore, Pakistan.
+                &nbsp; 4. Any dispute shall be subject to the jurisdiction of courts in , Pakistan.
               </div>
             </div>
           </div>
