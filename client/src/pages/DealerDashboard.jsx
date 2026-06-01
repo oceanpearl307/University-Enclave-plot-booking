@@ -252,15 +252,19 @@ export default function DealerDashboard({ dealer, onLogout, navigate }) {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
               {inventory.map(item => (
                 <div key={item.size} style={{ borderRadius: 12, border: `1.5px solid ${item.availableCount > 0 ? '#bbf7d0' : '#fecaca'}`, overflow: 'hidden' }}>
-                  <div style={{ background: item.availableCount > 0 ? 'linear-gradient(135deg, #f0fdf4, #dcfce7)' : '#fef2f2', padding: '0.875rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ background: item.availableCount > 0 ? 'linear-gradient(135deg, #f0fdf4, #dcfce7)' : item.assignedCount > 0 ? '#fef2f2' : '#fffbeb', padding: '0.875rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>{item.size}</div>
                     {item.availableCount > 0 ? (
                       <span style={{ background: '#059669', color: '#fff', borderRadius: 9999, padding: '0.2rem 0.625rem', fontSize: '0.72rem', fontWeight: 800 }}>
                         {item.availableCount} Available
                       </span>
-                    ) : (
+                    ) : item.assignedCount > 0 ? (
                       <span style={{ background: '#dc2626', color: '#fff', borderRadius: 9999, padding: '0.2rem 0.625rem', fontSize: '0.72rem', fontWeight: 800 }}>
                         Not Available
+                      </span>
+                    ) : (
+                      <span style={{ background: '#d97706', color: '#fff', borderRadius: 9999, padding: '0.2rem 0.625rem', fontSize: '0.72rem', fontWeight: 800 }}>
+                        Not Assigned
                       </span>
                     )}
                   </div>
@@ -282,10 +286,14 @@ export default function DealerDashboard({ dealer, onLogout, navigate }) {
                           </div>
                         ))}
                       </div>
-                    ) : (
+                    ) : item.assignedCount > 0 ? (
                       <div style={{ textAlign: 'center', padding: '0.75rem 0', color: '#94a3b8', fontSize: '0.82rem' }}>
-                        No plots of this size currently in inventory.<br />
-                        <span style={{ fontSize: '0.75rem' }}>Contact admin to add inventory.</span>
+                        All assigned plots are currently booked or sold.
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '0.75rem 0', color: '#92400e', fontSize: '0.82rem' }}>
+                        No plots of this size assigned yet.<br />
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Contact admin to assign plots.</span>
                       </div>
                     )}
                   </div>

@@ -462,12 +462,16 @@ app.get('/api/dealer/dashboard/:dealerId', (req, res) => {
   let inventory = null;
   if (target && target.sizes && target.sizes.length > 0) {
     inventory = target.sizes.map(s => {
-      const available = plots.filter(p => p.size === s.size && p.status === 'available');
+      const assignedIds = (target.assignedPlots || {})[s.size] || [];
+      const availablePlots = assignedIds.length > 0
+        ? plots.filter(p => assignedIds.includes(p.id) && p.status === 'available')
+        : [];
       return {
         size: s.size,
         quota: s.target,
-        availableCount: available.length,
-        plots: available.map(p => ({
+        assignedCount: assignedIds.length,
+        availableCount: availablePlots.length,
+        plots: availablePlots.map(p => ({
           id: p.id, number: p.number, area: p.area, size: p.size,
           price: computeEffectivePrice(p.price, p.tags || []),
           description: p.description || '',
@@ -516,7 +520,7 @@ app.post('/api/admin/targets/:dealerId', (req, res) => {
   const dealer = dealers.find(d => d.id === dealerId && d.role !== 'admin');
   if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
 
-  const { packageId, sizes, paymentTarget, notes } = req.body;
+  const { packageId, sizes, paymentTarget, notes, assignedPlots } = req.body;
 
   let resolvedSizes;
   if (packageId) {
@@ -531,10 +535,18 @@ app.post('/api/admin/targets/:dealerId', (req, res) => {
     });
   }
 
+  // Trim assignedPlots to each size's quota
+  const trimmedAssigned = {};
+  resolvedSizes.forEach(s => {
+    const ids = (assignedPlots || {})[s.size];
+    trimmedAssigned[s.size] = Array.isArray(ids) ? ids.slice(0, s.target) : [];
+  });
+
   dealerTargets[dealerId] = {
     dealerId, packageId: packageId ? parseInt(packageId) : null,
     paymentTarget: paymentTarget || 0,
     sizes: resolvedSizes,
+    assignedPlots: trimmedAssigned,
     assignedAt: new Date().toISOString(), notes: notes || '',
   };
 

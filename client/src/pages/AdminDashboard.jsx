@@ -154,18 +154,25 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   }, [tab]);
 
   // ── Dealer assign target ──
+  const [assignPanelPlots, setAssignPanelPlots] = useState([]);
+
   const openAssign = async (d) => {
     setSelected(d); setSaveMsg('');
-    const [res, depRes] = await Promise.all([
+    const [res, plotsData] = await Promise.all([
       fetch(`/api/admin/targets/${d.id}`).then(r => r.json()).catch(() => null),
-      Promise.resolve(d),
+      fetch('/api/plots').then(r => r.json()).catch(() => []),
     ]);
+    setAssignPanelPlots(plotsData);
     const initSizes = {};
     PLOT_SIZES.forEach(s => { initSizes[s] = 0; });
     if (res && res.sizes) res.sizes.forEach(s => { initSizes[s.size] = s.target; });
+    const initAssigned = {};
+    PLOT_SIZES.forEach(s => { initAssigned[s] = []; });
+    if (res?.assignedPlots) Object.entries(res.assignedPlots).forEach(([sz, ids]) => { initAssigned[sz] = ids || []; });
     setTForm({
       packageId: res?.packageId ? String(res.packageId) : '',
       sizes: initSizes,
+      assignedPlots: initAssigned,
       paymentTarget: res?.paymentTarget || '',
       notes: res?.notes || '',
       depositAmount: d.securityDepositRequired || 200000,
@@ -175,12 +182,14 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
 
   const handlePackageSelect = (pkgId) => {
     setTForm(f => {
-      if (!pkgId) return { ...f, packageId: '' };
+      const resetAssigned = {};
+      PLOT_SIZES.forEach(s => { resetAssigned[s] = []; });
+      if (!pkgId) return { ...f, packageId: '', assignedPlots: resetAssigned };
       const pkg = packages.find(p => p.id === parseInt(pkgId));
-      if (!pkg) return { ...f, packageId: pkgId };
+      if (!pkg) return { ...f, packageId: pkgId, assignedPlots: resetAssigned };
       const newSizes = {};
       pkg.sizes.forEach(s => { newSizes[s.size] = s.quota; });
-      return { ...f, packageId: pkgId, sizes: newSizes };
+      return { ...f, packageId: pkgId, sizes: newSizes, assignedPlots: resetAssigned };
     });
   };
 
@@ -188,7 +197,9 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
     e.preventDefault(); setSaving(true); setSaveMsg('');
     try {
       const sizes = PLOT_SIZES.map(s => ({ size: s, target: parseInt(tForm.sizes[s]) || 0 }));
-      const body = { sizes, paymentTarget: parseInt(tForm.paymentTarget) || 0, notes: tForm.notes };
+      const assignedPlots = {};
+      PLOT_SIZES.forEach(s => { assignedPlots[s] = (tForm.assignedPlots?.[s] || []).slice(0, parseInt(tForm.sizes[s]) || 0); });
+      const body = { sizes, paymentTarget: parseInt(tForm.paymentTarget) || 0, notes: tForm.notes, assignedPlots };
       if (tForm.packageId) body.packageId = parseInt(tForm.packageId);
       await fetch(`/api/admin/targets/${selected.id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       await fetch(`/api/admin/dealers/${selected.id}/deposit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paid: tForm.depositPaid, amount: parseInt(tForm.depositAmount) || 0 }) });
@@ -758,7 +769,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                     </div>
 
                     <div>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151', marginBottom: '0.75rem' }}>🎯 Plot Size Targets</div>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151', marginBottom: '0.75rem' }}>🎯 Plot Quota per Size {tForm.packageId && <span style={{ fontWeight: 500, color: '#94a3b8', fontSize: '0.72rem' }}>(auto-filled from package)</span>}</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
                         {PLOT_SIZES.map(size => (
                           <div key={size} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#f8fafc', borderRadius: 10, padding: '0.5rem 0.875rem', border: '1px solid #e2e8f0' }}>
@@ -772,9 +783,80 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                         ))}
                       </div>
                       <div style={{ marginTop: '0.625rem', padding: '0.5rem 0.875rem', background: '#f0fdf4', borderRadius: 8, fontSize: '0.78rem', color: '#065f46', fontWeight: 600, border: '1px solid #bbf7d0' }}>
-                        Total: {PLOT_SIZES.reduce((sum, s) => sum + (parseInt(tForm.sizes[s]) || 0), 0)} plots
+                        Total quota: {PLOT_SIZES.reduce((sum, s) => sum + (parseInt(tForm.sizes[s]) || 0), 0)} plots
                       </div>
                     </div>
+
+                    {/* ── Plot Assignment Picker ── */}
+                    {PLOT_SIZES.some(s => (tForm.sizes[s] || 0) > 0) && (
+                      <div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151', marginBottom: '0.625rem' }}>🗂️ Assign Specific Plots from Inventory</div>
+                        <p style={{ fontSize: '0.73rem', color: '#94a3b8', marginBottom: '0.75rem', lineHeight: 1.5 }}>
+                          Select exact plot numbers for each size — dealer will only see these assigned plots. Max per size = quota above.
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          {PLOT_SIZES.filter(size => (tForm.sizes[size] || 0) > 0).map(size => {
+                            const quota = parseInt(tForm.sizes[size]) || 0;
+                            const availForSize = assignPanelPlots.filter(p => p.size === size && p.status === 'available');
+                            const selectedIds = tForm.assignedPlots?.[size] || [];
+                            const atQuota = selectedIds.length >= quota;
+                            return (
+                              <div key={size} style={{ borderRadius: 10, border: `1.5px solid ${selectedIds.length > 0 ? '#bbf7d0' : '#e2e8f0'}`, overflow: 'hidden' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.5rem 0.75rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0f172a' }}>{size}</span>
+                                  <span style={{ background: atQuota ? '#d1fae5' : '#fef3c7', color: atQuota ? '#065f46' : '#92400e', borderRadius: 9999, padding: '0.15rem 0.5rem', fontSize: '0.7rem', fontWeight: 800 }}>
+                                    {selectedIds.length}/{quota} selected
+                                  </span>
+                                </div>
+                                <div style={{ padding: '0.5rem 0.75rem' }}>
+                                  {availForSize.length === 0 ? (
+                                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic', padding: '0.25rem 0' }}>
+                                      No available plots of this size in inventory
+                                    </div>
+                                  ) : (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', maxHeight: 110, overflowY: 'auto', paddingRight: '0.25rem' }}>
+                                      {availForSize.map(p => {
+                                        const isSel = selectedIds.includes(p.id);
+                                        const disabled = !isSel && atQuota;
+                                        return (
+                                          <button
+                                            key={p.id}
+                                            type="button"
+                                            title={`${p.number}${p.area ? ` · ${p.area}` : ''}${p.description ? ` · ${p.description}` : ''}`}
+                                            disabled={disabled}
+                                            onClick={() => setTForm(f => {
+                                              const cur = f.assignedPlots?.[size] || [];
+                                              const updated = isSel ? cur.filter(id => id !== p.id) : (cur.length < quota ? [...cur, p.id] : cur);
+                                              return { ...f, assignedPlots: { ...f.assignedPlots, [size]: updated } };
+                                            })}
+                                            style={{ padding: '0.2rem 0.5rem', borderRadius: 7, border: '1.5px solid', fontSize: '0.72rem', fontWeight: 700, cursor: disabled ? 'not-allowed' : 'pointer', background: isSel ? '#1a6b3c' : disabled ? '#f1f5f9' : '#fff', color: isSel ? '#fff' : disabled ? '#cbd5e1' : '#374151', borderColor: isSel ? '#1a6b3c' : disabled ? '#e2e8f0' : '#cbd5e1', fontFamily: 'monospace', transition: 'all 0.12s' }}
+                                          >
+                                            {p.number}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                                {selectedIds.length > 0 && (
+                                  <div style={{ padding: '0.3rem 0.75rem 0.5rem', fontSize: '0.7rem', color: '#374151' }}>
+                                    <span style={{ fontWeight: 600 }}>Assigned: </span>
+                                    {selectedIds.map(id => {
+                                      const p = assignPanelPlots.find(x => x.id === id);
+                                      return p ? <span key={id} style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 5, padding: '0.1rem 0.35rem', marginRight: '0.2rem', fontFamily: 'monospace', fontWeight: 700, color: '#1a6b3c' }}>{p.number}</span> : null;
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div style={{ marginTop: '0.625rem', padding: '0.5rem 0.875rem', background: '#f0fdf4', borderRadius: 8, fontSize: '0.78rem', color: '#065f46', fontWeight: 600, border: '1px solid #bbf7d0', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>Total assigned</span>
+                          <span>{Object.values(tForm.assignedPlots || {}).reduce((s, ids) => s + ids.length, 0)} / {PLOT_SIZES.reduce((sum, s) => sum + (parseInt(tForm.sizes[s]) || 0), 0)} quota</span>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="form-group">
                       <label>💰 Payment Target (PKR)</label>
