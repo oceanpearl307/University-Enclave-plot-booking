@@ -458,13 +458,32 @@ app.get('/api/dealer/dashboard/:dealerId', (req, res) => {
     ...d, plots: d.plotIds.map(id => plots.find(p => p.id === id)).filter(Boolean),
   }));
 
+  // ── Inventory: per package-size, available plots ──────────────────────────
+  let inventory = null;
+  if (target && target.sizes && target.sizes.length > 0) {
+    inventory = target.sizes.map(s => {
+      const available = plots.filter(p => p.size === s.size && p.status === 'available');
+      return {
+        size: s.size,
+        quota: s.target,
+        availableCount: available.length,
+        plots: available.map(p => ({
+          id: p.id, number: p.number, area: p.area, size: p.size,
+          price: computeEffectivePrice(p.price, p.tags || []),
+          description: p.description || '',
+          tags: p.tags || [],
+        })),
+      };
+    });
+  }
+
   res.json({
     dealer: { id: dealer.id, name: dealer.name, username: dealer.username, securityDepositPaid: dealer.securityDepositPaid || false, securityDepositRequired: dealer.securityDepositRequired || 0, rewardGiven: dealer.rewardGiven || false },
     target: target ? { ...target, totalTarget, paymentTarget: target.paymentTarget, packageId: target.packageId } : null,
     package: pkg ? { id: pkg.id, name: pkg.name, rewardDescription: pkg.rewardDescription, rewardAmount: pkg.rewardAmount } : null,
     sizeBreakdown, targetPct,
     stats: { achieved, totalTarget, paymentsCollected, paymentTarget: target?.paymentTarget || 0 },
-    monthlySales, plotDistribution, recentBookings, activeDeals,
+    monthlySales, plotDistribution, recentBookings, activeDeals, inventory,
   });
 });
 

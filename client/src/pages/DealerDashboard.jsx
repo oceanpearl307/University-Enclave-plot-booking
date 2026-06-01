@@ -78,7 +78,7 @@ export default function DealerDashboard({ dealer, onLogout, navigate }) {
     <div className="empty-state"><h3>Failed to load dashboard</h3><p>Please refresh the page.</p></div>
   );
 
-  const { target, sizeBreakdown, stats, monthlySales, plotDistribution, recentBookings, activeDeals, package: pkg, targetPct: rawPct } = data;
+  const { target, sizeBreakdown, stats, monthlySales, plotDistribution, recentBookings, activeDeals, inventory, package: pkg, targetPct: rawPct } = data;
   const dealerInfo = data.dealer;
 
   const totalTarget = stats.totalTarget || 0;
@@ -235,6 +235,67 @@ export default function DealerDashboard({ dealer, onLogout, navigate }) {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Inventory */}
+        {inventory && (
+          <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div>
+                <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>My Inventory</h3>
+                <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Available plots from the society inventory for your assigned package sizes</p>
+              </div>
+              {pkg && <span style={{ background: '#eff6ff', color: '#1d4ed8', borderRadius: 8, padding: '0.25rem 0.75rem', fontSize: '0.75rem', fontWeight: 700 }}>📦 {pkg.name}</span>}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
+              {inventory.map(item => (
+                <div key={item.size} style={{ borderRadius: 12, border: `1.5px solid ${item.availableCount > 0 ? '#bbf7d0' : '#fecaca'}`, overflow: 'hidden' }}>
+                  <div style={{ background: item.availableCount > 0 ? 'linear-gradient(135deg, #f0fdf4, #dcfce7)' : '#fef2f2', padding: '0.875rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>{item.size}</div>
+                    {item.availableCount > 0 ? (
+                      <span style={{ background: '#059669', color: '#fff', borderRadius: 9999, padding: '0.2rem 0.625rem', fontSize: '0.72rem', fontWeight: 800 }}>
+                        {item.availableCount} Available
+                      </span>
+                    ) : (
+                      <span style={{ background: '#dc2626', color: '#fff', borderRadius: 9999, padding: '0.2rem 0.625rem', fontSize: '0.72rem', fontWeight: 800 }}>
+                        Not Available
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ padding: '0.75rem 1rem' }}>
+                    {item.availableCount > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: 180, overflowY: 'auto' }}>
+                        {item.plots.map(p => (
+                          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', borderRadius: 8, padding: '0.5rem 0.75rem' }}>
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#1a6b3c', fontFamily: 'monospace' }}>{p.number}</div>
+                              <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{p.area}{p.description ? ` · ${p.description}` : ''}</div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontWeight: 800, fontSize: '0.82rem', color: '#0f172a' }}>{fmt(p.price)}</div>
+                              {p.tags?.includes('corner') || p.tags?.includes('park-facing') ? (
+                                <div style={{ fontSize: '0.65rem', color: '#d97706', fontWeight: 700 }}>★ Premium</div>
+                              ) : null}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '0.75rem 0', color: '#94a3b8', fontSize: '0.82rem' }}>
+                        No plots of this size currently in inventory.<br />
+                        <span style={{ fontSize: '0.75rem' }}>Contact admin to add inventory.</span>
+                      </div>
+                    )}
+                  </div>
+                  {item.quota > 0 && (
+                    <div style={{ padding: '0.5rem 1rem', borderTop: '1px solid #f1f5f9', fontSize: '0.72rem', color: '#94a3b8' }}>
+                      Your target quota: <strong style={{ color: '#374151' }}>{item.quota} plots</strong>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
