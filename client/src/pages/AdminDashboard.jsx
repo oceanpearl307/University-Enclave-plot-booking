@@ -92,8 +92,15 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   const [rejectReason, setRejectReason] = useState('');
   const [bkgMsg, setBkgMsg] = useState('');
   const [showReceipt, setShowReceipt] = useState(null);
+  const [deleteBkg, setDeleteBkg] = useState(null);
+  const [bkgSearch, setBkgSearch] = useState('');
   const loadBookings = () => { setBkgsLoading(true); fetch('/api/admin/bookings').then(r => r.json()).then(d => { setBkgs(d); setBkgsLoading(false); }).catch(() => setBkgsLoading(false)); };
   const pendingBkgCount = bkgs.filter(b => b.status === 'pending').length;
+  const handleDeleteBkg = async (b) => {
+    const res = await fetch(`/api/admin/bookings/${b.id}`, { method: 'DELETE' });
+    if (res.ok) { setBkgMsg('✅ Booking deleted — plot released.'); if (selectedBkg?.id === b.id) setSelectedBkg(null); setDeleteBkg(null); loadBookings(); }
+    else setBkgMsg('❌ Delete failed.');
+  };
 
   // ── Deals tab ──
   const [deals, setDeals] = useState([]);
@@ -1033,18 +1040,28 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
             {bkgMsg && <div className={bkgMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ marginBottom: '1.25rem' }}>{bkgMsg}</div>}
             <div style={{ display: 'grid', gridTemplateColumns: selectedBkg ? '1fr 400px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
               <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
                   <div>
                     <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Plot Bookings</h3>
-                    <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Click a row to view full details. Approve or reject pending bookings.</p>
+                    <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Click a row to view details. Approve, reject or delete bookings.</p>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                     {[['All', ''], ['Pending', 'pending'], ['Confirmed', 'confirmed'], ['Rejected', 'rejected']].map(([label, val]) => (
                       <span key={label} style={{ background: val === 'pending' && pendingBkgCount > 0 ? '#fef3c7' : '#f1f5f9', color: val === 'pending' && pendingBkgCount > 0 ? '#92400e' : '#374151', borderRadius: 8, padding: '0.25rem 0.625rem', fontSize: '0.75rem', fontWeight: 700 }}>
                         {label}: {val ? bkgs.filter(b => b.status === val).length : bkgs.length}
                       </span>
                     ))}
                   </div>
+                </div>
+                <div style={{ marginBottom: '1rem' }}>
+                  <input
+                    value={bkgSearch}
+                    onChange={e => setBkgSearch(e.target.value)}
+                    placeholder="🔍  Search by client name or CNIC..."
+                    style={{ width: '100%', padding: '0.6rem 0.875rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box', background: '#f8fafc' }}
+                    onFocus={e => e.target.style.borderColor = '#1a6b3c'}
+                    onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+                  />
                 </div>
                 {bkgsLoading ? <div className="loading"><div className="spinner"></div>Loading...</div> : bkgs.filter(b => !b._placeholder).length === 0 ? (
                   <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
@@ -1062,7 +1079,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                         </tr>
                       </thead>
                       <tbody>
-                        {bkgs.filter(b => !b._placeholder).map(b => (
+                        {bkgs.filter(b => !b._placeholder && (!bkgSearch.trim() || b.name?.toLowerCase().includes(bkgSearch.toLowerCase()) || b.cnic?.includes(bkgSearch))).map(b => (
                           <tr key={b.id}
                             style={{ borderBottom: '1px solid #f8fafc', background: selectedBkg?.id === b.id ? '#f0fdf4' : 'transparent', cursor: 'pointer' }}
                             onClick={() => setSelectedBkg(selectedBkg?.id === b.id ? null : b)}
@@ -1089,7 +1106,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                                 {b.status === 'confirmed' && (
                                   <button onClick={() => setShowReceipt(b)} style={{ padding: '0.3rem 0.55rem', background: '#eff6ff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#1d4ed8' }}>🖨️</button>
                                 )}
-                                <button onClick={async () => { if (!confirm(`Delete booking ${b.bookingRef}? The plot will be released back to available.`)) return; const res = await fetch(`/api/admin/bookings/${b.id}`, { method: 'DELETE' }); if (res.ok) { setBkgMsg('✅ Booking deleted.'); if (selectedBkg?.id === b.id) setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Delete failed.'); }} style={{ padding: '0.3rem 0.55rem', background: '#fef2f2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#b91c1c' }} title="Delete booking">🗑️</button>
+                                <button onClick={() => setDeleteBkg(b)} style={{ padding: '0.3rem 0.55rem', background: '#fef2f2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#b91c1c' }} title="Delete booking">🗑️</button>
                               </div>
                             </td>
                           </tr>
@@ -1181,11 +1198,32 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                         {selectedBkg.rejectionReason && <div style={{ fontSize: '0.75rem', fontWeight: 400, marginTop: '0.2rem' }}>Reason: {selectedBkg.rejectionReason}</div>}
                       </div>
                     )}
-                    <button onClick={async () => { if (!confirm(`Delete booking ${selectedBkg.bookingRef}? The plot will be released back to available.`)) return; const res = await fetch(`/api/admin/bookings/${selectedBkg.id}`, { method: 'DELETE' }); if (res.ok) { setBkgMsg('✅ Booking deleted.'); setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Delete failed.'); }} style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 10, padding: '0.65rem 1rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}>🗑️ Delete Booking</button>
+                    <button onClick={() => setDeleteBkg(selectedBkg)} style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 10, padding: '0.65rem 1rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}>🗑️ Delete Booking</button>
                   </div>
                 </div>
               )}
             </div>
+
+            {deleteBkg && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 5100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                <div style={{ background: '#fff', borderRadius: 16, padding: '2rem', maxWidth: 440, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 10, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem', flexShrink: 0 }}>🗑️</div>
+                    <h3 style={{ fontWeight: 800, color: '#0f172a', margin: 0 }}>Delete Booking</h3>
+                  </div>
+                  <p style={{ fontSize: '0.875rem', color: '#64748b', marginBottom: '0.5rem', lineHeight: 1.6 }}>
+                    You are about to permanently delete booking <strong style={{ color: '#0f172a' }}>{deleteBkg.bookingRef}</strong> for <strong style={{ color: '#0f172a' }}>{deleteBkg.name}</strong>.
+                  </p>
+                  <p style={{ fontSize: '0.8rem', color: '#b45309', background: '#fef3c7', borderRadius: 8, padding: '0.6rem 0.875rem', marginBottom: '1.5rem' }}>
+                    ⚠️ Plot <strong>{deleteBkg.plotNumber}</strong> will be released back to available.
+                  </p>
+                  <div style={{ display: 'flex', gap: '0.75rem' }}>
+                    <button onClick={() => handleDeleteBkg(deleteBkg)} style={{ flex: 1, background: '#dc2626', color: '#fff', border: 'none', borderRadius: 10, padding: '0.7rem 1rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem' }}>Yes, Delete</button>
+                    <button onClick={() => setDeleteBkg(null)} style={{ flex: 1, background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 10, padding: '0.7rem 1rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.875rem' }}>Cancel</button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {rejectBkg && (
               <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 5000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
