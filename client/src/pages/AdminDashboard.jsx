@@ -1089,6 +1089,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                                 {b.status === 'confirmed' && (
                                   <button onClick={() => setShowReceipt(b)} style={{ padding: '0.3rem 0.55rem', background: '#eff6ff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#1d4ed8' }}>🖨️</button>
                                 )}
+                                <button onClick={async () => { if (!confirm(`Delete booking ${b.bookingRef}? The plot will be released back to available.`)) return; const res = await fetch(`/api/admin/bookings/${b.id}`, { method: 'DELETE' }); if (res.ok) { setBkgMsg('✅ Booking deleted.'); if (selectedBkg?.id === b.id) setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Delete failed.'); }} style={{ padding: '0.3rem 0.55rem', background: '#fef2f2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#b91c1c' }} title="Delete booking">🗑️</button>
                               </div>
                             </td>
                           </tr>
@@ -1180,6 +1181,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                         {selectedBkg.rejectionReason && <div style={{ fontSize: '0.75rem', fontWeight: 400, marginTop: '0.2rem' }}>Reason: {selectedBkg.rejectionReason}</div>}
                       </div>
                     )}
+                    <button onClick={async () => { if (!confirm(`Delete booking ${selectedBkg.bookingRef}? The plot will be released back to available.`)) return; const res = await fetch(`/api/admin/bookings/${selectedBkg.id}`, { method: 'DELETE' }); if (res.ok) { setBkgMsg('✅ Booking deleted.'); setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Delete failed.'); }} style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 10, padding: '0.65rem 1rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}>🗑️ Delete Booking</button>
                   </div>
                 </div>
               )}

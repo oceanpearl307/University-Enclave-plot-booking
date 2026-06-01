@@ -217,27 +217,8 @@ let deals = [
 let dealCounter = 1;
 
 // ─── Bookings ─────────────────────────────────────────────────────────────────
-let bookings = [
-  {
-    id: 1001, bookingRef: 'UE-1001', plotId: 2, plotNumber: 'A-102', plotSize: '7 Marla',
-    plotPrice: 3500000, area: 'Block A', name: 'Farhan Malik', email: 'farhan@email.com',
-    phone: '0311-1111111', cnic: '35201-0000001-1', dealerId: 2,
-    status: 'confirmed', createdAt: '2026-04-10T10:00:00.000Z',
-  },
-  {
-    id: 1002, bookingRef: 'UE-1002', plotId: 5, plotNumber: 'B-202', plotSize: '7 Marla',
-    plotPrice: 3200000, area: 'Block B', name: 'Nadia Iqbal', email: 'nadia@email.com',
-    phone: '0312-2222222', cnic: '35201-0000002-2', dealerId: 3,
-    status: 'confirmed', createdAt: '2026-04-12T10:00:00.000Z',
-  },
-  {
-    id: 1003, bookingRef: 'UE-1003', plotId: 10, plotNumber: 'D-402', plotSize: '4 Marla',
-    plotPrice: 4000000, area: 'Block D', name: 'Bilal Ahmed', email: 'bilal@email.com',
-    phone: '0313-3333333', cnic: '35201-0000003-3', dealerId: 2,
-    status: 'pending', createdAt: '2026-04-18T10:00:00.000Z',
-  },
-];
-let bookingCounter = 1003;
+let bookings = [];
+let bookingCounter = 1000;
 
 let customers = [];
 let customerCounter = 100;
@@ -895,6 +876,15 @@ app.post('/api/admin/bookings/:id/reject', (req, res) => {
   const plot = plots.find(p => p.id === booking.plotId);
   if (plot && plot.status === 'booked') plot.status = 'available';
   res.json({ success: true, booking });
+});
+
+app.delete('/api/admin/bookings/:id', (req, res) => {
+  const idx = bookings.findIndex(b => b.id === parseInt(req.params.id));
+  if (idx === -1) return res.status(404).json({ error: 'Booking not found' });
+  const [booking] = bookings.splice(idx, 1);
+  const plot = plots.find(p => p.id === booking.plotId);
+  if (plot && (plot.status === 'booked' || plot.status === 'sold')) plot.status = 'available';
+  res.json({ success: true });
 });
 
 // ─── Admin: Operations Staff CRUD ────────────────────────────────────────────
