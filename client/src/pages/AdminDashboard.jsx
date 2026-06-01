@@ -99,7 +99,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   const handleDeleteBkg = async (b) => {
     const res = await fetch(`/api/admin/bookings/${b.id}`, { method: 'DELETE' });
     if (res.ok) { setBkgMsg('✅ Booking deleted — plot released.'); if (selectedBkg?.id === b.id) setSelectedBkg(null); setDeleteBkg(null); loadBookings(); }
-    else setBkgMsg('❌ Delete failed.');
+    else { const data = await res.json().catch(() => ({})); setBkgMsg(`❌ Delete failed: ${data.error || res.status}`); setDeleteBkg(null); }
   };
 
   // ── Deals tab ──

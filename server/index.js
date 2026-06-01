@@ -879,11 +879,15 @@ app.post('/api/admin/bookings/:id/reject', (req, res) => {
 });
 
 app.delete('/api/admin/bookings/:id', (req, res) => {
-  const idx = bookings.findIndex(b => b.id === parseInt(req.params.id));
-  if (idx === -1) return res.status(404).json({ error: 'Booking not found' });
+  const rawId = req.params.id;
+  const numId = parseInt(rawId);
+  console.log(`[DELETE /api/admin/bookings/${rawId}] parsed=${numId} totalBookings=${bookings.length} ids=${JSON.stringify(bookings.map(b => b.id))}`);
+  const idx = bookings.findIndex(b => b.id === numId);
+  if (idx === -1) return res.status(404).json({ error: `Booking not found. id=${numId}, existing ids: ${bookings.map(b=>b.id).join(',')}` });
   const [booking] = bookings.splice(idx, 1);
   const plot = plots.find(p => p.id === booking.plotId);
   if (plot && (plot.status === 'booked' || plot.status === 'sold')) plot.status = 'available';
+  console.log(`[DELETE] Removed booking id=${numId} ref=${booking.bookingRef}`);
   res.json({ success: true });
 });
 
