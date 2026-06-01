@@ -1,13 +1,17 @@
 import React, { useEffect, useState } from 'react';
 
-export default function Plots({ navigate }) {
+export default function Plots({ navigate, dealer }) {
   const [plots, setPlots] = useState([]);
   const [allAreas, setAllAreas] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ status: '', category: '', area: '' });
 
+  const isDealer = dealer?.role === 'dealer';
+
   useEffect(() => {
-    fetch('/api/plots')
+    const params = new URLSearchParams();
+    if (isDealer) params.set('dealerId', dealer.id);
+    fetch('/api/plots?' + params)
       .then(r => r.json())
       .then(data => {
         const areas = [...new Set(data.map(p => p.area).filter(Boolean))].sort();
@@ -22,6 +26,7 @@ export default function Plots({ navigate }) {
     if (filters.status) params.set('status', filters.status);
     if (filters.category) params.set('category', filters.category);
     if (filters.area) params.set('area', filters.area);
+    if (isDealer) params.set('dealerId', dealer.id);
     fetch('/api/plots?' + params)
       .then(r => r.json())
       .then(data => { setPlots(data); setLoading(false); })
@@ -45,7 +50,13 @@ export default function Plots({ navigate }) {
   return (
     <div style={{ padding: '2rem 1.5rem', maxWidth: 1200, margin: '0 auto' }}>
       <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>Available Plots</h1>
-      <p style={{ color: '#6b7280', marginBottom: '2rem' }}>Browse and book your preferred plot in University Enclave</p>
+      <p style={{ color: '#6b7280', marginBottom: isDealer ? '1rem' : '2rem' }}>Browse and book your preferred plot in University Enclave</p>
+      {isDealer && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 10, padding: '0.625rem 1rem', marginBottom: '2rem', fontSize: '0.82rem', color: '#1d4ed8', fontWeight: 600 }}>
+          <span style={{ fontSize: '1rem' }}>🔒</span>
+          Showing only plots assigned to your package — contact admin to update your allocation.
+        </div>
+      )}
 
       <div style={{
         background: '#fff',

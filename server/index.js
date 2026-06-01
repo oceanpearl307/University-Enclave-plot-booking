@@ -813,11 +813,30 @@ app.post('/api/customers/register', (req, res) => {
 
 // ─── Plots (public) ───────────────────────────────────────────────────────────
 app.get('/api/plots', (req, res) => {
-  const { status, category, area } = req.query;
+  const { status, category, area, dealerId } = req.query;
   let filtered = [...plots];
   if (status) filtered = filtered.filter(p => p.status === status);
   if (category) filtered = filtered.filter(p => p.category === category);
   if (area) filtered = filtered.filter(p => p.area === area);
+
+  // ── Dealer-scoped filter ──────────────────────────────────────────────────
+  if (dealerId) {
+    const target = dealerTargets[parseInt(dealerId)];
+    if (target && target.sizes && target.sizes.length > 0) {
+      const allowedIds = new Set();
+      target.sizes.forEach(s => {
+        if ((s.target || 0) <= 0) return;
+        const assignedIds = (target.assignedPlots || {})[s.size] || [];
+        if (assignedIds.length > 0) {
+          assignedIds.forEach(id => allowedIds.add(id));
+        } else {
+          filtered.filter(p => p.size === s.size).forEach(p => allowedIds.add(p.id));
+        }
+      });
+      filtered = filtered.filter(p => allowedIds.has(p.id));
+    }
+  }
+
   res.json(filtered.map(withEffectivePrice));
 });
 
