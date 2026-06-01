@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatCnic, isValidCnic } from '../utils/cnic.js';
 
 const STEPS = ['Business Info', 'Contact Details'];
 const req = <span style={{ color: '#dc2626' }}>*</span>;
@@ -21,6 +22,9 @@ export default function DealerRegisterModal({ onClose, onSuccess }) {
     e.preventDefault();
     if (!form.name || !form.fatherName || !form.cnic || !form.postalAddress || !form.businessName || !form.businessCities) {
       setError('Please fill in all required fields.'); return;
+    }
+    if (!isValidCnic(form.cnic)) {
+      setError('Please enter a valid CNIC in the format: XXXXX-XXXXXXX-X (e.g. 35201-1234567-9)'); return;
     }
     setError('');
     setStep(1);
@@ -113,7 +117,9 @@ export default function DealerRegisterModal({ onClose, onSuccess }) {
               </div>
               <div className="form-group">
                 <label>CNIC {req}</label>
-                <input required value={form.cnic} onChange={e => set('cnic', e.target.value)} placeholder="e.g. 35201-1234567-9" />
+                <input required value={form.cnic} onChange={e => set('cnic', formatCnic(e.target.value))} placeholder="35201-1234567-9" maxLength={15} style={{ fontFamily: 'monospace', letterSpacing: '0.04em' }} />
+                {form.cnic && !isValidCnic(form.cnic) && <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.3rem' }}>⚠️ Format must be: XXXXX-XXXXXXX-X</div>}
+                {form.cnic && isValidCnic(form.cnic) && <div style={{ color: '#059669', fontSize: '0.75rem', marginTop: '0.3rem' }}>✅ Valid CNIC format</div>}
               </div>
               <div className="form-group">
                 <label>Postal / Home Address {req}</label>

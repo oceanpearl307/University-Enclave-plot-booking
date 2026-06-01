@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { PAYMENT_PLANS, PaymentPlanCard, generatePaymentSchedule, pkr } from '../components/PaymentPlanTable.jsx';
+import { formatCnic, isValidCnic } from '../utils/cnic.js';
 
 export default function BookingForm({ plot, navigate, dealer }) {
   const plotPrice = plot ? (plot.effectivePrice || plot.price) : 0;
@@ -130,7 +131,14 @@ export default function BookingForm({ plot, navigate, dealer }) {
     );
   }
 
-  const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  const handleChange = e => {
+    const { name, value } = e.target;
+    if (name === 'cnic' || name === 'nomineeCnic') {
+      setForm(f => ({ ...f, [name]: formatCnic(value) }));
+    } else {
+      setForm(f => ({ ...f, [name]: value }));
+    }
+  };
 
   const handlePhoto = e => {
     const file = e.target.files[0];
@@ -233,7 +241,9 @@ export default function BookingForm({ plot, navigate, dealer }) {
                   <div className="grid-2">
                     <div className="form-group">
                       <label>CNIC Number <span className="required">*</span></label>
-                      <input name="cnic" value={form.cnic} onChange={handleChange} placeholder="35201-1234567-1" required />
+                      <input name="cnic" value={form.cnic} onChange={handleChange} placeholder="35201-1234567-1" maxLength={15} required style={{ fontFamily: 'monospace', letterSpacing: '0.04em' }} />
+                      {form.cnic && !isValidCnic(form.cnic) && <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.3rem' }}>⚠️ Format must be: XXXXX-XXXXXXX-X</div>}
+                      {form.cnic && isValidCnic(form.cnic) && <div style={{ color: '#059669', fontSize: '0.75rem', marginTop: '0.3rem' }}>✅ Valid CNIC format</div>}
                     </div>
                     <div className="form-group">
                       <label>Phone Number <span className="required">*</span></label>
@@ -312,7 +322,9 @@ export default function BookingForm({ plot, navigate, dealer }) {
                   <div className="grid-2">
                     <div className="form-group">
                       <label>Nominee CNIC Number <span className="required">*</span></label>
-                      <input name="nomineeCnic" value={form.nomineeCnic} onChange={handleChange} placeholder="35201-7654321-1" required />
+                      <input name="nomineeCnic" value={form.nomineeCnic} onChange={handleChange} placeholder="35201-7654321-1" maxLength={15} required style={{ fontFamily: 'monospace', letterSpacing: '0.04em' }} />
+                      {form.nomineeCnic && !isValidCnic(form.nomineeCnic) && <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.3rem' }}>⚠️ Format must be: XXXXX-XXXXXXX-X</div>}
+                      {form.nomineeCnic && isValidCnic(form.nomineeCnic) && <div style={{ color: '#059669', fontSize: '0.75rem', marginTop: '0.3rem' }}>✅ Valid CNIC format</div>}
                     </div>
                     <div className="form-group">
                       <label>Relation to Buyer <span className="required">*</span></label>

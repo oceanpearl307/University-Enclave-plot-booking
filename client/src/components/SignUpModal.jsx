@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { formatCnic, isValidCnic } from '../utils/cnic.js';
 
 export default function SignUpModal({ onClose, onSuccess }) {
   const [form, setForm] = useState({ name: '', email: '', phone: '', cnic: '', password: '', confirm: '' });
@@ -6,7 +7,10 @@ export default function SignUpModal({ onClose, onSuccess }) {
   const [error, setError] = useState('');
   const [step, setStep] = useState(1);
 
-  const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  const handleChange = e => {
+    const { name, value } = e.target;
+    setForm(f => ({ ...f, [name]: name === 'cnic' ? formatCnic(value) : value }));
+  };
 
   const handleNext = e => {
     e.preventDefault();
@@ -23,6 +27,10 @@ export default function SignUpModal({ onClose, onSuccess }) {
     }
     if (form.password.length < 6) {
       setError('Password must be at least 6 characters');
+      return;
+    }
+    if (!isValidCnic(form.cnic)) {
+      setError('Please enter a valid CNIC: XXXXX-XXXXXXX-X (e.g. 35201-1234567-9)');
       return;
     }
     setLoading(true);
@@ -100,7 +108,9 @@ export default function SignUpModal({ onClose, onSuccess }) {
           <form onSubmit={handleSubmit} style={{ padding: '1.25rem 1.5rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <div className="form-group">
               <label>CNIC Number <span className="required">*</span></label>
-              <input name="cnic" value={form.cnic} onChange={handleChange} placeholder="35201-1234567-1" required />
+              <input name="cnic" value={form.cnic} onChange={handleChange} placeholder="35201-1234567-1" maxLength={15} required style={{ fontFamily: 'monospace', letterSpacing: '0.04em' }} />
+              {form.cnic && !isValidCnic(form.cnic) && <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.3rem' }}>⚠️ Format must be: XXXXX-XXXXXXX-X</div>}
+              {form.cnic && isValidCnic(form.cnic) && <div style={{ color: '#059669', fontSize: '0.75rem', marginTop: '0.3rem' }}>✅ Valid CNIC format</div>}
             </div>
             <div className="form-group">
               <label>Password <span className="required">*</span></label>
