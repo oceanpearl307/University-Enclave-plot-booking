@@ -401,13 +401,34 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   };
 
   // ── Excel import ──
+  const CNIC_PRICE_RULES = [
+    { keywords: ['park facing+corner', 'main boulevard'], multiplier: 1.15 },
+    { keywords: ['corner', 'park facing'], multiplier: 1.10 },
+  ];
+  const descMultiplier = (desc) => {
+    const d = (desc || '').toLowerCase().trim();
+    for (const rule of CNIC_PRICE_RULES) {
+      if (rule.keywords.includes(d)) return rule.multiplier;
+    }
+    return 1.0;
+  };
+
   const downloadTemplate = () => {
     const ws = XLSX.utils.aoa_to_sheet([
       ['Plot Number', 'Area', 'Size', 'Price (PKR)', 'Category', 'Status', 'Description'],
-      ['E-501', 'Block E', '5 Marla', 2500000, 'residential', 'available', 'Corner plot'],
-      ['E-502', 'Block E', '10 Marla', 5000000, 'residential', 'available', 'Park facing'],
+      ['', '', '', '', '', '', '--- Price Rules (auto-applied on import) ---'],
+      ['', '', '', '', '', '', 'Corner → base price +10%'],
+      ['', '', '', '', '', '', 'Park Facing → base price +10%'],
+      ['', '', '', '', '', '', 'Park Facing+Corner → base price +15%'],
+      ['', '', '', '', '', '', 'Main Boulevard → base price +15%'],
+      ['', '', '', '', '', '', '(leave blank for standard price)'],
+      ['E-501', 'Block E', '5 Marla', 2500000, 'residential', 'available', ''],
+      ['E-502', 'Block E', '10 Marla', 5000000, 'residential', 'available', 'Corner'],
+      ['E-503', 'Block E', '10 Marla', 5000000, 'residential', 'available', 'Park Facing'],
+      ['E-504', 'Block E', '10 Marla', 5000000, 'residential', 'available', 'Park Facing+Corner'],
+      ['E-505', 'Block E', '10 Marla', 5000000, 'residential', 'available', 'Main Boulevard'],
     ]);
-    ws['!cols'] = [14, 12, 10, 14, 14, 12, 30].map(w => ({ wch: w }));
+    ws['!cols'] = [14, 12, 10, 14, 14, 12, 38].map(w => ({ wch: w }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Plots');
     XLSX.writeFile(wb, 'plots_import_template.xlsx');
@@ -423,15 +444,24 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
         const wb = XLSX.read(ev.target.result, { type: 'array' });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const raw = XLSX.utils.sheet_to_json(ws, { defval: '' });
-        const mapped = raw.map(row => ({
-          number: String(row['Plot Number'] || row['number'] || '').trim(),
-          area: String(row['Area'] || row['area'] || '').trim(),
-          size: String(row['Size'] || row['size'] || '5 Marla').trim(),
-          price: parseInt(row['Price (PKR)'] || row['price'] || 0) || 0,
-          category: String(row['Category'] || row['category'] || 'residential').toLowerCase().trim(),
-          status: String(row['Status'] || row['status'] || 'available').toLowerCase().trim(),
-          description: String(row['Description'] || row['description'] || '').trim(),
-        })).filter(r => r.number || r.area);
+        const mapped = raw.map(row => {
+          const description = String(row['Description'] || row['description'] || '').trim();
+          const basePrice = parseInt(row['Price (PKR)'] || row['price'] || 0) || 0;
+          const mult = descMultiplier(description);
+          const finalPrice = mult > 1 ? Math.round(basePrice * mult) : basePrice;
+          return {
+            number: String(row['Plot Number'] || row['number'] || '').trim(),
+            area: String(row['Area'] || row['area'] || '').trim(),
+            size: String(row['Size'] || row['size'] || '5 Marla').trim(),
+            price: finalPrice,
+            basePrice,
+            priceAdjusted: mult > 1,
+            priceMultiplier: mult,
+            category: String(row['Category'] || row['category'] || 'residential').toLowerCase().trim(),
+            status: String(row['Status'] || row['status'] || 'available').toLowerCase().trim(),
+            description,
+          };
+        }).filter(r => r.number || r.area);
         if (mapped.length === 0) { setImportMsg('❌ No valid rows found. Make sure the file uses the correct column headers.'); return; }
         setImportRows(mapped);
         setImportMsg(`📋 ${mapped.length} row${mapped.length > 1 ? 's' : ''} ready to import. Review below then click Import.`);
@@ -1551,10 +1581,26 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                                 <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700, color: '#1a6b3c', fontFamily: 'monospace' }}>{r.number || <span style={{ color: '#ef4444' }}>—</span>}</td>
                                 <td style={{ padding: '0.5rem 0.75rem', color: '#374151' }}>{r.area || <span style={{ color: '#ef4444' }}>—</span>}</td>
                                 <td style={{ padding: '0.5rem 0.75rem', color: '#374151' }}>{r.size}</td>
-                                <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700 }}>{r.price ? fmt(r.price) : <span style={{ color: '#ef4444' }}>—</span>}</td>
+                                <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700 }}>
+                                  {r.price ? (
+                                    <div>
+                                      <span>{fmt(r.price)}</span>
+                                      {r.priceAdjusted && (
+                                        <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', marginTop: '0.15rem' }}>
+                                          <span style={{ fontSize: '0.65rem', color: '#94a3b8', textDecoration: 'line-through' }}>{fmt(r.basePrice)}</span>
+                                          <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 5, padding: '0.1rem 0.35rem', fontSize: '0.65rem', fontWeight: 800 }}>+{Math.round((r.priceMultiplier - 1) * 100)}%</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : <span style={{ color: '#ef4444' }}>—</span>}
+                                </td>
                                 <td style={{ padding: '0.5rem 0.75rem', color: '#64748b', textTransform: 'capitalize' }}>{r.category}</td>
                                 <td style={{ padding: '0.5rem 0.75rem' }}><span style={{ background: r.status === 'available' ? '#d1fae5' : r.status === 'booked' ? '#fef3c7' : '#fee2e2', color: statusColor[r.status] || '#374151', borderRadius: 9999, padding: '0.15rem 0.5rem', fontSize: '0.7rem', fontWeight: 700, textTransform: 'capitalize' }}>{r.status}</span></td>
-                                <td style={{ padding: '0.5rem 0.75rem', color: '#64748b', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description}</td>
+                                <td style={{ padding: '0.5rem 0.75rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  {r.priceAdjusted
+                                    ? <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 6, padding: '0.15rem 0.5rem', fontSize: '0.72rem', fontWeight: 700 }}>{r.description}</span>
+                                    : <span style={{ color: '#64748b' }}>{r.description || '—'}</span>}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
