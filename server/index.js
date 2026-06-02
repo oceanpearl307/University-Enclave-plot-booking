@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const http = require('http');
+const fs = require('fs');
 
 const app = express();
 const PORT = 3001;
@@ -9,6 +10,18 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.set('trust proxy', true);
+
+// Auto-persist on every mutating request once a response is sent
+app.use((req, res, next) => {
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    const origJson = res.json.bind(res);
+    res.json = function (data) {
+      saveDb();
+      return origJson(data);
+    };
+  }
+  next();
+});
 
 // ─── Utility: IP helpers ──────────────────────────────────────────────────────
 function getClientIP(req) {
@@ -260,6 +273,67 @@ let announcements = [
   { id: 4, title: 'Development Work Progress', body: 'Roads, sewerage, and utility infrastructure work in Block C is 80% complete. Expected completion by end of April 2026.', date: '2026-04-05', tag: 'Development', important: false },
 ];
 
+// ─── File-based Persistence ───────────────────────────────────────────────────
+const DB_PATH = path.join(__dirname, 'data', 'db.json');
+
+function loadDb() {
+  try {
+    if (!fs.existsSync(DB_PATH)) return;
+    const db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+    if (db.sectors)              { sectors = db.sectors;                     }
+    if (db.sectorCounter)        { sectorCounter = db.sectorCounter;          }
+    if (db.plots)                { plots = db.plots;                          }
+    if (db.plotCounter)          { plotCounter = db.plotCounter;              }
+    if (db.packages)             { packages = db.packages;                    }
+    if (db.packageCounter)       { packageCounter = db.packageCounter;        }
+    if (db.dealers)              { dealers = db.dealers;                      }
+    if (db.dealerCounter)        { dealerCounter = db.dealerCounter;          }
+    if (db.dealerTargets)        { dealerTargets = db.dealerTargets;          }
+    if (db.dealerRegistrations)  { dealerRegistrations = db.dealerRegistrations; }
+    if (db.regCounter)           { regCounter = db.regCounter;                }
+    if (db.deals)                { deals = db.deals;                          }
+    if (db.dealCounter)          { dealCounter = db.dealCounter;              }
+    if (db.bookings)             { bookings = db.bookings;                    }
+    if (db.bookingCounter)       { bookingCounter = db.bookingCounter;        }
+    if (db.customers)            { customers = db.customers;                  }
+    if (db.customerCounter)      { customerCounter = db.customerCounter;      }
+    if (db.operationsStaff)      { operationsStaff = db.operationsStaff;      }
+    if (db.opsCounter)           { opsCounter = db.opsCounter;                }
+    if (db.announcements)        { announcements = db.announcements;          }
+    if (db.ledgerIdCounter)      { ledgerIdCounter = db.ledgerIdCounter;      }
+    console.log('[DB] Data loaded from', DB_PATH);
+  } catch (e) {
+    console.error('[DB] Failed to load data:', e.message);
+  }
+}
+
+let _saveTimer = null;
+function saveDb() {
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => {
+    try {
+      fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+      const db = {
+        sectors, sectorCounter,
+        plots, plotCounter,
+        packages, packageCounter,
+        dealers, dealerCounter,
+        dealerTargets,
+        dealerRegistrations, regCounter,
+        deals, dealCounter,
+        bookings, bookingCounter,
+        customers, customerCounter,
+        operationsStaff, opsCounter,
+        announcements,
+        ledgerIdCounter,
+      };
+      fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
+    } catch (e) {
+      console.error('[DB] Failed to save data:', e.message);
+    }
+  }, 500);
+}
+
 const PLOT_SIZES = ['5 Marla', '7 Marla', '10 Marla', '1 Kanal'];
 
 function getDealerStats(dealerId) {
@@ -274,6 +348,9 @@ function getDealerStats(dealerId) {
   });
   return { myBookings, achieved, paymentsCollected, achievedBySize };
 }
+
+// ─── Load persisted data before serving routes ────────────────────────────────
+loadDb();
 
 // ─── Sectors (public) ────────────────────────────────────────────────────────
 app.get('/api/sectors', (req, res) => {

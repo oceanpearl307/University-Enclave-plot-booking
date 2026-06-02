@@ -1,0 +1,460 @@
+{
+  "sectors": [
+    {
+      "id": 1,
+      "name": "Block A",
+      "type": "residential",
+      "description": "Main residential block near the entrance",
+      "totalPlots": 0,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "name": "Block B",
+      "type": "residential",
+      "description": "Quiet residential area near the mosque",
+      "totalPlots": 0,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": 3,
+      "name": "Block C",
+      "type": "residential",
+      "description": "Elevated block with community center",
+      "totalPlots": 0,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": 4,
+      "name": "Block D",
+      "type": "commercial",
+      "description": "Commercial zone near main boulevard",
+      "totalPlots": 0,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "sectorCounter": 4,
+  "plots": [
+    {
+      "id": 1,
+      "number": "A-101",
+      "size": "5 Marla",
+      "price": 2500000,
+      "status": "available",
+      "category": "residential",
+      "description": "Corner plot with park facing, excellent location",
+      "area": "Block A",
+      "tags": [
+        "Corner Plot",
+        "Park Facing"
+      ]
+    },
+    {
+      "id": 2,
+      "number": "A-102",
+      "size": "7 Marla",
+      "price": 3500000,
+      "status": "booked",
+      "category": "residential",
+      "description": "Prime location near main gate",
+      "area": "Block A",
+      "tags": []
+    },
+    {
+      "id": 3,
+      "number": "A-103",
+      "size": "10 Marla",
+      "price": 5000000,
+      "status": "available",
+      "category": "residential",
+      "description": "Spacious plot with green belt view",
+      "area": "Block A",
+      "tags": []
+    },
+    {
+      "id": 4,
+      "number": "B-201",
+      "size": "5 Marla",
+      "price": 2200000,
+      "status": "available",
+      "category": "residential",
+      "description": "Quiet neighborhood, near mosque",
+      "area": "Block B",
+      "tags": []
+    },
+    {
+      "id": 5,
+      "number": "B-202",
+      "size": "7 Marla",
+      "price": 3200000,
+      "status": "sold",
+      "category": "residential",
+      "description": "Boulevard facing plot",
+      "area": "Block B",
+      "tags": [
+        "Main Boulevard"
+      ]
+    },
+    {
+      "id": 6,
+      "number": "B-203",
+      "size": "1 Kanal",
+      "price": 9000000,
+      "status": "available",
+      "category": "residential",
+      "description": "Large plot, ideal for luxury home",
+      "area": "Block B",
+      "tags": []
+    },
+    {
+      "id": 7,
+      "number": "C-301",
+      "size": "5 Marla",
+      "price": 2800000,
+      "status": "available",
+      "category": "residential",
+      "description": "Near community center, on main road",
+      "area": "Block C",
+      "tags": [
+        "Main Road"
+      ]
+    },
+    {
+      "id": 8,
+      "number": "C-302",
+      "size": "10 Marla",
+      "price": 5500000,
+      "status": "available",
+      "category": "residential",
+      "description": "Elevated corner plot with great view",
+      "area": "Block C",
+      "tags": [
+        "Corner Plot"
+      ]
+    },
+    {
+      "id": 9,
+      "number": "D-401",
+      "size": "2 Kanal",
+      "price": 18000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Prime commercial plot on main boulevard",
+      "area": "Block D",
+      "tags": [
+        "Main Boulevard"
+      ]
+    },
+    {
+      "id": 10,
+      "number": "D-402",
+      "size": "4 Marla",
+      "price": 4000000,
+      "status": "booked",
+      "category": "commercial",
+      "description": "Shop-facing commercial plot on main road",
+      "area": "Block D",
+      "tags": [
+        "Main Road"
+      ]
+    }
+  ],
+  "plotCounter": 10,
+  "packages": [
+    {
+      "id": 1,
+      "name": "Normal Package",
+      "totalPlots": 25,
+      "commissionPct": 12,
+      "sizes": [
+        {
+          "size": "5 Marla",
+          "quota": 10
+        },
+        {
+          "size": "7 Marla",
+          "quota": 8
+        },
+        {
+          "size": "10 Marla",
+          "quota": 5
+        },
+        {
+          "size": "1 Kanal",
+          "quota": 2
+        }
+      ],
+      "rewardDescription": "Umrah trip for 2 persons + PKR 50,000 cash bonus",
+      "rewardAmount": 50000,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "name": "Premium Package",
+      "totalPlots": 50,
+      "commissionPct": 15,
+      "sizes": [
+        {
+          "size": "5 Marla",
+          "quota": 20
+        },
+        {
+          "size": "7 Marla",
+          "quota": 15
+        },
+        {
+          "size": "10 Marla",
+          "quota": 10
+        },
+        {
+          "size": "1 Kanal",
+          "quota": 5
+        }
+      ],
+      "rewardDescription": "Luxury car (Honda Civic) + international trip for 2",
+      "rewardAmount": 1500000,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "packageCounter": 2,
+  "dealers": [
+    {
+      "id": 1,
+      "username": "admin",
+      "password": "admin123",
+      "name": "Admin User",
+      "role": "admin"
+    },
+    {
+      "id": 2,
+      "username": "dealer1",
+      "password": "dealer123",
+      "name": "Ahmed Raza",
+      "role": "dealer",
+      "fatherName": "Muhammad Raza",
+      "cnic": "35201-1234567-1",
+      "postalAddress": "House 12, Street 3, Model Town, Lahore",
+      "officeAddress": "Shop 5, Gulberg III, Lahore",
+      "mobilePhone": "0321-1234567",
+      "officePhone": "042-35111111",
+      "proprietorName": "Ahmed Raza",
+      "proprietorPhone": "0321-1234567",
+      "securityDepositRequired": 200000,
+      "securityDepositPaid": true,
+      "rewardGiven": false,
+      "commissionPaidAmount": 0,
+      "vpnRestricted": false,
+      "ipLocked": false,
+      "trustedIPs": [],
+      "loginHistory": []
+    },
+    {
+      "id": 3,
+      "username": "dealer2",
+      "password": "dealer456",
+      "name": "Sara Khan",
+      "role": "dealer",
+      "fatherName": "Iqbal Khan",
+      "cnic": "35201-7654321-2",
+      "postalAddress": "Flat 8B, DHA Phase 5, Lahore",
+      "officeAddress": "Office 2, Liberty Market, Lahore",
+      "mobilePhone": "0312-7654321",
+      "officePhone": "042-35222222",
+      "proprietorName": "Sara Khan",
+      "proprietorPhone": "0312-7654321",
+      "securityDepositRequired": 200000,
+      "securityDepositPaid": false,
+      "rewardGiven": false,
+      "commissionPaidAmount": 0,
+      "vpnRestricted": false,
+      "ipLocked": false,
+      "trustedIPs": [],
+      "loginHistory": []
+    },
+    {
+      "id": 4,
+      "username": "dealer3",
+      "password": "dealer789",
+      "name": "Usman Ali",
+      "role": "dealer",
+      "fatherName": "Ali Hassan",
+      "cnic": "35201-1111111-3",
+      "postalAddress": "House 3, Johar Town, Lahore",
+      "officeAddress": "Plot 7, Wapda Town, Lahore",
+      "mobilePhone": "0333-1111111",
+      "officePhone": "042-35333333",
+      "proprietorName": "Usman Ali",
+      "proprietorPhone": "0333-1111111",
+      "securityDepositRequired": 200000,
+      "securityDepositPaid": false,
+      "rewardGiven": false,
+      "commissionPaidAmount": 0,
+      "vpnRestricted": false,
+      "ipLocked": false,
+      "trustedIPs": [],
+      "loginHistory": []
+    }
+  ],
+  "dealerCounter": 4,
+  "dealerTargets": {
+    "2": {
+      "dealerId": 2,
+      "packageId": 1,
+      "paymentTarget": 18000000,
+      "sizes": [
+        {
+          "size": "5 Marla",
+          "target": 3
+        },
+        {
+          "size": "7 Marla",
+          "target": 2
+        },
+        {
+          "size": "10 Marla",
+          "target": 1
+        },
+        {
+          "size": "1 Kanal",
+          "target": 1
+        }
+      ],
+      "assignedAt": "2026-04-01T00:00:00.000Z",
+      "notes": "Q2 2026 Sales Target"
+    },
+    "3": {
+      "dealerId": 3,
+      "packageId": 1,
+      "paymentTarget": 12000000,
+      "sizes": [
+        {
+          "size": "5 Marla",
+          "target": 2
+        },
+        {
+          "size": "7 Marla",
+          "target": 3
+        },
+        {
+          "size": "10 Marla",
+          "target": 0
+        },
+        {
+          "size": "1 Kanal",
+          "target": 0
+        }
+      ],
+      "assignedAt": "2026-04-01T00:00:00.000Z",
+      "notes": "Q2 2026 Sales Target"
+    }
+  },
+  "dealerRegistrations": [
+    {
+      "id": 1,
+      "regRef": "UEREG-001",
+      "name": "Kamran Akhtar",
+      "fatherName": "Muhammad Akhtar",
+      "cnic": "35201-9876543-1",
+      "postalAddress": "House 5, Street 3, Model Town, Lahore",
+      "officeAddress": "Office 12, Gulberg III, Lahore",
+      "mobilePhone": "0321-9876543",
+      "officePhone": "042-35123456",
+      "proprietorName": "Kamran Akhtar",
+      "proprietorPhone": "0321-9876543",
+      "status": "pending",
+      "createdAt": "2026-04-22T10:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "regRef": "UEREG-002",
+      "name": "Fatima Malik",
+      "fatherName": "Asif Malik",
+      "cnic": "35201-5551234-2",
+      "postalAddress": "Flat 3A, Bahria Town, Lahore",
+      "officeAddress": "Shop 15, Main Market, Gulshan-e-Ravi, Lahore",
+      "mobilePhone": "0300-5551234",
+      "officePhone": "042-35999999",
+      "proprietorName": "Fatima Malik",
+      "proprietorPhone": "0300-5551234",
+      "status": "pending",
+      "createdAt": "2026-04-24T09:00:00.000Z"
+    }
+  ],
+  "regCounter": 2,
+  "deals": [
+    {
+      "id": 1,
+      "name": "Spring Sale — 5 Marla Bundle",
+      "description": "Limited time offer on 5 Marla residential plots. Special discount available for early bookings. Contact your dealer for exclusive rates.",
+      "plotIds": [
+        1,
+        4,
+        7
+      ],
+      "specialPrice": 2300000,
+      "paymentPlanInfo": "24 easy monthly installments, 5% discount on total amount",
+      "validFrom": "2026-04-01",
+      "validUntil": "2026-12-31",
+      "highlighted": true,
+      "createdAt": "2026-04-01T00:00:00.000Z"
+    }
+  ],
+  "dealCounter": 2,
+  "bookings": [],
+  "bookingCounter": 1000,
+  "customers": [],
+  "customerCounter": 100,
+  "operationsStaff": [
+    {
+      "id": 1,
+      "username": "ops1",
+      "password": "ops123",
+      "name": "Operations Staff",
+      "role": "operations",
+      "privileges": {
+        "approveBookings": true,
+        "viewPlots": true,
+        "viewDealers": false,
+        "viewDeals": false,
+        "viewRegistrations": false
+      },
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "opsCounter": 1,
+  "announcements": [
+    {
+      "id": 1,
+      "title": "New Block D Plots Available!",
+      "body": "We are pleased to announce the launch of commercial plots in Block D. Limited plots available — book early to secure your spot.",
+      "date": "2026-04-20",
+      "tag": "New Launch",
+      "important": true
+    },
+    {
+      "id": 2,
+      "title": "Revised Payment Plan 2026",
+      "body": "Flexible installment plans are now available for all residential plots. Pay in 24 easy monthly installments with zero markup.",
+      "date": "2026-04-15",
+      "tag": "Finance",
+      "important": false
+    },
+    {
+      "id": 3,
+      "title": "Society Possession Update",
+      "body": "Plot possession for Block A and B will begin from May 15, 2026. All plot holders are requested to ensure their documentation is complete.",
+      "date": "2026-04-10",
+      "tag": "Possession",
+      "important": true
+    },
+    {
+      "id": 4,
+      "title": "Development Work Progress",
+      "body": "Roads, sewerage, and utility infrastructure work in Block C is 80% complete. Expected completion by end of April 2026.",
+      "date": "2026-04-05",
+      "tag": "Development",
+      "important": false
+    }
+  ],
+  "ledgerIdCounter": 0
+}
