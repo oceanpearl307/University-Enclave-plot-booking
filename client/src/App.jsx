@@ -14,13 +14,15 @@ function loadSession() {
     const d = localStorage.getItem('ue_dealer');
     const c = localStorage.getItem('ue_customer');
     const p = localStorage.getItem('ue_page');
+    const t = localStorage.getItem('ue_token');
     return {
       dealer: d ? JSON.parse(d) : null,
       customer: c ? JSON.parse(c) : null,
       page: p || 'home',
+      token: t || null,
     };
   } catch {
-    return { dealer: null, customer: null, page: 'home' };
+    return { dealer: null, customer: null, page: 'home', token: null };
   }
 }
 
@@ -30,6 +32,7 @@ export default function App() {
   const [selectedPlot, setSelectedPlot] = useState(null);
   const [dealer, setDealer] = useState(session.dealer);
   const [customer, setCustomer] = useState(session.customer);
+  const [authToken, setAuthToken] = useState(session.token);
 
   useEffect(() => {
     try {
@@ -37,6 +40,13 @@ export default function App() {
       else localStorage.removeItem('ue_dealer');
     } catch {}
   }, [dealer]);
+
+  useEffect(() => {
+    try {
+      if (authToken) localStorage.setItem('ue_token', authToken);
+      else localStorage.removeItem('ue_token');
+    } catch {}
+  }, [authToken]);
 
   useEffect(() => {
     try {
@@ -59,8 +69,9 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
-  const handleDealerLogin = d => {
+  const handleDealerLogin = (d, token) => {
     setDealer(d);
+    if (token) setAuthToken(token);
     if (d.role === 'admin') {
       navigate('admin-dashboard');
     } else if (d.role === 'operations') {
@@ -73,7 +84,8 @@ export default function App() {
   const handleLogout = () => {
     setDealer(null);
     setCustomer(null);
-    try { localStorage.removeItem('ue_dealer'); localStorage.removeItem('ue_customer'); localStorage.removeItem('ue_page'); } catch {}
+    setAuthToken(null);
+    try { localStorage.removeItem('ue_dealer'); localStorage.removeItem('ue_customer'); localStorage.removeItem('ue_page'); localStorage.removeItem('ue_token'); } catch {}
     navigate('home');
   };
 
@@ -99,10 +111,10 @@ export default function App() {
         {page === 'status' && (dealer || customer ? <BookingStatus navigate={navigate} /> : <Home navigate={navigate} {...authProps} />)}
         {page === 'about' && <About navigate={navigate} />}
         {page === 'dashboard' && dealer && dealer.role === 'dealer' && (
-          <DealerDashboard dealer={dealer} onLogout={handleLogout} navigate={navigate} />
+          <DealerDashboard dealer={dealer} authToken={authToken} onLogout={handleLogout} navigate={navigate} />
         )}
         {page === 'admin-dashboard' && dealer && dealer.role === 'admin' && (
-          <AdminDashboard dealer={dealer} onLogout={handleLogout} navigate={navigate} />
+          <AdminDashboard dealer={dealer} authToken={authToken} onLogout={handleLogout} navigate={navigate} />
         )}
         {page === 'ops-dashboard' && dealer && dealer.role === 'operations' && (
           <OperationsDashboard staff={dealer} onLogout={handleLogout} navigate={navigate} />

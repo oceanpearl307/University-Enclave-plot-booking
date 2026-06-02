@@ -19,7 +19,7 @@ export default function DealerLoginModal({ onClose, onSuccess }) {
       if (!text) throw new Error('Server is not responding. Please try again.');
       const data = JSON.parse(text);
       if (!res.ok) throw new Error(data.error || 'Invalid credentials');
-      onSuccess(data.dealer);
+      onSuccess(data.dealer, data.token);
     } catch (err) {
       if (err instanceof SyntaxError) {
         setError('Server is not responding. Please try again in a moment.');

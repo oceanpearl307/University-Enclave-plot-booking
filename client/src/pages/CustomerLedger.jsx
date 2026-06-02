@@ -28,7 +28,7 @@ function StatusBadge({ status }) {
   );
 }
 
-function RecordPaymentModal({ installment, bookingId, dealerId, onClose, onSaved }) {
+function RecordPaymentModal({ installment, bookingId, authToken, onClose, onSaved }) {
   const [amount, setAmount] = useState(String(installment.amount));
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
@@ -41,8 +41,8 @@ function RecordPaymentModal({ installment, bookingId, dealerId, onClose, onSaved
     try {
       const res = await fetch(`/api/ledger/${bookingId}/${installment.id}/pay`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paidAmount: Number(amount), paidDate: date, notes, paidBy: 'Dealer', dealerId }),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ paidAmount: Number(amount), paidDate: date, notes, paidBy: 'Dealer' }),
       });
       if (!res.ok) { const d = await res.json(); setError(d.error || 'Failed'); setSaving(false); return; }
       onSaved();
@@ -105,18 +105,18 @@ function RecordPaymentModal({ installment, bookingId, dealerId, onClose, onSaved
   );
 }
 
-function LedgerPanel({ customer, dealerId, onClose }) {
+function LedgerPanel({ customer, authToken, onClose }) {
   const [ledgerData, setLedgerData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [payItem, setPayItem] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch(`/api/ledger/${customer.bookingId}?dealerId=${dealerId}`)
+    fetch(`/api/ledger/${customer.bookingId}`, { headers: { Authorization: `Bearer ${authToken}` } })
       .then(r => r.json())
       .then(d => { setLedgerData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [customer.bookingId, dealerId]);
+  }, [customer.bookingId, authToken]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -243,7 +243,7 @@ function LedgerPanel({ customer, dealerId, onClose }) {
         <RecordPaymentModal
           installment={payItem}
           bookingId={customer.bookingId}
-          dealerId={dealerId}
+          authToken={authToken}
           onClose={() => setPayItem(null)}
           onSaved={() => { setPayItem(null); load(); }}
         />
@@ -252,7 +252,7 @@ function LedgerPanel({ customer, dealerId, onClose }) {
   );
 }
 
-function CalendarView({ dealerId }) {
+function CalendarView({ dealerId, authToken }) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
@@ -266,11 +266,11 @@ function CalendarView({ dealerId }) {
   useEffect(() => {
     setLoading(true);
     setSelectedDay(null);
-    fetch(`/api/dealer/${dealerId}/calendar?month=${monthStr}`)
+    fetch(`/api/dealer/${dealerId}/calendar?month=${monthStr}`, { headers: { Authorization: `Bearer ${authToken}` } })
       .then(r => r.json())
       .then(d => { setEvents(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [dealerId, monthStr]);
+  }, [dealerId, authToken, monthStr]);
 
   function prevMonth() {
     if (month === 1) { setYear(y => y - 1); setMonth(12); } else setMonth(m => m - 1);
@@ -299,7 +299,7 @@ function CalendarView({ dealerId }) {
 
   function reloadCalendar() {
     setLoading(true);
-    fetch(`/api/dealer/${dealerId}/calendar?month=${monthStr}`)
+    fetch(`/api/dealer/${dealerId}/calendar?month=${monthStr}`, { headers: { Authorization: `Bearer ${authToken}` } })
       .then(r => r.json())
       .then(d => { setEvents(Array.isArray(d) ? d : []); setLoading(false); });
   }
@@ -434,7 +434,7 @@ function CalendarView({ dealerId }) {
         <RecordPaymentModal
           installment={payItem}
           bookingId={payItem.bookingId}
-          dealerId={dealerId}
+          authToken={authToken}
           onClose={() => setPayItem(null)}
           onSaved={() => { setPayItem(null); reloadCalendar(); }}
         />
@@ -443,7 +443,7 @@ function CalendarView({ dealerId }) {
   );
 }
 
-export default function CustomerLedger({ dealer }) {
+export default function CustomerLedger({ dealer, authToken }) {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -466,7 +466,7 @@ export default function CustomerLedger({ dealer }) {
     try {
       const rows = [];
       for (const c of customers) {
-        const res = await fetch(`/api/ledger/${c.bookingId}?dealerId=${dealer.id}`);
+        const res = await fetch(`/api/ledger/${c.bookingId}`, { headers: { Authorization: `Bearer ${authToken}` } });
         if (!res.ok) continue;
         const data = await res.json();
         if (!data.ledger) continue;
@@ -528,7 +528,7 @@ export default function CustomerLedger({ dealer }) {
         )}
 
         {view === 'calendar' ? (
-          <CalendarView dealerId={dealer.id} />
+          <CalendarView dealerId={dealer.id} authToken={authToken} />
         ) : loading ? (
           <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>⏳</div>
@@ -600,7 +600,7 @@ export default function CustomerLedger({ dealer }) {
       {selectedCustomer && (
         <LedgerPanel
           customer={selectedCustomer}
-          dealerId={dealer.id}
+          authToken={authToken}
           onClose={() => { setSelectedCustomer(null); loadCustomers(); }}
         />
       )}

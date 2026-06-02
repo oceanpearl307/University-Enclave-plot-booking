@@ -55,7 +55,7 @@ const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent
 const pctColor = pct => pct >= 80 ? '#059669' : pct >= 50 ? '#d97706' : '#dc2626';
 const pctGrad = pct => pct >= 80 ? 'linear-gradient(90deg,#059669,#34d399)' : pct >= 50 ? 'linear-gradient(90deg,#d97706,#fbbf24)' : 'linear-gradient(90deg,#dc2626,#f87171)';
 
-export default function DealerDashboard({ dealer, onLogout, navigate }) {
+export default function DealerDashboard({ dealer, authToken, onLogout, navigate }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -483,7 +483,7 @@ export default function DealerDashboard({ dealer, onLogout, navigate }) {
         )}
 
         {/* Customer Ledger */}
-        <CustomerLedger dealer={dealer} />
+        <CustomerLedger dealer={dealer} authToken={authToken} />
 
         {/* Payment Plan */}
         <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', marginBottom: '1.5rem' }}>

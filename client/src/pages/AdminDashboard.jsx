@@ -31,7 +31,7 @@ const PRIV_OPTIONS = [
   { key: 'viewRegistrations', label: 'View Dealer Registrations' },
 ];
 
-export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
+export default function AdminDashboard({ dealer: admin, authToken, onLogout, navigate }) {
   const [tab, setTab] = useState('Dealers');
 
   // ── Dealers tab ──
@@ -107,7 +107,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   const loadAdminLedger = (bookingId) => {
     setAdminLedgerLoading(true);
     setAdminLedger(null);
-    fetch(`/api/ledger/${bookingId}?role=admin`)
+    fetch(`/api/ledger/${bookingId}`, { headers: { Authorization: `Bearer ${authToken}` } })
       .then(r => r.json())
       .then(d => { setAdminLedger(d); setAdminLedgerLoading(false); })
       .catch(() => setAdminLedgerLoading(false));
@@ -1475,7 +1475,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                     <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
                       <button disabled={adminPaySaving} onClick={async () => {
                         setAdminPaySaving(true); setAdminPayError('');
-                        const res = await fetch(`/api/ledger/${selectedBkg.id}/${adminPayItem.id}/pay`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paidAmount: Number(adminPayAmount), paidDate: adminPayDate, notes: adminPayNotes, paidBy: 'Admin', role: 'admin' }) });
+                        const res = await fetch(`/api/ledger/${selectedBkg.id}/${adminPayItem.id}/pay`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }, body: JSON.stringify({ paidAmount: Number(adminPayAmount), paidDate: adminPayDate, notes: adminPayNotes, paidBy: 'Admin' }) });
                         setAdminPaySaving(false);
                         if (res.ok) { setAdminPayItem(null); loadAdminLedger(selectedBkg.id); }
                         else { const d = await res.json(); setAdminPayError(d.error || 'Failed'); }

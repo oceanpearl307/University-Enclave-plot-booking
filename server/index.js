@@ -59,6 +59,16 @@ let sectors = [
 ];
 let sectorCounter = 4;
 
+// ─── Session store (token → { dealerId, role }) ───────────────────────────────
+const sessions = {};
+
+function validateSession(req) {
+  const auth = req.headers['authorization'] || '';
+  if (!auth.startsWith('Bearer ')) return null;
+  const token = auth.slice(7).trim();
+  return sessions[token] || null;
+}
+
 // ─── Plot Inventory ──────────────────────────────────────────────────────────
 // ─── Premium Tag Pricing ──────────────────────────────────────────────────────
 const TAG_PREMIUMS = { 'Corner Plot': 0.10, 'Park Facing': 0.10, 'Main Road': 0.10, 'Main Boulevard': 0.15 };
@@ -396,14 +406,18 @@ app.post('/api/dealer/login', async (req, res) => {
       }
 
       recordLogin(dealer, clientIP, { blocked: false, vpnDetected: vpnInfo.isVpn, isp: vpnInfo.isp, country: vpnInfo.country });
+      const token = `dealer-${dealer.id}-${Date.now()}`;
+      sessions[token] = { dealerId: dealer.id, role: dealer.role || 'dealer' };
       const { password: _, ...safe } = dealer;
-      return res.json({ success: true, dealer: safe, token: `dealer-${dealer.id}-${Date.now()}` });
+      return res.json({ success: true, dealer: safe, token });
     }
 
     const ops = operationsStaff.find(o => o.username === username && o.password === password);
     if (ops) {
+      const token = `ops-${ops.id}-${Date.now()}`;
+      sessions[token] = { dealerId: ops.id, role: 'operations' };
       const { password: _, ...safe } = ops;
-      return res.json({ success: true, dealer: safe, token: `ops-${ops.id}-${Date.now()}` });
+      return res.json({ success: true, dealer: safe, token });
     }
 
     return res.status(401).json({ error: 'Invalid credentials' });
@@ -1037,13 +1051,14 @@ app.post('/api/admin/bookings/:id/approve', (req, res) => {
 
 // ─── Ledger API ───────────────────────────────────────────────────────────────
 app.get('/api/ledger/:bookingId', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+
   const booking = bookings.find(b => b.id === parseInt(req.params.bookingId) || b.bookingRef === req.params.bookingId);
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
-  const callerRole = req.query.role || req.headers['x-role'] || '';
-  const callerDealerId = parseInt(req.query.dealerId || req.headers['x-dealer-id'] || '0') || null;
-  const isAdmin = callerRole === 'admin';
-  const isOwner = callerDealerId && booking.dealerId === callerDealerId;
+  const isAdmin = session.role === 'admin';
+  const isOwner = session.role === 'dealer' && booking.dealerId === session.dealerId;
   if (!isAdmin && !isOwner) return res.status(403).json({ error: 'Access denied' });
 
   if (!booking.ledger || booking.ledger.length === 0) {
@@ -1055,26 +1070,33 @@ app.get('/api/ledger/:bookingId', (req, res) => {
 });
 
 app.post('/api/ledger/:bookingId/:installmentId/pay', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+
   const booking = bookings.find(b => b.id === parseInt(req.params.bookingId));
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
-  const callerRole = req.query.role || req.headers['x-role'] || req.body.role || '';
-  const callerDealerId = parseInt(req.query.dealerId || req.headers['x-dealer-id'] || req.body.dealerId || '0') || null;
-  const isAdmin = callerRole === 'admin';
-  const isOwner = callerDealerId && booking.dealerId === callerDealerId;
+  const isAdmin = session.role === 'admin';
+  const isOwner = session.role === 'dealer' && booking.dealerId === session.dealerId;
   if (!isAdmin && !isOwner) return res.status(403).json({ error: 'Access denied' });
 
   if (!booking.ledger) return res.status(400).json({ error: 'No ledger found' });
   const item = booking.ledger.find(i => i.id === parseInt(req.params.installmentId));
   if (!item) return res.status(404).json({ error: 'Installment not found' });
   if (item.status === 'paid') return res.status(409).json({ error: 'Already paid' });
+
   const { paidAmount, paidDate, notes, paidBy } = req.body;
+  const amount = Number(paidAmount);
+  if (!amount || amount <= 0) return res.status(400).json({ error: 'paidAmount must be a positive number' });
+  const dateStr = paidDate || new Date().toISOString().split('T')[0];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return res.status(400).json({ error: 'paidDate must be YYYY-MM-DD' });
+
   item.status = 'paid';
-  item.paidAmount = Number(paidAmount) || item.amount;
-  item.paidDate = paidDate || new Date().toISOString().split('T')[0];
-  item.paidBy = paidBy || 'Dealer';
+  item.paidAmount = amount;
+  item.paidDate = dateStr;
+  item.paidBy = paidBy || (isAdmin ? 'Admin' : 'Dealer');
   item.notes = notes || null;
-  const ledger = recomputeOverdue(booking.ledger);
+  recomputeOverdue(booking.ledger);
   res.json({ success: true, item, summary: ledgerSummary(booking.ledger) });
 });
 
