@@ -131,6 +131,7 @@ let dealers = [
     mobilePhone: '0321-1234567', officePhone: '042-35111111',
     proprietorName: 'Ahmed Raza', proprietorPhone: '0321-1234567',
     securityDepositRequired: 200000, securityDepositPaid: true, rewardGiven: false,
+    commissionPaidAmount: 0,
     vpnRestricted: false, ipLocked: false, trustedIPs: [], loginHistory: [],
   },
   {
@@ -141,6 +142,7 @@ let dealers = [
     mobilePhone: '0312-7654321', officePhone: '042-35222222',
     proprietorName: 'Sara Khan', proprietorPhone: '0312-7654321',
     securityDepositRequired: 200000, securityDepositPaid: false, rewardGiven: false,
+    commissionPaidAmount: 0,
     vpnRestricted: false, ipLocked: false, trustedIPs: [], loginHistory: [],
   },
   {
@@ -151,6 +153,7 @@ let dealers = [
     mobilePhone: '0333-1111111', officePhone: '042-35333333',
     proprietorName: 'Usman Ali', proprietorPhone: '0333-1111111',
     securityDepositRequired: 200000, securityDepositPaid: false, rewardGiven: false,
+    commissionPaidAmount: 0,
     vpnRestricted: false, ipLocked: false, trustedIPs: [], loginHistory: [],
   },
 ];
@@ -511,7 +514,7 @@ app.get('/api/dealer/dashboard/:dealerId', (req, res) => {
     package: pkg ? { id: pkg.id, name: pkg.name, rewardDescription: pkg.rewardDescription, rewardAmount: pkg.rewardAmount, commissionPct: pkg.commissionPct || 0 } : null,
     sizeBreakdown, targetPct,
     stats: { achieved, totalTarget, paymentsCollected, paymentTarget: target?.paymentTarget || 0 },
-    commission: { rate: commissionRate, hasOverride: dealer.commissionPct !== undefined && dealer.commissionPct !== null, pkgRate: pkg?.commissionPct || 0, totalEarned: totalCommissionEarned },
+    commission: { rate: commissionRate, hasOverride: dealer.commissionPct !== undefined && dealer.commissionPct !== null, pkgRate: pkg?.commissionPct || 0, totalEarned: totalCommissionEarned, totalPaid: dealer.commissionPaidAmount || 0, totalOutstanding: Math.max(0, totalCommissionEarned - (dealer.commissionPaidAmount || 0)) },
     commissions,
     monthlySales, plotDistribution, recentBookings, activeDeals, inventory,
   });
@@ -522,9 +525,12 @@ app.get('/api/admin/dealers', (req, res) => {
   const result = dealers.filter(d => d.role !== 'admin').map(d => {
     const target = dealerTargets[d.id];
     const pkg = target?.packageId ? packages.find(p => p.id === target.packageId) : null;
-    const { achieved, paymentsCollected } = getDealerStats(d.id);
+    const { myBookings, achieved, paymentsCollected } = getDealerStats(d.id);
     const totalTarget = target ? target.sizes.reduce((sum, s) => sum + s.target, 0) : 0;
     const pct = totalTarget > 0 ? Math.round((achieved / totalTarget) * 100) : 0;
+    const commissionEarned = myBookings.reduce((s, b) => s + (b.commissionAmount || 0), 0);
+    const commissionPaid = d.commissionPaidAmount || 0;
+    const commissionOutstanding = Math.max(0, commissionEarned - commissionPaid);
     const { password: _, ...safe } = d;
     return {
       ...safe, hasTarget: !!target, totalTarget, achieved, pct, paymentsCollected,
@@ -533,6 +539,7 @@ app.get('/api/admin/dealers', (req, res) => {
       commissionPct: (d.commissionPct !== undefined && d.commissionPct !== null) ? d.commissionPct : (pkg?.commissionPct || 0),
       hasCommissionOverride: d.commissionPct !== undefined && d.commissionPct !== null,
       commissionPctOverride: d.commissionPct ?? null,
+      commissionEarned, commissionPaid, commissionOutstanding,
     };
   });
   res.json(result);
@@ -590,6 +597,16 @@ app.post('/api/admin/dealers/:id/deposit', (req, res) => {
   dealer.securityDepositPaid = !!paid;
   if (amount !== undefined) dealer.securityDepositRequired = parseInt(amount) || 0;
   res.json({ success: true });
+});
+
+// ─── Admin: Commission Payout ─────────────────────────────────────────────────
+app.patch('/api/admin/dealers/:id/commission-payout', (req, res) => {
+  const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
+  if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
+  const amount = parseInt(req.body.commissionPaidAmount);
+  if (isNaN(amount) || amount < 0) return res.status(400).json({ error: 'Invalid amount' });
+  dealer.commissionPaidAmount = amount;
+  res.json({ success: true, commissionPaidAmount: dealer.commissionPaidAmount });
 });
 
 // ─── Admin: Mark Reward Given ─────────────────────────────────────────────────
@@ -673,6 +690,7 @@ app.post('/api/admin/registrations/:id/approve', (req, res) => {
     mobilePhone: reg.mobilePhone, officePhone: reg.officePhone,
     proprietorName: reg.proprietorName, proprietorPhone: reg.proprietorPhone,
     securityDepositRequired: 200000, securityDepositPaid: false, rewardGiven: false,
+    commissionPaidAmount: 0,
     vpnRestricted: false, ipLocked: false, trustedIPs: [], loginHistory: [],
     registrationId: reg.id,
   };

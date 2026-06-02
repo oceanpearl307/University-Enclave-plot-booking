@@ -326,10 +326,20 @@ export default function DealerDashboard({ dealer, authToken, onLogout, navigate 
                 <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>My Commissions</h3>
                 <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Commission earned on each booking at {commission.rate}% of plot price</p>
               </div>
-              <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '1px solid #bbf7d0', borderRadius: 12, padding: '0.75rem 1.25rem', textAlign: 'right' }}>
-                <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.15rem' }}>TOTAL EARNED</div>
-                <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#059669' }}>{fmt(commission.totalEarned)}</div>
-                {commission.hasOverride && <div style={{ fontSize: '0.68rem', color: '#d97706', fontWeight: 700, marginTop: '0.15rem' }}>Custom rate: {commission.rate}% (pkg: {commission.pkgRate}%)</div>}
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '1px solid #bbf7d0', borderRadius: 12, padding: '0.75rem 1.25rem', textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.15rem' }}>TOTAL EARNED</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#059669' }}>{fmt(commission.totalEarned)}</div>
+                  {commission.hasOverride && <div style={{ fontSize: '0.68rem', color: '#d97706', fontWeight: 700, marginTop: '0.15rem' }}>Custom rate: {commission.rate}% (pkg: {commission.pkgRate}%)</div>}
+                </div>
+                <div style={{ background: 'linear-gradient(135deg, #eff6ff, #dbeafe)', border: '1px solid #bfdbfe', borderRadius: 12, padding: '0.75rem 1.25rem', textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.15rem' }}>PAID OUT</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: 900, color: '#1d4ed8' }}>{fmt(commission.totalPaid || 0)}</div>
+                </div>
+                <div style={{ background: commission.totalOutstanding > 0 ? 'linear-gradient(135deg, #fffbeb, #fef3c7)' : 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: `1px solid ${commission.totalOutstanding > 0 ? '#fcd34d' : '#bbf7d0'}`, borderRadius: 12, padding: '0.75rem 1.25rem', textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.15rem' }}>OUTSTANDING</div>
+                  <div style={{ fontSize: '1.3rem', fontWeight: 900, color: commission.totalOutstanding > 0 ? '#92400e' : '#059669' }}>{commission.totalOutstanding > 0 ? fmt(commission.totalOutstanding) : '✓ Settled'}</div>
+                </div>
               </div>
             </div>
 

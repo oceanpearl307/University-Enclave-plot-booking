@@ -39,7 +39,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [dealersLoading, setDealersLoading] = useState(true);
   const [packages, setPackages] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [tForm, setTForm] = useState({ packageId: '', sizes: {}, paymentTarget: '', notes: '', depositAmount: '', depositPaid: false, commissionPct: '' });
+  const [tForm, setTForm] = useState({ packageId: '', sizes: {}, paymentTarget: '', notes: '', depositAmount: '', depositPaid: false, commissionPct: '', commissionPaidAmount: '' });
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
 
@@ -206,6 +206,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       notes: res?.notes || '',
       depositAmount: d.securityDepositRequired || 200000,
       depositPaid: d.securityDepositPaid || false,
+      commissionPaidAmount: d.commissionPaid !== undefined ? String(d.commissionPaid) : '0',
       commissionPct: d.commissionPctOverride !== null && d.commissionPctOverride !== undefined ? String(d.commissionPctOverride) : '',
     });
   };
@@ -234,6 +235,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       await fetch(`/api/admin/targets/${selected.id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       await fetch(`/api/admin/dealers/${selected.id}/deposit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paid: tForm.depositPaid, amount: parseInt(tForm.depositAmount) || 0 }) });
       await fetch(`/api/admin/dealers/${selected.id}/commission`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commissionPct: tForm.commissionPct !== '' ? parseFloat(tForm.commissionPct) : null }) });
+      await fetch(`/api/admin/dealers/${selected.id}/commission-payout`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commissionPaidAmount: parseInt(tForm.commissionPaidAmount) || 0 }) });
       setSaveMsg('✅ Saved successfully!');
       loadDealers();
     } catch { setSaveMsg('❌ Save failed'); } finally { setSaving(false); }
@@ -703,7 +705,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                       <thead>
                         <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
-                          {['Dealer', 'Package', 'Commission %', 'Target', 'Achieved', 'Progress', 'Deposit', 'Reward', 'Actions'].map(h => (
+                          {['Dealer', 'Package', 'Commission %', 'Target', 'Achieved', 'Progress', 'Comm. Earned', 'Comm. Paid', 'Outstanding', 'Deposit', 'Reward', 'Actions'].map(h => (
                             <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                           ))}
                         </tr>
@@ -744,6 +746,21 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                                     </div>
                                     <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{pct}%</div>
                                   </div>
+                                ) : <span style={{ color: '#e5e7eb' }}>—</span>}
+                              </td>
+                              <td style={{ padding: '0.875rem', fontWeight: 700, color: '#059669', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                                {d.commissionEarned > 0 ? fmt(d.commissionEarned) : <span style={{ color: '#e5e7eb' }}>—</span>}
+                              </td>
+                              <td style={{ padding: '0.875rem', fontWeight: 700, color: '#1d4ed8', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
+                                {d.commissionPaid > 0 ? fmt(d.commissionPaid) : <span style={{ color: '#e5e7eb' }}>—</span>}
+                              </td>
+                              <td style={{ padding: '0.875rem', whiteSpace: 'nowrap' }}>
+                                {d.commissionOutstanding > 0 ? (
+                                  <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 9999, padding: '0.2rem 0.6rem', fontSize: '0.72rem', fontWeight: 800 }}>
+                                    ⏳ {fmt(d.commissionOutstanding)}
+                                  </span>
+                                ) : d.commissionEarned > 0 ? (
+                                  <span style={{ background: '#d1fae5', color: '#065f46', borderRadius: 9999, padding: '0.2rem 0.6rem', fontSize: '0.72rem', fontWeight: 800 }}>✓ Settled</span>
                                 ) : <span style={{ color: '#e5e7eb' }}>—</span>}
                               </td>
                               <td style={{ padding: '0.875rem' }}>
@@ -907,6 +924,39 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                           {tForm.depositPaid ? '✓ Paid' : '○ Pending'}
                         </button>
                       </div>
+                    </div>
+
+                    <div>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151', marginBottom: '0.625rem' }}>💵 Commission Payout</div>
+                      {selected && (() => {
+                        const earned = selected.commissionEarned || 0;
+                        const outstanding = selected.commissionOutstanding || 0;
+                        return (
+                          <div style={{ marginBottom: '0.625rem', background: '#f8fafc', borderRadius: 9, padding: '0.5rem 0.75rem', fontSize: '0.78rem', border: '1px solid #e2e8f0', display: 'flex', gap: '1.25rem', flexWrap: 'wrap' }}>
+                            <span>Earned: <strong style={{ color: '#059669' }}>{fmt(earned)}</strong></span>
+                            <span>Outstanding: <strong style={{ color: outstanding > 0 ? '#92400e' : '#065f46' }}>{fmt(outstanding)}</strong></span>
+                          </div>
+                        );
+                      })()}
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <input
+                          type="number"
+                          min="0"
+                          value={tForm.commissionPaidAmount}
+                          onChange={e => setTForm(f => ({ ...f, commissionPaidAmount: e.target.value }))}
+                          placeholder="Total commission paid so far"
+                          style={{ flex: 1, padding: '0.5rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.85rem' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setTForm(f => ({ ...f, commissionPaidAmount: String(selected?.commissionEarned || 0) }))}
+                          style={{ padding: '0.5rem 0.875rem', borderRadius: 9, border: '1.5px solid #6ee7b7', background: '#d1fae5', color: '#065f46', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          title="Mark full earned commission as paid"
+                        >
+                          ✓ Mark All Paid
+                        </button>
+                      </div>
+                      <div style={{ fontSize: '0.73rem', color: '#94a3b8', marginTop: '0.25rem' }}>Enter the total cumulative amount actually paid out to this dealer.</div>
                     </div>
 
                     <div className="form-group">
