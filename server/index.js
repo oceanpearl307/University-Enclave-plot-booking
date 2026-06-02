@@ -84,7 +84,7 @@ let plotCounter = 10;
 // ─── Packages ────────────────────────────────────────────────────────────────
 let packages = [
   {
-    id: 1, name: 'Normal Package', totalPlots: 25,
+    id: 1, name: 'Normal Package', totalPlots: 25, commissionPct: 12,
     sizes: [
       { size: '5 Marla', quota: 10 },
       { size: '7 Marla', quota: 8 },
@@ -96,7 +96,7 @@ let packages = [
     createdAt: '2026-01-01T00:00:00.000Z',
   },
   {
-    id: 2, name: 'Premium Package', totalPlots: 50,
+    id: 2, name: 'Premium Package', totalPlots: 50, commissionPct: 15,
     sizes: [
       { size: '5 Marla', quota: 20 },
       { size: '7 Marla', quota: 15 },
@@ -481,12 +481,24 @@ app.get('/api/dealer/dashboard/:dealerId', (req, res) => {
     });
   }
 
+  const commissionRate = (dealer.commissionPct !== undefined && dealer.commissionPct !== null)
+    ? dealer.commissionPct
+    : (pkg?.commissionPct || 0);
+  const totalCommissionEarned = myBookings.reduce((s, b) => s + (b.commissionAmount || 0), 0);
+  const commissions = [...myBookings].reverse().map(b => ({
+    ref: b.bookingRef, plot: b.plotNumber, size: b.plotSize, area: b.area,
+    plotPrice: b.plotPrice, commissionPct: b.commissionPct || 0,
+    commissionAmount: b.commissionAmount || 0, status: b.status, date: b.createdAt,
+  }));
+
   res.json({
-    dealer: { id: dealer.id, name: dealer.name, username: dealer.username, securityDepositPaid: dealer.securityDepositPaid || false, securityDepositRequired: dealer.securityDepositRequired || 0, rewardGiven: dealer.rewardGiven || false },
+    dealer: { id: dealer.id, name: dealer.name, username: dealer.username, securityDepositPaid: dealer.securityDepositPaid || false, securityDepositRequired: dealer.securityDepositRequired || 0, rewardGiven: dealer.rewardGiven || false, commissionPct: dealer.commissionPct ?? null },
     target: target ? { ...target, totalTarget, paymentTarget: target.paymentTarget, packageId: target.packageId } : null,
-    package: pkg ? { id: pkg.id, name: pkg.name, rewardDescription: pkg.rewardDescription, rewardAmount: pkg.rewardAmount } : null,
+    package: pkg ? { id: pkg.id, name: pkg.name, rewardDescription: pkg.rewardDescription, rewardAmount: pkg.rewardAmount, commissionPct: pkg.commissionPct || 0 } : null,
     sizeBreakdown, targetPct,
     stats: { achieved, totalTarget, paymentsCollected, paymentTarget: target?.paymentTarget || 0 },
+    commission: { rate: commissionRate, hasOverride: dealer.commissionPct !== undefined && dealer.commissionPct !== null, pkgRate: pkg?.commissionPct || 0, totalEarned: totalCommissionEarned },
+    commissions,
     monthlySales, plotDistribution, recentBookings, activeDeals, inventory,
   });
 });
@@ -504,6 +516,9 @@ app.get('/api/admin/dealers', (req, res) => {
       ...safe, hasTarget: !!target, totalTarget, achieved, pct, paymentsCollected,
       paymentTarget: target?.paymentTarget || 0, notes: target?.notes || '',
       packageId: target?.packageId || null, packageName: pkg?.name || null,
+      commissionPct: (d.commissionPct !== undefined && d.commissionPct !== null) ? d.commissionPct : (pkg?.commissionPct || 0),
+      hasCommissionOverride: d.commissionPct !== undefined && d.commissionPct !== null,
+      commissionPctOverride: d.commissionPct ?? null,
     };
   });
   res.json(result);
@@ -564,6 +579,14 @@ app.post('/api/admin/dealers/:id/deposit', (req, res) => {
 });
 
 // ─── Admin: Mark Reward Given ─────────────────────────────────────────────────
+app.patch('/api/admin/dealers/:id/commission', (req, res) => {
+  const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
+  if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
+  const pct = req.body.commissionPct;
+  dealer.commissionPct = (pct === null || pct === '' || pct === undefined) ? null : parseFloat(pct) || 0;
+  res.json({ success: true });
+});
+
 app.post('/api/admin/dealers/:id/reward', (req, res) => {
   const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
   if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
@@ -651,11 +674,12 @@ app.post('/api/admin/registrations/:id/approve', (req, res) => {
 app.get('/api/admin/packages', (req, res) => res.json(packages));
 
 app.post('/api/admin/packages', (req, res) => {
-  const { name, sizes, rewardDescription, rewardAmount } = req.body;
+  const { name, sizes, rewardDescription, rewardAmount, commissionPct } = req.body;
   if (!name || !sizes) return res.status(400).json({ error: 'name and sizes required' });
   const totalPlots = sizes.reduce((sum, s) => sum + (parseInt(s.quota) || 0), 0);
   const pkg = {
     id: ++packageCounter, name, totalPlots,
+    commissionPct: parseFloat(commissionPct) || 0,
     sizes: PLOT_SIZES.map(s => {
       const entry = sizes.find(x => x.size === s);
       return { size: s, quota: entry ? parseInt(entry.quota) || 0 : 0 };
@@ -671,7 +695,7 @@ app.post('/api/admin/packages', (req, res) => {
 app.put('/api/admin/packages/:id', (req, res) => {
   const pkg = packages.find(p => p.id === parseInt(req.params.id));
   if (!pkg) return res.status(404).json({ error: 'Package not found' });
-  const { name, sizes, rewardDescription, rewardAmount } = req.body;
+  const { name, sizes, rewardDescription, rewardAmount, commissionPct } = req.body;
   if (name) pkg.name = name;
   if (sizes) {
     pkg.sizes = PLOT_SIZES.map(s => {
@@ -682,6 +706,7 @@ app.put('/api/admin/packages/:id', (req, res) => {
   }
   if (rewardDescription !== undefined) pkg.rewardDescription = rewardDescription;
   if (rewardAmount !== undefined) pkg.rewardAmount = parseInt(rewardAmount) || 0;
+  if (commissionPct !== undefined) pkg.commissionPct = parseFloat(commissionPct) || 0;
   res.json(pkg);
 });
 
@@ -864,6 +889,14 @@ app.post('/api/bookings', (req, res) => {
   if (!plot) return res.status(404).json({ error: 'Plot not found' });
   if (plot.status !== 'available') return res.status(409).json({ error: 'Plot is not available for booking' });
   const resolvedDealerId = dealerId ? (dealers.find(d => d.id === dealerId && d.role !== 'admin') ? dealerId : null) : null;
+  const dealerForCommission = resolvedDealerId ? dealers.find(d => d.id === resolvedDealerId) : null;
+  const dealerTargetObj = resolvedDealerId ? dealerTargets[resolvedDealerId] : null;
+  const dealerPkgForCommission = dealerTargetObj?.packageId ? packages.find(p => p.id === dealerTargetObj.packageId) : null;
+  const effectiveCommissionPct = (dealerForCommission?.commissionPct !== undefined && dealerForCommission?.commissionPct !== null)
+    ? dealerForCommission.commissionPct
+    : (dealerPkgForCommission?.commissionPct || 0);
+  const plotEffectivePrice = computeEffectivePrice(plot.price, plot.tags || []);
+  const commissionAmount = Math.round(plotEffectivePrice * effectiveCommissionPct / 100);
   const booking = {
     id: ++bookingCounter, bookingRef: `UE-${bookingCounter}`,
     plotId, plotNumber: plot.number, plotSize: plot.size,
@@ -873,6 +906,8 @@ app.post('/api/bookings', (req, res) => {
     nominee: { name: nomineeName, fatherName: nomineeFatherName, cnic: nomineeCnic, relation: nomineeRelation, phone: nomineePhone, address: nomineeAddress },
     dealerId: resolvedDealerId,
     downPayment: Number(downPayment) || 0,
+    commissionPct: effectiveCommissionPct,
+    commissionAmount,
     status: 'pending', createdAt: new Date().toISOString(),
   };
   bookings.push(booking);

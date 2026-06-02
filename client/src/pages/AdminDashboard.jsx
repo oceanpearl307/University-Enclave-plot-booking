@@ -39,7 +39,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   const [dealersLoading, setDealersLoading] = useState(true);
   const [packages, setPackages] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [tForm, setTForm] = useState({ packageId: '', sizes: {}, paymentTarget: '', notes: '', depositAmount: '', depositPaid: false });
+  const [tForm, setTForm] = useState({ packageId: '', sizes: {}, paymentTarget: '', notes: '', depositAmount: '', depositPaid: false, commissionPct: '' });
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
 
@@ -53,7 +53,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
 
   // ── Packages tab ──
   const [pkgEdit, setPkgEdit] = useState(null);
-  const [pkgForm, setPkgForm] = useState({ name: '', sizes: {}, rewardDescription: '', rewardAmount: '' });
+  const [pkgForm, setPkgForm] = useState({ name: '', sizes: {}, rewardDescription: '', rewardAmount: '', commissionPct: '' });
   const [pkgSaving, setPkgSaving] = useState(false);
   const [pkgMsg, setPkgMsg] = useState('');
 
@@ -177,6 +177,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
       notes: res?.notes || '',
       depositAmount: d.securityDepositRequired || 200000,
       depositPaid: d.securityDepositPaid || false,
+      commissionPct: d.commissionPctOverride !== null && d.commissionPctOverride !== undefined ? String(d.commissionPctOverride) : '',
     });
   };
 
@@ -203,6 +204,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
       if (tForm.packageId) body.packageId = parseInt(tForm.packageId);
       await fetch(`/api/admin/targets/${selected.id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       await fetch(`/api/admin/dealers/${selected.id}/deposit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paid: tForm.depositPaid, amount: parseInt(tForm.depositAmount) || 0 }) });
+      await fetch(`/api/admin/dealers/${selected.id}/commission`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commissionPct: tForm.commissionPct !== '' ? parseFloat(tForm.commissionPct) : null }) });
       setSaveMsg('✅ Saved successfully!');
       loadDealers();
     } catch { setSaveMsg('❌ Save failed'); } finally { setSaving(false); }
@@ -234,12 +236,12 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
       setPkgEdit(pkg);
       const sizes = {};
       pkg.sizes.forEach(s => { sizes[s.size] = s.quota; });
-      setPkgForm({ name: pkg.name, sizes, rewardDescription: pkg.rewardDescription, rewardAmount: pkg.rewardAmount });
+      setPkgForm({ name: pkg.name, sizes, rewardDescription: pkg.rewardDescription, rewardAmount: pkg.rewardAmount, commissionPct: pkg.commissionPct ?? '' });
     } else {
       setPkgEdit('new');
       const sizes = {};
       PLOT_SIZES.forEach(s => { sizes[s] = 0; });
-      setPkgForm({ name: '', sizes, rewardDescription: '', rewardAmount: '' });
+      setPkgForm({ name: '', sizes, rewardDescription: '', rewardAmount: '', commissionPct: '' });
     }
     setPkgMsg('');
   };
@@ -248,7 +250,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
     e.preventDefault(); setPkgSaving(true); setPkgMsg('');
     try {
       const sizes = PLOT_SIZES.map(s => ({ size: s, quota: parseInt(pkgForm.sizes[s]) || 0 }));
-      const body = { name: pkgForm.name, sizes, rewardDescription: pkgForm.rewardDescription, rewardAmount: parseInt(pkgForm.rewardAmount) || 0 };
+      const body = { name: pkgForm.name, sizes, rewardDescription: pkgForm.rewardDescription, rewardAmount: parseInt(pkgForm.rewardAmount) || 0, commissionPct: parseFloat(pkgForm.commissionPct) || 0 };
       const url = pkgEdit === 'new' ? '/api/admin/packages' : `/api/admin/packages/${pkgEdit.id}`;
       const method = pkgEdit === 'new' ? 'POST' : 'PUT';
       const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -672,7 +674,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                       <thead>
                         <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
-                          {['Dealer', 'Package', 'Target', 'Achieved', 'Progress', 'Deposit', 'Reward', 'Actions'].map(h => (
+                          {['Dealer', 'Package', 'Commission %', 'Target', 'Achieved', 'Progress', 'Deposit', 'Reward', 'Actions'].map(h => (
                             <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                           ))}
                         </tr>
@@ -697,6 +699,11 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                               </td>
                               <td style={{ padding: '0.875rem' }}>
                                 {d.packageName ? <span style={{ background: '#eff6ff', color: '#1d4ed8', borderRadius: 6, padding: '0.2rem 0.5rem', fontSize: '0.75rem', fontWeight: 700 }}>{d.packageName}</span> : <span style={{ color: '#e5e7eb', fontSize: '0.8rem' }}>—</span>}
+                              </td>
+                              <td style={{ padding: '0.875rem' }}>
+                                <span style={{ background: d.hasCommissionOverride ? '#fef3c7' : '#f0fdf4', color: d.hasCommissionOverride ? '#92400e' : '#065f46', borderRadius: 6, padding: '0.2rem 0.5rem', fontSize: '0.78rem', fontWeight: 800 }}>
+                                  {d.commissionPct}%{d.hasCommissionOverride ? ' ★' : ''}
+                                </span>
                               </td>
                               <td style={{ padding: '0.875rem', fontWeight: 700, color: d.hasTarget ? '#0f172a' : '#94a3b8' }}>{d.hasTarget ? d.totalTarget : '—'}</td>
                               <td style={{ padding: '0.875rem', fontWeight: 700, color: '#059669' }}>{d.achieved}</td>
@@ -876,6 +883,15 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                     <div className="form-group">
                       <label>📝 Notes</label>
                       <input value={tForm.notes} onChange={e => setTForm(f => ({ ...f, notes: e.target.value }))} placeholder="e.g. Q2 2026 Sales Target" />
+                    </div>
+
+                    <div className="form-group">
+                      <label>💵 Commission % Override</label>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <input type="number" min="0" max="100" step="0.5" value={tForm.commissionPct} onChange={e => setTForm(f => ({ ...f, commissionPct: e.target.value }))} placeholder={`Pkg default: ${packages.find(p => p.id === parseInt(tForm.packageId))?.commissionPct ?? '—'}%`} style={{ flex: 1 }} />
+                        {tForm.commissionPct !== '' && <button type="button" onClick={() => setTForm(f => ({ ...f, commissionPct: '' }))} style={{ padding: '0.5rem 0.75rem', background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, whiteSpace: 'nowrap' }}>✕ Use Default</button>}
+                      </div>
+                      <div style={{ fontSize: '0.73rem', color: '#94a3b8', marginTop: '0.25rem' }}>Leave blank to use the package default. Fill only to set a custom rate for this dealer.</div>
                     </div>
 
                     {saveMsg && <div className={saveMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ fontSize: '0.85rem' }}>{saveMsg}</div>}
@@ -1185,7 +1201,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                       <thead>
                         <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
-                          {['Ref', 'Buyer', 'Plot', 'Dealer', 'Amount', 'Date', 'Status', 'Actions'].map(h => (
+                          {['Ref', 'Buyer', 'Plot', 'Dealer', 'Amount', 'Commission', 'Date', 'Status', 'Actions'].map(h => (
                             <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                           ))}
                         </tr>
@@ -1205,6 +1221,14 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                             <td style={{ padding: '0.875rem', fontWeight: 700, color: '#1a6b3c', fontFamily: 'monospace' }}>{b.plotNumber}</td>
                             <td style={{ padding: '0.875rem', fontSize: '0.8rem', color: '#374151' }}>{b.dealerName || '—'}</td>
                             <td style={{ padding: '0.875rem', fontWeight: 700 }}>{fmt(b.plotPrice)}</td>
+                            <td style={{ padding: '0.875rem' }}>
+                              {b.dealerId && b.commissionAmount > 0 ? (
+                                <div>
+                                  <div style={{ fontWeight: 800, color: '#059669', fontSize: '0.82rem' }}>{fmt(b.commissionAmount)}</div>
+                                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{b.commissionPct}%</div>
+                                </div>
+                              ) : <span style={{ color: '#e5e7eb', fontSize: '0.8rem' }}>—</span>}
+                            </td>
                             <td style={{ padding: '0.875rem', fontSize: '0.78rem', color: '#64748b' }}>{new Date(b.createdAt).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
                             <td style={{ padding: '0.875rem' }}>
                               <span style={{ background: b.status === 'pending' ? '#fef3c7' : b.status === 'confirmed' ? '#d1fae5' : '#fee2e2', color: b.status === 'pending' ? '#92400e' : b.status === 'confirmed' ? '#065f46' : '#dc2626', borderRadius: 9999, padding: '0.2rem 0.5rem', fontSize: '0.72rem', fontWeight: 700, textTransform: 'capitalize' }}>{b.status}</span>
@@ -1427,6 +1451,11 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                   <div className="form-group">
                     <label>💰 Reward Amount (PKR, optional)</label>
                     <input type="number" value={pkgForm.rewardAmount} onChange={e => setPkgForm(f => ({ ...f, rewardAmount: e.target.value }))} placeholder="e.g. 50000" />
+                  </div>
+                  <div className="form-group">
+                    <label>💵 Default Commission %</label>
+                    <input type="number" min="0" max="100" step="0.5" value={pkgForm.commissionPct} onChange={e => setPkgForm(f => ({ ...f, commissionPct: e.target.value }))} placeholder="e.g. 12" />
+                    <div style={{ fontSize: '0.73rem', color: '#94a3b8', marginTop: '0.25rem' }}>% of plot price earned by dealers on each booking (can be overridden per dealer)</div>
                   </div>
                   {pkgMsg && <div className={pkgMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ fontSize: '0.85rem' }}>{pkgMsg}</div>}
                   <button type="submit" className="btn btn-primary" disabled={pkgSaving} style={{ justifyContent: 'center', padding: '0.75rem' }}>

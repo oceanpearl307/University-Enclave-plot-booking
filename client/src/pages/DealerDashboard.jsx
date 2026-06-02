@@ -78,7 +78,7 @@ export default function DealerDashboard({ dealer, onLogout, navigate }) {
     <div className="empty-state"><h3>Failed to load dashboard</h3><p>Please refresh the page.</p></div>
   );
 
-  const { target, sizeBreakdown, stats, monthlySales, plotDistribution, recentBookings, activeDeals, inventory, package: pkg, targetPct: rawPct } = data;
+  const { target, sizeBreakdown, stats, monthlySales, plotDistribution, recentBookings, activeDeals, inventory, package: pkg, targetPct: rawPct, commission, commissions } = data;
   const dealerInfo = data.dealer;
 
   const totalTarget = stats.totalTarget || 0;
@@ -125,6 +125,15 @@ export default function DealerDashboard({ dealer, onLogout, navigate }) {
               </div>
             </div>
           </div>
+          {commission && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#fff', borderRadius: 12, padding: '0.625rem 1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: `1px solid ${commission.hasOverride ? '#fde68a' : '#bbf7d0'}` }}>
+              <span style={{ fontSize: '1rem' }}>💵</span>
+              <div>
+                <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>Commission Rate{commission.hasOverride ? ' (Custom)' : ''}</div>
+                <div style={{ fontSize: '0.875rem', fontWeight: 800, color: commission.hasOverride ? '#92400e' : '#065f46' }}>{commission.rate}%</div>
+              </div>
+            </div>
+          )}
           {targetComplete && dealerInfo.rewardGiven && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#f5f3ff', borderRadius: 12, padding: '0.625rem 1rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #ddd6fe' }}>
               <span style={{ fontSize: '1rem' }}>🏆</span>
@@ -305,6 +314,70 @@ export default function DealerDashboard({ dealer, onLogout, navigate }) {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* My Commissions */}
+        {commission && (
+          <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <div>
+                <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>My Commissions</h3>
+                <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Commission earned on each booking at {commission.rate}% of plot price</p>
+              </div>
+              <div style={{ background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)', border: '1px solid #bbf7d0', borderRadius: 12, padding: '0.75rem 1.25rem', textAlign: 'right' }}>
+                <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, marginBottom: '0.15rem' }}>TOTAL EARNED</div>
+                <div style={{ fontSize: '1.4rem', fontWeight: 900, color: '#059669' }}>{fmt(commission.totalEarned)}</div>
+                {commission.hasOverride && <div style={{ fontSize: '0.68rem', color: '#d97706', fontWeight: 700, marginTop: '0.15rem' }}>Custom rate: {commission.rate}% (pkg: {commission.pkgRate}%)</div>}
+              </div>
+            </div>
+
+            {commissions && commissions.length > 0 ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
+                      {['Booking Ref', 'Plot', 'Size', 'Plot Price', 'Commission %', 'Commission Earned', 'Status'].map(h => (
+                        <th key={h} style={{ padding: '0.625rem 0.75rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {commissions.map(c => (
+                      <tr key={c.ref} style={{ borderBottom: '1px solid #f8fafc' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        <td style={{ padding: '0.75rem', fontFamily: 'monospace', fontWeight: 700, color: '#059669', fontSize: '0.8rem' }}>{c.ref}</td>
+                        <td style={{ padding: '0.75rem', fontWeight: 700, color: '#1a6b3c', fontFamily: 'monospace' }}>{c.plot}</td>
+                        <td style={{ padding: '0.75rem', fontSize: '0.8rem', color: '#374151' }}>{c.size}</td>
+                        <td style={{ padding: '0.75rem', fontWeight: 700, color: '#0f172a' }}>{fmt(c.plotPrice)}</td>
+                        <td style={{ padding: '0.75rem' }}>
+                          <span style={{ background: '#f0fdf4', color: '#065f46', borderRadius: 6, padding: '0.2rem 0.5rem', fontSize: '0.75rem', fontWeight: 800 }}>{c.commissionPct}%</span>
+                        </td>
+                        <td style={{ padding: '0.75rem', fontWeight: 900, color: c.commissionAmount > 0 ? '#059669' : '#94a3b8', fontSize: '0.9rem' }}>
+                          {c.commissionAmount > 0 ? fmt(c.commissionAmount) : '—'}
+                        </td>
+                        <td style={{ padding: '0.75rem' }}>
+                          <span style={{ background: c.status === 'confirmed' ? '#d1fae5' : c.status === 'pending' ? '#fef3c7' : '#fee2e2', color: c.status === 'confirmed' ? '#065f46' : c.status === 'pending' ? '#92400e' : '#dc2626', borderRadius: 9999, padding: '0.2rem 0.5rem', fontSize: '0.72rem', fontWeight: 700, textTransform: 'capitalize' }}>{c.status}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr style={{ borderTop: '2px solid #f1f5f9', background: '#f8fafc' }}>
+                      <td colSpan={5} style={{ padding: '0.75rem', fontWeight: 800, color: '#374151', fontSize: '0.85rem' }}>Total Commission Earned</td>
+                      <td style={{ padding: '0.75rem', fontWeight: 900, color: '#059669', fontSize: '1rem' }}>{fmt(commission.totalEarned)}</td>
+                      <td />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8', fontSize: '0.9rem' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>💵</div>
+                <div style={{ fontWeight: 600 }}>No bookings yet — commissions will appear here once you book plots.</div>
+              </div>
+            )}
           </div>
         )}
 
