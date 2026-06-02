@@ -738,34 +738,61 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>All Dealers</h3>
                     <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Click a dealer to assign targets · use 🔐 to manage passwords & access</p>
                   </div>
-                  <button
-                    onClick={() => {
-                      const ranked = [...dealers].sort((a, b) => (b.commissionEarned || 0) - (a.commissionEarned || 0));
-                      const rows = [
-                        ['Rank', 'Dealer Name', 'Username', 'Package', 'Bookings Achieved', 'Commission %', 'Commission Earned (PKR)', 'Commission Paid (PKR)', 'Outstanding (PKR)'],
-                        ...ranked.map((d, i) => [
-                          i + 1,
-                          d.name,
-                          d.username,
-                          d.packageName || '—',
-                          d.achieved,
-                          d.commissionPct + '%',
-                          d.commissionEarned || 0,
-                          d.commissionPaid || 0,
-                          d.commissionOutstanding || 0,
-                        ]),
-                      ];
-                      const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-                      const blob = new Blob([csv], { type: 'text/csv' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url; a.download = 'commission_summary.csv'; a.click();
-                      URL.revokeObjectURL(url);
-                    }}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#f0fdf4', border: '1.5px solid #bbf7d0', color: '#065f46', borderRadius: 9, padding: '0.45rem 0.9rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
-                  >
-                    ⬇ Export CSV
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button
+                      onClick={() => {
+                        const ranked = [...dealers].sort((a, b) => (b.commissionEarned || 0) - (a.commissionEarned || 0));
+                        const rows = [
+                          ['Rank', 'Dealer Name', 'Username', 'Package', 'Bookings Achieved', 'Commission %', 'Commission Earned (PKR)', 'Commission Paid (PKR)', 'Outstanding (PKR)'],
+                          ...ranked.map((d, i) => [
+                            i + 1,
+                            d.name,
+                            d.username,
+                            d.packageName || '—',
+                            d.achieved,
+                            d.commissionPct + '%',
+                            d.commissionEarned || 0,
+                            d.commissionPaid || 0,
+                            d.commissionOutstanding || 0,
+                          ]),
+                        ];
+                        const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+                        const blob = new Blob([csv], { type: 'text/csv' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url; a.download = 'commission_summary.csv'; a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#f0fdf4', border: '1.5px solid #bbf7d0', color: '#065f46', borderRadius: 9, padding: '0.45rem 0.9rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      ⬇ Export CSV
+                    </button>
+                    <button
+                      onClick={() => {
+                        const ranked = [...dealers].sort((a, b) => (b.commissionEarned || 0) - (a.commissionEarned || 0));
+                        const wsData = [
+                          ['Dealer Name', 'Booking Count', 'Commission Earned (PKR)', 'Commission Paid (PKR)', 'Outstanding (PKR)'],
+                          ...ranked.map(d => [
+                            d.name,
+                            d.achieved,
+                            d.commissionEarned || 0,
+                            d.commissionPaid || 0,
+                            d.commissionOutstanding || 0,
+                          ]),
+                          [],
+                          ['TOTAL', ranked.reduce((s, d) => s + d.achieved, 0), ranked.reduce((s, d) => s + (d.commissionEarned || 0), 0), ranked.reduce((s, d) => s + (d.commissionPaid || 0), 0), ranked.reduce((s, d) => s + (d.commissionOutstanding || 0), 0)],
+                        ];
+                        const ws = XLSX.utils.aoa_to_sheet(wsData);
+                        ws['!cols'] = [{ wch: 24 }, { wch: 16 }, { wch: 26 }, { wch: 24 }, { wch: 22 }];
+                        const wb = XLSX.utils.book_new();
+                        XLSX.utils.book_append_sheet(wb, ws, 'Commission Summary');
+                        XLSX.writeFile(wb, `commission_summary_${new Date().toISOString().split('T')[0]}.xlsx`);
+                      }}
+                      style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#eff6ff', border: '1.5px solid #bfdbfe', color: '#1e40af', borderRadius: 9, padding: '0.45rem 0.9rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      📊 Export Commissions
+                    </button>
+                  </div>
                 </div>
                 {dealersLoading ? <div className="loading"><div className="spinner"></div>Loading...</div> : (
                   <div style={{ overflowX: 'auto' }}>
