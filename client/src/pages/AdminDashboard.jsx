@@ -659,20 +659,30 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
         {/* ─── DEALERS TAB ─── */}
         {tab === 'Dealers' && (
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.25rem', marginBottom: '1.75rem' }}>
-              {[
-                { label: 'Total Dealers', value: dealers.length, icon: '👥', color: '#6366f1' },
-                { label: 'With Targets', value: dealers.filter(d => d.hasTarget).length, icon: '🎯', color: '#d97706' },
-                { label: 'Total Achieved', value: dealers.reduce((s, d) => s + d.achieved, 0), icon: '✅', color: '#059669' },
-                { label: 'Deposit Paid', value: dealers.filter(d => d.securityDepositPaid).length, icon: '💳', color: '#0ea5e9' },
-              ].map(c => (
-                <div key={c.label} style={{ background: '#fff', borderRadius: 16, padding: '1.25rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', position: 'relative', overflow: 'hidden' }}>
-                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: c.color, borderRadius: '16px 16px 0 0' }} />
-                  <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>{c.label}</div>
-                  <div style={{ fontSize: '2rem', fontWeight: 900, color: '#0f172a' }}>{c.value}</div>
+            {(() => {
+              const totalCommEarned = dealers.reduce((s, d) => s + (d.commissionEarned || 0), 0);
+              const totalCommPaid = dealers.reduce((s, d) => s + (d.commissionPaid || 0), 0);
+              const totalCommOutstanding = dealers.reduce((s, d) => s + (d.commissionOutstanding || 0), 0);
+              const summaryCards = [
+                { label: 'Total Dealers', value: dealers.length, icon: '👥', color: '#6366f1', isNum: false },
+                { label: 'With Targets', value: dealers.filter(d => d.hasTarget).length, icon: '🎯', color: '#d97706', isNum: false },
+                { label: 'Total Achieved', value: dealers.reduce((s, d) => s + d.achieved, 0), icon: '✅', color: '#059669', isNum: false },
+                { label: 'Deposit Paid', value: dealers.filter(d => d.securityDepositPaid).length, icon: '💳', color: '#0ea5e9', isNum: false },
+                { label: 'Total Commission', value: fmt(totalCommEarned), icon: '💰', color: '#7c3aed', isNum: true, sub: totalCommOutstanding > 0 ? `${fmt(totalCommOutstanding)} outstanding` : totalCommPaid > 0 ? '✓ Fully settled' : null },
+              ];
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.25rem', marginBottom: '1.75rem' }}>
+                  {summaryCards.map(c => (
+                    <div key={c.label} style={{ background: '#fff', borderRadius: 16, padding: '1.25rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', position: 'relative', overflow: 'hidden' }}>
+                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: c.color, borderRadius: '16px 16px 0 0' }} />
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>{c.label}</div>
+                      <div style={{ fontSize: c.isNum ? '1.35rem' : '2rem', fontWeight: 900, color: '#0f172a' }}>{c.value}</div>
+                      {c.sub && <div style={{ fontSize: '0.68rem', color: totalCommOutstanding > 0 ? '#b45309' : '#059669', fontWeight: 700, marginTop: '0.25rem' }}>{c.sub}</div>}
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
 
             <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', marginBottom: '1.5rem' }}>
               <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Team Performance Overview</h3>
@@ -699,26 +709,69 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>All Dealers</h3>
                     <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Click a dealer to assign targets · use 🔐 to manage passwords & access</p>
                   </div>
+                  <button
+                    onClick={() => {
+                      const ranked = [...dealers].sort((a, b) => (b.commissionEarned || 0) - (a.commissionEarned || 0));
+                      const rows = [
+                        ['Rank', 'Dealer Name', 'Username', 'Package', 'Bookings Achieved', 'Commission %', 'Commission Earned (PKR)', 'Commission Paid (PKR)', 'Outstanding (PKR)'],
+                        ...ranked.map((d, i) => [
+                          i + 1,
+                          d.name,
+                          d.username,
+                          d.packageName || '—',
+                          d.achieved,
+                          d.commissionPct + '%',
+                          d.commissionEarned || 0,
+                          d.commissionPaid || 0,
+                          d.commissionOutstanding || 0,
+                        ]),
+                      ];
+                      const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+                      const blob = new Blob([csv], { type: 'text/csv' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url; a.download = 'commission_summary.csv'; a.click();
+                      URL.revokeObjectURL(url);
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: '#f0fdf4', border: '1.5px solid #bbf7d0', color: '#065f46', borderRadius: 9, padding: '0.45rem 0.9rem', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                  >
+                    ⬇ Export CSV
+                  </button>
                 </div>
                 {dealersLoading ? <div className="loading"><div className="spinner"></div>Loading...</div> : (
                   <div style={{ overflowX: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                       <thead>
                         <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
-                          {['Dealer', 'Package', 'Commission %', 'Target', 'Achieved', 'Progress', 'Comm. Earned', 'Comm. Paid', 'Outstanding', 'Deposit', 'Reward', 'Actions'].map(h => (
+                          {['#', 'Dealer', 'Package', 'Commission %', 'Target', 'Achieved', 'Progress', 'Comm. Earned', 'Comm. Paid', 'Outstanding', 'Deposit', 'Reward', 'Actions'].map(h => (
                             <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
-                        {dealers.map(d => {
+                        {(() => {
+                          const commRanks = [...dealers]
+                            .filter(d => (d.commissionEarned || 0) > 0)
+                            .sort((a, b) => (b.commissionEarned || 0) - (a.commissionEarned || 0))
+                            .map((d, i) => ({ id: d.id, rank: i + 1 }));
+                          const rankMap = Object.fromEntries(commRanks.map(r => [r.id, r.rank]));
+                          const medalEmoji = { 1: '🥇', 2: '🥈', 3: '🥉' };
+                          return dealers.map(d => {
                           const pct = d.totalTarget > 0 ? Math.min(100, Math.round((d.achieved / d.totalTarget) * 100)) : 0;
                           const isSelected = selected?.id === d.id;
+                          const rank = rankMap[d.id];
                           return (
                             <tr key={d.id} style={{ borderBottom: '1px solid #f8fafc', background: isSelected ? '#f0fdf4' : 'transparent', cursor: 'pointer' }}
                               onClick={() => openAssign(d)}
                               onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
                               onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = isSelected ? '#f0fdf4' : 'transparent'; }}>
+                              <td style={{ padding: '0.875rem', textAlign: 'center' }}>
+                                {rank ? (
+                                  rank <= 3
+                                    ? <span style={{ fontSize: '1.1rem' }}>{medalEmoji[rank]}</span>
+                                    : <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8' }}>#{rank}</span>
+                                ) : <span style={{ color: '#e5e7eb', fontSize: '0.8rem' }}>—</span>}
+                              </td>
                               <td style={{ padding: '0.875rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                                   <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #1a6b3c, #059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '0.8rem', flexShrink: 0 }}>{d.name.charAt(0)}</div>
@@ -790,7 +843,8 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                               </td>
                             </tr>
                           );
-                        })}
+                        });
+                        })()}
                       </tbody>
                     </table>
                   </div>
