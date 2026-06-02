@@ -643,6 +643,13 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   };
 
   const chartData = dealers.map(d => ({ name: d.name.split(' ')[0], Target: d.totalTarget, Achieved: d.achieved }));
+  const commissionChartData = [...dealers]
+    .sort((a, b) => (b.commissionEarned || 0) - (a.commissionEarned || 0))
+    .map(d => ({
+      name: d.name.split(' ')[0],
+      Paid: d.commissionPaid || 0,
+      Outstanding: d.commissionOutstanding || 0,
+    }));
   const statusColor = { available: '#059669', booked: '#d97706', sold: '#dc2626' };
   const today = new Date().toISOString().slice(0, 10);
 
@@ -729,6 +736,51 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                   </BarChart>
                 </ResponsiveContainer>
               ) : <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>No dealer data yet</div>}
+            </div>
+
+            {/* ─── Commission Leaderboard ─── */}
+            <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', marginBottom: '1.5rem' }}>
+              <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Commission Leaderboard</h3>
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1.25rem' }}>Total commission earned per dealer — ranked highest to lowest</p>
+              {commissionChartData.some(d => d.Paid > 0 || d.Outstanding > 0) ? (
+                <ResponsiveContainer width="100%" height={220}>
+                  <BarChart data={commissionChartData} barCategoryGap="30%">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 12, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: '#94a3b8' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={v => v >= 1000000 ? (v / 1000000).toFixed(1) + 'M' : v >= 1000 ? (v / 1000).toFixed(0) + 'K' : v}
+                    />
+                    <Tooltip
+                      cursor={{ fill: '#f8fafc' }}
+                      content={({ active, payload, label }) => {
+                        if (!active || !payload?.length) return null;
+                        const total = payload.reduce((s, p) => s + (p.value || 0), 0);
+                        return (
+                          <div style={{ background: '#1e293b', borderRadius: 10, padding: '0.75rem 1rem', boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
+                            <div style={{ color: '#94a3b8', fontSize: '0.75rem', marginBottom: '0.4rem', fontWeight: 600 }}>{label}</div>
+                            {payload.map((p, i) => (
+                              <div key={i} style={{ color: p.color, fontSize: '0.82rem', fontWeight: 700 }}>
+                                {p.name}: {fmt(p.value)}
+                              </div>
+                            ))}
+                            <div style={{ color: '#fff', fontSize: '0.82rem', fontWeight: 800, marginTop: '0.3rem', borderTop: '1px solid #334155', paddingTop: '0.3rem' }}>
+                              Total: {fmt(total)}
+                            </div>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '0.75rem', paddingTop: '0.75rem' }} />
+                    <Bar dataKey="Paid" stackId="comm" fill="#1a6b3c" radius={[0, 0, 0, 0]} name="Paid" />
+                    <Bar dataKey="Outstanding" stackId="comm" fill="#d97706" radius={[4, 4, 0, 0]} name="Outstanding" />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>No commission data yet — assign packages with commission % to dealers</div>
+              )}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: (selected || accessDealer) ? '1fr 460px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
