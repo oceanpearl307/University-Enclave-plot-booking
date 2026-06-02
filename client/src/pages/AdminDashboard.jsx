@@ -147,6 +147,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   // ── Staff tab ──
   const [staff, setStaff] = useState([]);
+  const [dealerSort, setDealerSort] = useState({ col: null, dir: 'desc' });
   const [staffLoading, setStaffLoading] = useState(false);
   const [staffEdit, setStaffEdit] = useState(null);
   const defaultPrivs = () => ({ approveBookings: false, viewPlots: false, viewDealers: false, viewDeals: false, viewRegistrations: false });
@@ -743,9 +744,33 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                       <thead>
                         <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
-                          {['#', 'Dealer', 'Package', 'Commission %', 'Target', 'Achieved', 'Progress', 'Comm. Earned', 'Comm. Paid', 'Outstanding', 'Deposit', 'Reward', 'Actions'].map(h => (
-                            <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
-                          ))}
+                          {[
+                            { label: '#', col: null },
+                            { label: 'Dealer', col: 'name' },
+                            { label: 'Package', col: null },
+                            { label: 'Commission %', col: null },
+                            { label: 'Target', col: 'totalTarget' },
+                            { label: 'Achieved', col: 'achieved' },
+                            { label: 'Progress', col: 'progress' },
+                            { label: 'Comm. Earned', col: 'commissionEarned' },
+                            { label: 'Comm. Paid', col: 'commissionPaid' },
+                            { label: 'Outstanding', col: 'commissionOutstanding' },
+                            { label: 'Deposit', col: null },
+                            { label: 'Reward', col: null },
+                            { label: 'Actions', col: null },
+                          ].map(({ label, col }) => {
+                            const isActive = dealerSort.col === col && col !== null;
+                            const canSort = col !== null;
+                            return (
+                              <th
+                                key={label}
+                                onClick={canSort ? () => setDealerSort(s => s.col === col ? { col, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { col, dir: 'desc' }) : undefined}
+                                style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: isActive ? '#1a6b3c' : '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap', cursor: canSort ? 'pointer' : 'default', userSelect: 'none' }}
+                              >
+                                {label}{isActive ? (dealerSort.dir === 'asc' ? ' ▲' : ' ▼') : (canSort ? <span style={{ opacity: 0.3, marginLeft: '0.2rem' }}>⇅</span> : '')}
+                              </th>
+                            );
+                          })}
                         </tr>
                       </thead>
                       <tbody>
@@ -756,7 +781,24 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                             .map((d, i) => ({ id: d.id, rank: i + 1 }));
                           const rankMap = Object.fromEntries(commRanks.map(r => [r.id, r.rank]));
                           const medalEmoji = { 1: '🥇', 2: '🥈', 3: '🥉' };
-                          return dealers.map(d => {
+                          const sorted = dealerSort.col
+                            ? [...dealers].sort((a, b) => {
+                                let av, bv;
+                                if (dealerSort.col === 'progress') {
+                                  av = a.totalTarget > 0 ? a.achieved / a.totalTarget : 0;
+                                  bv = b.totalTarget > 0 ? b.achieved / b.totalTarget : 0;
+                                } else if (dealerSort.col === 'name') {
+                                  av = (a.name || '').toLowerCase();
+                                  bv = (b.name || '').toLowerCase();
+                                  return dealerSort.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
+                                } else {
+                                  av = a[dealerSort.col] || 0;
+                                  bv = b[dealerSort.col] || 0;
+                                }
+                                return dealerSort.dir === 'asc' ? av - bv : bv - av;
+                              })
+                            : dealers;
+                          return sorted.map(d => {
                           const pct = d.totalTarget > 0 ? Math.min(100, Math.round((d.achieved / d.totalTarget) * 100)) : 0;
                           const isSelected = selected?.id === d.id;
                           const rank = rankMap[d.id];
