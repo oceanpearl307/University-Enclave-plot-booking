@@ -275,35 +275,70 @@ let announcements = [
 
 // ─── File-based Persistence ───────────────────────────────────────────────────
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
+const DB_DIR = path.dirname(DB_PATH);
+const MAX_BACKUPS = 5;
+
+function getBackupFiles() {
+  try {
+    return fs.readdirSync(DB_DIR)
+      .filter(f => f.startsWith('db.json.bak-'))
+      .sort()
+      .map(f => path.join(DB_DIR, f));
+  } catch { return []; }
+}
+
+function applyDb(db) {
+  if (db.sectors)              { sectors = db.sectors;                        }
+  if (db.sectorCounter)        { sectorCounter = db.sectorCounter;            }
+  if (db.plots)                { plots = db.plots;                            }
+  if (db.plotCounter)          { plotCounter = db.plotCounter;                }
+  if (db.packages)             { packages = db.packages;                      }
+  if (db.packageCounter)       { packageCounter = db.packageCounter;          }
+  if (db.dealers)              { dealers = db.dealers;                        }
+  if (db.dealerCounter)        { dealerCounter = db.dealerCounter;            }
+  if (db.dealerTargets)        { dealerTargets = db.dealerTargets;            }
+  if (db.dealerRegistrations)  { dealerRegistrations = db.dealerRegistrations; }
+  if (db.regCounter)           { regCounter = db.regCounter;                  }
+  if (db.deals)                { deals = db.deals;                            }
+  if (db.dealCounter)          { dealCounter = db.dealCounter;                }
+  if (db.bookings)             { bookings = db.bookings;                      }
+  if (db.bookingCounter)       { bookingCounter = db.bookingCounter;          }
+  if (db.customers)            { customers = db.customers;                    }
+  if (db.customerCounter)      { customerCounter = db.customerCounter;        }
+  if (db.operationsStaff)      { operationsStaff = db.operationsStaff;        }
+  if (db.opsCounter)           { opsCounter = db.opsCounter;                  }
+  if (db.announcements)        { announcements = db.announcements;            }
+  if (db.ledgerIdCounter)      { ledgerIdCounter = db.ledgerIdCounter;        }
+}
 
 function loadDb() {
-  try {
-    if (!fs.existsSync(DB_PATH)) return;
-    const db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
-    if (db.sectors)              { sectors = db.sectors;                     }
-    if (db.sectorCounter)        { sectorCounter = db.sectorCounter;          }
-    if (db.plots)                { plots = db.plots;                          }
-    if (db.plotCounter)          { plotCounter = db.plotCounter;              }
-    if (db.packages)             { packages = db.packages;                    }
-    if (db.packageCounter)       { packageCounter = db.packageCounter;        }
-    if (db.dealers)              { dealers = db.dealers;                      }
-    if (db.dealerCounter)        { dealerCounter = db.dealerCounter;          }
-    if (db.dealerTargets)        { dealerTargets = db.dealerTargets;          }
-    if (db.dealerRegistrations)  { dealerRegistrations = db.dealerRegistrations; }
-    if (db.regCounter)           { regCounter = db.regCounter;                }
-    if (db.deals)                { deals = db.deals;                          }
-    if (db.dealCounter)          { dealCounter = db.dealCounter;              }
-    if (db.bookings)             { bookings = db.bookings;                    }
-    if (db.bookingCounter)       { bookingCounter = db.bookingCounter;        }
-    if (db.customers)            { customers = db.customers;                  }
-    if (db.customerCounter)      { customerCounter = db.customerCounter;      }
-    if (db.operationsStaff)      { operationsStaff = db.operationsStaff;      }
-    if (db.opsCounter)           { opsCounter = db.opsCounter;                }
-    if (db.announcements)        { announcements = db.announcements;          }
-    if (db.ledgerIdCounter)      { ledgerIdCounter = db.ledgerIdCounter;      }
-    console.log('[DB] Data loaded from', DB_PATH);
-  } catch (e) {
-    console.error('[DB] Failed to load data:', e.message);
+  fs.mkdirSync(DB_DIR, { recursive: true });
+
+  if (fs.existsSync(DB_PATH)) {
+    try {
+      const db = JSON.parse(fs.readFileSync(DB_PATH, 'utf8'));
+      applyDb(db);
+      console.log('[DB] Data loaded from', DB_PATH);
+      return;
+    } catch (e) {
+      console.error('[DB] db.json is corrupted:', e.message, '— attempting backup restore...');
+    }
+  }
+
+  const backups = getBackupFiles().reverse();
+  for (const bak of backups) {
+    try {
+      const db = JSON.parse(fs.readFileSync(bak, 'utf8'));
+      applyDb(db);
+      console.warn('[DB] Restored from backup:', bak);
+      return;
+    } catch { /* try next */ }
+  }
+
+  if (backups.length > 0) {
+    console.error('[DB] All backups are also corrupted — starting fresh.');
+  } else {
+    console.log('[DB] No existing data file — starting fresh.');
   }
 }
 
@@ -312,7 +347,20 @@ function saveDb() {
   if (_saveTimer) clearTimeout(_saveTimer);
   _saveTimer = setTimeout(() => {
     try {
-      fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+      fs.mkdirSync(DB_DIR, { recursive: true });
+
+      if (fs.existsSync(DB_PATH)) {
+        const ts = new Date().toISOString().replace(/[:.]/g, '-');
+        const bakPath = path.join(DB_DIR, `db.json.bak-${ts}`);
+        fs.copyFileSync(DB_PATH, bakPath);
+
+        const backups = getBackupFiles();
+        if (backups.length > MAX_BACKUPS) {
+          const toDelete = backups.slice(0, backups.length - MAX_BACKUPS);
+          toDelete.forEach(f => { try { fs.unlinkSync(f); } catch {} });
+        }
+      }
+
       const db = {
         sectors, sectorCounter,
         plots, plotCounter,
