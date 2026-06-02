@@ -1101,7 +1101,12 @@ app.post('/api/ledger/:bookingId/:installmentId/pay', (req, res) => {
 });
 
 app.get('/api/dealer/:dealerId/ledger-summary', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
   const dealerId = parseInt(req.params.dealerId);
+  const isAdmin = session.role === 'admin';
+  const isOwner = session.role === 'dealer' && session.dealerId === dealerId;
+  if (!isAdmin && !isOwner) return res.status(403).json({ error: 'Access denied' });
   const myBookings = bookings.filter(b => b.dealerId === dealerId && b.status === 'confirmed');
   const result = myBookings.map(b => {
     if (!b.ledger || b.ledger.length === 0) b.ledger = generateLedger(b);
@@ -1117,7 +1122,12 @@ app.get('/api/dealer/:dealerId/ledger-summary', (req, res) => {
 });
 
 app.get('/api/dealer/:dealerId/calendar', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
   const dealerId = parseInt(req.params.dealerId);
+  const isAdmin = session.role === 'admin';
+  const isOwner = session.role === 'dealer' && session.dealerId === dealerId;
+  if (!isAdmin && !isOwner) return res.status(403).json({ error: 'Access denied' });
   const month = req.query.month || new Date().toISOString().slice(0, 7);
   const myBookings = bookings.filter(b => b.dealerId === dealerId && b.status === 'confirmed');
   const events = [];

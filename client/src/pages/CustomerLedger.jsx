@@ -452,11 +452,11 @@ export default function CustomerLedger({ dealer, authToken }) {
 
   const loadCustomers = useCallback(() => {
     setLoading(true);
-    fetch(`/api/dealer/${dealer.id}/ledger-summary`)
+    fetch(`/api/dealer/${dealer.id}/ledger-summary`, { headers: { Authorization: `Bearer ${authToken}` } })
       .then(r => r.json())
       .then(d => { setCustomers(Array.isArray(d) ? d : []); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [dealer.id]);
+  }, [dealer.id, authToken]);
 
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
 
