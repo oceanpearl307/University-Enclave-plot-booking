@@ -28,7 +28,7 @@ function StatusBadge({ status }) {
   );
 }
 
-function RecordPaymentModal({ installment, bookingId, onClose, onSaved }) {
+function RecordPaymentModal({ installment, bookingId, dealerId, onClose, onSaved }) {
   const [amount, setAmount] = useState(String(installment.amount));
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
@@ -42,7 +42,7 @@ function RecordPaymentModal({ installment, bookingId, onClose, onSaved }) {
       const res = await fetch(`/api/ledger/${bookingId}/${installment.id}/pay`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paidAmount: Number(amount), paidDate: date, notes, paidBy: 'Dealer' }),
+        body: JSON.stringify({ paidAmount: Number(amount), paidDate: date, notes, paidBy: 'Dealer', dealerId }),
       });
       if (!res.ok) { const d = await res.json(); setError(d.error || 'Failed'); setSaving(false); return; }
       onSaved();
@@ -105,18 +105,18 @@ function RecordPaymentModal({ installment, bookingId, onClose, onSaved }) {
   );
 }
 
-function LedgerPanel({ customer, onClose, isAdmin }) {
+function LedgerPanel({ customer, dealerId, onClose }) {
   const [ledgerData, setLedgerData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [payItem, setPayItem] = useState(null);
 
   const load = useCallback(() => {
     setLoading(true);
-    fetch(`/api/ledger/${customer.bookingId}`)
+    fetch(`/api/ledger/${customer.bookingId}?dealerId=${dealerId}`)
       .then(r => r.json())
       .then(d => { setLedgerData(d); setLoading(false); })
       .catch(() => setLoading(false));
-  }, [customer.bookingId]);
+  }, [customer.bookingId, dealerId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -243,6 +243,7 @@ function LedgerPanel({ customer, onClose, isAdmin }) {
         <RecordPaymentModal
           installment={payItem}
           bookingId={customer.bookingId}
+          dealerId={dealerId}
           onClose={() => setPayItem(null)}
           onSaved={() => { setPayItem(null); load(); }}
         />
@@ -258,11 +259,13 @@ function CalendarView({ dealerId }) {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [payItem, setPayItem] = useState(null);
+  const [selectedDay, setSelectedDay] = useState(null);
 
   const monthStr = `${year}-${String(month).padStart(2, '0')}`;
 
   useEffect(() => {
     setLoading(true);
+    setSelectedDay(null);
     fetch(`/api/dealer/${dealerId}/calendar?month=${monthStr}`)
       .then(r => r.json())
       .then(d => { setEvents(Array.isArray(d) ? d : []); setLoading(false); })
@@ -290,6 +293,17 @@ function CalendarView({ dealerId }) {
 
   const todayStr = new Date().toISOString().split('T')[0];
 
+  const displayedEvents = selectedDay
+    ? (byDay[selectedDay] || [])
+    : events;
+
+  function reloadCalendar() {
+    setLoading(true);
+    fetch(`/api/dealer/${dealerId}/calendar?month=${monthStr}`)
+      .then(r => r.json())
+      .then(d => { setEvents(Array.isArray(d) ? d : []); setLoading(false); });
+  }
+
   return (
     <div>
       {/* Month nav */}
@@ -315,13 +329,32 @@ function CalendarView({ dealerId }) {
             const dayStr = `${monthStr}-${String(day).padStart(2, '0')}`;
             const dayEvents = byDay[day] || [];
             const isToday = dayStr === todayStr;
+            const isSelected = selectedDay === day;
             const hasOverdue = dayEvents.some(e => e.status === 'overdue');
             const hasPending = dayEvents.some(e => e.status === 'pending');
             const allPaid = dayEvents.length > 0 && dayEvents.every(e => e.status === 'paid');
+            const hasEvents = dayEvents.length > 0;
             return (
-              <div key={day} style={{ minHeight: 72, borderRight: '1px solid #f8fafc', borderBottom: '1px solid #f8fafc', padding: '0.375rem', background: isToday ? '#f0fdf4' : '#fff', position: 'relative' }}>
-                <div style={{ fontSize: '0.82rem', fontWeight: isToday ? 900 : 600, color: isToday ? '#1a6b3c' : '#374151', marginBottom: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                  {isToday ? <span style={{ background: '#1a6b3c', color: '#fff', borderRadius: '50%', width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 800 }}>{day}</span> : day}
+              <div
+                key={day}
+                onClick={() => hasEvents ? setSelectedDay(isSelected ? null : day) : undefined}
+                style={{
+                  minHeight: 72,
+                  borderRight: '1px solid #f8fafc',
+                  borderBottom: '1px solid #f8fafc',
+                  padding: '0.375rem',
+                  background: isSelected ? '#f0fdf4' : isToday ? '#f0f9ff' : '#fff',
+                  position: 'relative',
+                  cursor: hasEvents ? 'pointer' : 'default',
+                  outline: isSelected ? '2px solid #1a6b3c' : 'none',
+                  outlineOffset: '-2px',
+                  transition: 'background 0.1s',
+                }}
+              >
+                <div style={{ fontSize: '0.82rem', fontWeight: isToday || isSelected ? 900 : 600, color: isSelected ? '#1a6b3c' : isToday ? '#0ea5e9' : '#374151', marginBottom: '0.25rem' }}>
+                  {(isToday || isSelected) ? (
+                    <span style={{ background: isSelected ? '#1a6b3c' : '#0ea5e9', color: '#fff', borderRadius: '50%', width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 800 }}>{day}</span>
+                  ) : day}
                 </div>
                 {dayEvents.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.2rem' }}>
@@ -337,29 +370,42 @@ function CalendarView({ dealerId }) {
         </div>
       </div>
 
-      {/* Legend */}
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-        {[{ color: '#dc2626', label: 'Overdue' }, { color: '#f59e0b', label: 'Pending' }, { color: '#059669', label: 'Paid' }].map(l => (
-          <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem', color: '#64748b' }}>
-            <span style={{ width: 10, height: 10, borderRadius: '50%', background: l.color, display: 'inline-block' }} />{l.label}
-          </div>
-        ))}
+      {/* Legend + clear filter */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+          {[{ color: '#dc2626', label: 'Overdue' }, { color: '#f59e0b', label: 'Pending' }, { color: '#059669', label: 'Paid' }].map(l => (
+            <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem', color: '#64748b' }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: l.color, display: 'inline-block' }} />{l.label}
+            </div>
+          ))}
+        </div>
+        {selectedDay && (
+          <button onClick={() => setSelectedDay(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: 7, padding: '0.35rem 0.75rem', fontSize: '0.75rem', fontWeight: 700, color: '#374151', cursor: 'pointer' }}>
+            ✕ Clear filter (showing all {MONTHS[month - 1]})
+          </button>
+        )}
       </div>
 
-      {/* This month's installments list */}
+      {/* Installments list — filtered by selected day or all month */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>Loading...</div>
-      ) : events.length === 0 ? (
+      ) : displayedEvents.length === 0 ? (
         <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', padding: '2rem', textAlign: 'center', color: '#94a3b8' }}>
           <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📅</div>
-          <div style={{ fontWeight: 600 }}>No installments due this month</div>
+          <div style={{ fontWeight: 600 }}>{selectedDay ? `No installments due on ${MONTHS[month - 1]} ${selectedDay}` : 'No installments due this month'}</div>
+          {selectedDay && <div style={{ fontSize: '0.8rem', marginTop: '0.25rem', color: '#94a3b8' }}>Click the day again or "Clear filter" to see the full month</div>}
         </div>
       ) : (
         <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-          <div style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid #f1f5f9', fontWeight: 800, fontSize: '0.9rem', color: '#0f172a' }}>
-            {MONTHS[month - 1]} Installments ({events.length})
+          <div style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid #f1f5f9', fontWeight: 800, fontSize: '0.9rem', color: '#0f172a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>
+              {selectedDay
+                ? `${MONTHS[month - 1]} ${selectedDay} — ${displayedEvents.length} installment${displayedEvents.length !== 1 ? 's' : ''}`
+                : `${MONTHS[month - 1]} Installments (${displayedEvents.length})`}
+            </span>
+            {selectedDay && <span style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: 400 }}>Click a different day or clear the filter to see all</span>}
           </div>
-          {events.map(ev => (
+          {displayedEvents.map(ev => (
             <div key={ev.id} style={{ padding: '0.875rem 1.25rem', borderBottom: '1px solid #f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', background: ev.status === 'overdue' ? '#fef9f9' : '#fff' }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
@@ -388,14 +434,9 @@ function CalendarView({ dealerId }) {
         <RecordPaymentModal
           installment={payItem}
           bookingId={payItem.bookingId}
+          dealerId={dealerId}
           onClose={() => setPayItem(null)}
-          onSaved={() => {
-            setPayItem(null);
-            setLoading(true);
-            fetch(`/api/dealer/${dealerId}/calendar?month=${monthStr}`)
-              .then(r => r.json())
-              .then(d => { setEvents(Array.isArray(d) ? d : []); setLoading(false); });
-          }}
+          onSaved={() => { setPayItem(null); reloadCalendar(); }}
         />
       )}
     </div>
@@ -407,6 +448,7 @@ export default function CustomerLedger({ dealer }) {
   const [loading, setLoading] = useState(true);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [view, setView] = useState('list');
+  const [exportingAll, setExportingAll] = useState(false);
 
   const loadCustomers = useCallback(() => {
     setLoading(true);
@@ -418,27 +460,41 @@ export default function CustomerLedger({ dealer }) {
 
   useEffect(() => { loadCustomers(); }, [loadCustomers]);
 
-  function exportFullLedger() {
-    const rows = [];
-    customers.forEach(c => {
-      rows.push({
-        'Customer Name': c.customerName,
-        'Plot': c.plotNumber,
-        'Size': c.plotSize,
-        'Booking Ref': c.bookingRef,
-        'Total (PKR)': c.totalAmount,
-        'Paid (PKR)': c.totalPaid,
-        'Pending (PKR)': c.totalPending,
-        'Overdue (PKR)': c.totalOverdue,
-        'Next Due Date': c.nextDueDate || '',
-        'Next Due (PKR)': c.nextDueAmount || '',
-      });
-    });
-    const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'All Customers');
-    XLSX.writeFile(wb, `Dealer_Full_Ledger_${new Date().toISOString().split('T')[0]}.xlsx`);
+  async function exportFullLedger() {
+    if (exportingAll) return;
+    setExportingAll(true);
+    try {
+      const rows = [];
+      for (const c of customers) {
+        const res = await fetch(`/api/ledger/${c.bookingId}?dealerId=${dealer.id}`);
+        if (!res.ok) continue;
+        const data = await res.json();
+        if (!data.ledger) continue;
+        data.ledger.forEach(item => {
+          rows.push({
+            'Customer Name': c.customerName,
+            'Plot': c.plotNumber,
+            'Size': c.plotSize,
+            'Booking Ref': c.bookingRef,
+            'Installment Type': item.label,
+            'Due Date': item.dueDate,
+            'Amount (PKR)': item.amount,
+            'Status': STATUS_STYLE[item.status]?.label || item.status,
+            'Paid Date': item.paidDate || '',
+            'Paid Amount (PKR)': item.paidAmount || '',
+            'Paid By': item.paidBy || '',
+            'Notes': item.notes || '',
+          });
+        });
+      }
+      const ws = XLSX.utils.json_to_sheet(rows);
+      ws['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 10 }, { wch: 14 }, { wch: 18 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 30 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'All Customers');
+      XLSX.writeFile(wb, `Dealer_Full_Ledger_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } finally {
+      setExportingAll(false);
+    }
   }
 
   const totalOverdueCount = customers.filter(c => c.totalOverdue > 0).length;
@@ -458,8 +514,8 @@ export default function CustomerLedger({ dealer }) {
           >
             {view === 'calendar' ? '📋 List View' : '📅 Calendar View'}
           </button>
-          <button onClick={exportFullLedger} style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 9, padding: '0.45rem 0.875rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
-            📥 Export All
+          <button onClick={exportFullLedger} disabled={exportingAll} style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 9, padding: '0.45rem 0.875rem', fontWeight: 700, cursor: exportingAll ? 'not-allowed' : 'pointer', fontSize: '0.82rem', opacity: exportingAll ? 0.7 : 1 }}>
+            {exportingAll ? '⏳ Exporting...' : '📥 Export All'}
           </button>
         </div>
       </div>
@@ -544,8 +600,8 @@ export default function CustomerLedger({ dealer }) {
       {selectedCustomer && (
         <LedgerPanel
           customer={selectedCustomer}
+          dealerId={dealer.id}
           onClose={() => { setSelectedCustomer(null); loadCustomers(); }}
-          isAdmin={false}
         />
       )}
     </div>

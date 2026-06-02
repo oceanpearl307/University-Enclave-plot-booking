@@ -1039,6 +1039,13 @@ app.post('/api/admin/bookings/:id/approve', (req, res) => {
 app.get('/api/ledger/:bookingId', (req, res) => {
   const booking = bookings.find(b => b.id === parseInt(req.params.bookingId) || b.bookingRef === req.params.bookingId);
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+  const callerRole = req.query.role || req.headers['x-role'] || '';
+  const callerDealerId = parseInt(req.query.dealerId || req.headers['x-dealer-id'] || '0') || null;
+  const isAdmin = callerRole === 'admin';
+  const isOwner = callerDealerId && booking.dealerId === callerDealerId;
+  if (!isAdmin && !isOwner) return res.status(403).json({ error: 'Access denied' });
+
   if (!booking.ledger || booking.ledger.length === 0) {
     if (booking.status === 'confirmed') booking.ledger = generateLedger(booking);
     else return res.json({ ledger: [], summary: ledgerSummary([]) });
@@ -1050,6 +1057,13 @@ app.get('/api/ledger/:bookingId', (req, res) => {
 app.post('/api/ledger/:bookingId/:installmentId/pay', (req, res) => {
   const booking = bookings.find(b => b.id === parseInt(req.params.bookingId));
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+  const callerRole = req.query.role || req.headers['x-role'] || req.body.role || '';
+  const callerDealerId = parseInt(req.query.dealerId || req.headers['x-dealer-id'] || req.body.dealerId || '0') || null;
+  const isAdmin = callerRole === 'admin';
+  const isOwner = callerDealerId && booking.dealerId === callerDealerId;
+  if (!isAdmin && !isOwner) return res.status(403).json({ error: 'Access denied' });
+
   if (!booking.ledger) return res.status(400).json({ error: 'No ledger found' });
   const item = booking.ledger.find(i => i.id === parseInt(req.params.installmentId));
   if (!item) return res.status(404).json({ error: 'Installment not found' });

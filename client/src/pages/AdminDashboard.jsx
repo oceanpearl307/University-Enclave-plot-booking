@@ -107,7 +107,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   const loadAdminLedger = (bookingId) => {
     setAdminLedgerLoading(true);
     setAdminLedger(null);
-    fetch(`/api/ledger/${bookingId}`)
+    fetch(`/api/ledger/${bookingId}?role=admin`)
       .then(r => r.json())
       .then(d => { setAdminLedger(d); setAdminLedgerLoading(false); })
       .catch(() => setAdminLedgerLoading(false));
@@ -1475,7 +1475,7 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                     <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
                       <button disabled={adminPaySaving} onClick={async () => {
                         setAdminPaySaving(true); setAdminPayError('');
-                        const res = await fetch(`/api/ledger/${selectedBkg.id}/${adminPayItem.id}/pay`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paidAmount: Number(adminPayAmount), paidDate: adminPayDate, notes: adminPayNotes, paidBy: 'Admin' }) });
+                        const res = await fetch(`/api/ledger/${selectedBkg.id}/${adminPayItem.id}/pay`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paidAmount: Number(adminPayAmount), paidDate: adminPayDate, notes: adminPayNotes, paidBy: 'Admin', role: 'admin' }) });
                         setAdminPaySaving(false);
                         if (res.ok) { setAdminPayItem(null); loadAdminLedger(selectedBkg.id); }
                         else { const d = await res.json(); setAdminPayError(d.error || 'Failed'); }
