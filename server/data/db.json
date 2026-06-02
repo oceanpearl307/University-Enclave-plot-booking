@@ -242,11 +242,27 @@
       "securityDepositRequired": 200000,
       "securityDepositPaid": true,
       "rewardGiven": false,
-      "commissionPaidAmount": 0,
+      "commissionPaidAmount": 100000,
       "vpnRestricted": false,
       "ipLocked": false,
       "trustedIPs": [],
-      "loginHistory": []
+      "loginHistory": [],
+      "commissionPayouts": [
+        {
+          "id": 1780434183636,
+          "amount": 50000,
+          "notes": "Q2 2026 bank transfer",
+          "adminName": "Admin",
+          "date": "2026-06-02T21:03:03.636Z"
+        },
+        {
+          "id": 1780434194656,
+          "amount": 50000,
+          "notes": "Q2 2026 bank transfer",
+          "adminName": "Admin",
+          "date": "2026-06-02T21:03:14.656Z"
+        }
+      ]
     },
     {
       "id": 3,

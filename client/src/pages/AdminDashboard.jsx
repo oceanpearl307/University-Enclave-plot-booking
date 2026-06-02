@@ -39,7 +39,13 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [dealersLoading, setDealersLoading] = useState(true);
   const [packages, setPackages] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [tForm, setTForm] = useState({ packageId: '', sizes: {}, paymentTarget: '', notes: '', depositAmount: '', depositPaid: false, commissionPct: '', commissionPaidAmount: '' });
+  const [tForm, setTForm] = useState({ packageId: '', sizes: {}, paymentTarget: '', notes: '', depositAmount: '', depositPaid: false, commissionPct: '' });
+  const [payoutHistory, setPayoutHistory] = useState([]);
+  const [payoutHistoryOpen, setPayoutHistoryOpen] = useState(false);
+  const [payoutAmt, setPayoutAmt] = useState('');
+  const [payoutNote, setPayoutNote] = useState('');
+  const [payoutSaving, setPayoutSaving] = useState(false);
+  const [payoutMsg, setPayoutMsg] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState('');
 
@@ -188,11 +194,14 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   const openAssign = async (d) => {
     setSelected(d); setSaveMsg('');
-    const [res, plotsData] = await Promise.all([
+    setPayoutAmt(''); setPayoutNote(''); setPayoutMsg(''); setPayoutHistoryOpen(false);
+    const [res, plotsData, history] = await Promise.all([
       fetch(`/api/admin/targets/${d.id}`).then(r => r.json()).catch(() => null),
       fetch('/api/plots').then(r => r.json()).catch(() => []),
+      fetch(`/api/admin/dealers/${d.id}/commission-payouts`).then(r => r.json()).catch(() => []),
     ]);
     setAssignPanelPlots(plotsData);
+    setPayoutHistory(history);
     const initSizes = {};
     PLOT_SIZES.forEach(s => { initSizes[s] = 0; });
     if (res && res.sizes) res.sizes.forEach(s => { initSizes[s.size] = s.target; });
@@ -207,7 +216,6 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       notes: res?.notes || '',
       depositAmount: d.securityDepositRequired || 200000,
       depositPaid: d.securityDepositPaid || false,
-      commissionPaidAmount: d.commissionPaid !== undefined ? String(d.commissionPaid) : '0',
       commissionPct: d.commissionPctOverride !== null && d.commissionPctOverride !== undefined ? String(d.commissionPctOverride) : '',
     });
   };
@@ -236,10 +244,30 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       await fetch(`/api/admin/targets/${selected.id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       await fetch(`/api/admin/dealers/${selected.id}/deposit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paid: tForm.depositPaid, amount: parseInt(tForm.depositAmount) || 0 }) });
       await fetch(`/api/admin/dealers/${selected.id}/commission`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commissionPct: tForm.commissionPct !== '' ? parseFloat(tForm.commissionPct) : null }) });
-      await fetch(`/api/admin/dealers/${selected.id}/commission-payout`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commissionPaidAmount: parseInt(tForm.commissionPaidAmount) || 0 }) });
       setSaveMsg('✅ Saved successfully!');
       loadDealers();
     } catch { setSaveMsg('❌ Save failed'); } finally { setSaving(false); }
+  };
+
+  const handleRecordPayout = async () => {
+    const amount = parseInt(payoutAmt);
+    if (!amount || amount <= 0) { setPayoutMsg('❌ Enter a valid amount'); return; }
+    setPayoutSaving(true); setPayoutMsg('');
+    try {
+      const res = await fetch(`/api/admin/dealers/${selected.id}/commission-payout`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, notes: payoutNote, adminName: admin?.name || 'Admin' }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setPayoutMsg('✅ Payout recorded!');
+      setPayoutAmt(''); setPayoutNote('');
+      const history = await fetch(`/api/admin/dealers/${selected.id}/commission-payouts`).then(r => r.json()).catch(() => []);
+      setPayoutHistory(history);
+      setPayoutHistoryOpen(true);
+      loadDealers();
+    } catch (err) { setPayoutMsg('❌ ' + (err.message || 'Failed')); } finally { setPayoutSaving(false); }
   };
 
   const handleMarkReward = async (dealerId) => {
@@ -1026,33 +1054,80 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                       <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151', marginBottom: '0.625rem' }}>💵 Commission Payout</div>
                       {selected && (() => {
                         const earned = selected.commissionEarned || 0;
+                        const paid = selected.commissionPaid || 0;
                         const outstanding = selected.commissionOutstanding || 0;
                         return (
-                          <div style={{ marginBottom: '0.625rem', background: '#f8fafc', borderRadius: 9, padding: '0.5rem 0.75rem', fontSize: '0.78rem', border: '1px solid #e2e8f0', display: 'flex', gap: '1.25rem', flexWrap: 'wrap' }}>
+                          <div style={{ marginBottom: '0.75rem', background: '#f8fafc', borderRadius: 9, padding: '0.5rem 0.75rem', fontSize: '0.78rem', border: '1px solid #e2e8f0', display: 'flex', gap: '1.25rem', flexWrap: 'wrap' }}>
                             <span>Earned: <strong style={{ color: '#059669' }}>{fmt(earned)}</strong></span>
+                            <span>Paid: <strong style={{ color: '#0ea5e9' }}>{fmt(paid)}</strong></span>
                             <span>Outstanding: <strong style={{ color: outstanding > 0 ? '#92400e' : '#065f46' }}>{fmt(outstanding)}</strong></span>
                           </div>
                         );
                       })()}
-                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.4rem' }}>
                         <input
                           type="number"
-                          min="0"
-                          value={tForm.commissionPaidAmount}
-                          onChange={e => setTForm(f => ({ ...f, commissionPaidAmount: e.target.value }))}
-                          placeholder="Total commission paid so far"
+                          min="1"
+                          value={payoutAmt}
+                          onChange={e => setPayoutAmt(e.target.value)}
+                          placeholder="New payment amount"
                           style={{ flex: 1, padding: '0.5rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.85rem' }}
                         />
                         <button
                           type="button"
-                          onClick={() => setTForm(f => ({ ...f, commissionPaidAmount: String(selected?.commissionEarned || 0) }))}
+                          onClick={() => setPayoutAmt(String(selected?.commissionOutstanding || 0))}
                           style={{ padding: '0.5rem 0.875rem', borderRadius: 9, border: '1.5px solid #6ee7b7', background: '#d1fae5', color: '#065f46', fontWeight: 700, fontSize: '0.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                          title="Mark full earned commission as paid"
+                          title="Fill outstanding amount"
                         >
-                          ✓ Mark All Paid
+                          Fill Outstanding
                         </button>
                       </div>
-                      <div style={{ fontSize: '0.73rem', color: '#94a3b8', marginTop: '0.25rem' }}>Enter the total cumulative amount actually paid out to this dealer.</div>
+                      <input
+                        type="text"
+                        value={payoutNote}
+                        onChange={e => setPayoutNote(e.target.value)}
+                        placeholder="Notes (optional — e.g. Q2 payout via bank transfer)"
+                        style={{ width: '100%', padding: '0.5rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.82rem', boxSizing: 'border-box', marginBottom: '0.4rem' }}
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRecordPayout}
+                        disabled={payoutSaving || !payoutAmt}
+                        style={{ width: '100%', padding: '0.5rem 0.75rem', borderRadius: 9, border: 'none', background: payoutSaving || !payoutAmt ? '#e2e8f0' : '#1a6b3c', color: payoutSaving || !payoutAmt ? '#94a3b8' : '#fff', fontWeight: 700, fontSize: '0.82rem', cursor: payoutSaving || !payoutAmt ? 'not-allowed' : 'pointer', fontFamily: 'inherit', transition: 'background 0.15s' }}
+                      >
+                        {payoutSaving ? 'Recording…' : '+ Record Payout'}
+                      </button>
+                      {payoutMsg && <div style={{ fontSize: '0.75rem', marginTop: '0.3rem', color: payoutMsg.startsWith('✅') ? '#059669' : '#dc2626', fontWeight: 600 }}>{payoutMsg}</div>}
+
+                      {/* Payout History */}
+                      <div style={{ marginTop: '0.75rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => setPayoutHistoryOpen(o => !o)}
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '0.78rem', fontWeight: 700, color: '#374151' }}
+                        >
+                          <span style={{ transition: 'transform 0.15s', display: 'inline-block', transform: payoutHistoryOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                          Payout History ({payoutHistory.length})
+                        </button>
+                        {payoutHistoryOpen && (
+                          <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', maxHeight: 220, overflowY: 'auto' }}>
+                            {payoutHistory.length === 0 ? (
+                              <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontStyle: 'italic', padding: '0.25rem 0.5rem' }}>No payouts recorded yet.</div>
+                            ) : payoutHistory.map(entry => (
+                              <div key={entry.id} style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '0.45rem 0.7rem', fontSize: '0.75rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: entry.notes ? '0.2rem' : 0 }}>
+                                  <strong style={{ color: '#059669', fontSize: '0.82rem' }}>{fmt(entry.amount)}</strong>
+                                  <span style={{ color: '#64748b', fontSize: '0.7rem' }}>{new Date(entry.date).toLocaleString('en-PK', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
+                                  {entry.notes && <span style={{ color: '#374151', fontStyle: 'italic', flex: 1 }}>{entry.notes}</span>}
+                                  <span style={{ color: '#94a3b8', whiteSpace: 'nowrap' }}>by {entry.adminName}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     <div className="form-group">

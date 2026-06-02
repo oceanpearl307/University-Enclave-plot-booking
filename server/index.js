@@ -680,10 +680,28 @@ app.post('/api/admin/dealers/:id/deposit', (req, res) => {
 app.patch('/api/admin/dealers/:id/commission-payout', (req, res) => {
   const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
   if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
-  const amount = parseInt(req.body.commissionPaidAmount);
-  if (isNaN(amount) || amount < 0) return res.status(400).json({ error: 'Invalid amount' });
-  dealer.commissionPaidAmount = amount;
-  res.json({ success: true, commissionPaidAmount: dealer.commissionPaidAmount });
+  const amount = parseInt(req.body.amount);
+  if (isNaN(amount) || amount <= 0) return res.status(400).json({ error: 'Amount must be a positive number' });
+  const notes = (req.body.notes || '').trim();
+  const adminName = (req.body.adminName || 'Admin').trim();
+  if (!dealer.commissionPayouts) dealer.commissionPayouts = [];
+  const entry = {
+    id: Date.now(),
+    amount,
+    notes,
+    adminName,
+    date: new Date().toISOString(),
+  };
+  dealer.commissionPayouts.push(entry);
+  dealer.commissionPaidAmount = (dealer.commissionPaidAmount || 0) + amount;
+  res.json({ success: true, entry, commissionPaidAmount: dealer.commissionPaidAmount });
+});
+
+// ─── Admin: Commission Payout History ─────────────────────────────────────────
+app.get('/api/admin/dealers/:id/commission-payouts', (req, res) => {
+  const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
+  if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
+  res.json([...(dealer.commissionPayouts || [])].reverse());
 });
 
 // ─── Admin: Mark Reward Given ─────────────────────────────────────────────────
