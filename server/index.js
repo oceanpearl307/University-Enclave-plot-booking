@@ -871,6 +871,93 @@ app.get('/api/plots/:id', (req, res) => {
   res.json(withEffectivePrice(plot));
 });
 
+// ─── Ledger / Installment helpers ─────────────────────────────────────────────
+const PAYMENT_PLANS_SRV = {
+  '5 Marla':  { total: 4000000,  downPayment: 400000,  confirmation: 400000,  monthlyInstallment: 20000, monthlyCount: 40, semiAnnualInstallment: 130000, semiAnnualCount: 8, possession: 1360000 },
+  '7 Marla':  { total: 5460000,  downPayment: 546000,  confirmation: 546000,  monthlyInstallment: 25000, monthlyCount: 40, semiAnnualInstallment: 150000, semiAnnualCount: 8, possession: 2168000 },
+  '10 Marla': { total: 7600000,  downPayment: 760000,  confirmation: 760000,  monthlyInstallment: 38000, monthlyCount: 40, semiAnnualInstallment: 200000, semiAnnualCount: 8, possession: 2960000 },
+  '1 Kanal':  { total: 14400000, downPayment: 1440000, confirmation: 1440000, monthlyInstallment: 70000, monthlyCount: 40, semiAnnualInstallment: 300000, semiAnnualCount: 8, possession: 6320000 },
+};
+
+function addMonthsToDate(isoStr, months) {
+  const d = new Date(isoStr);
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString().split('T')[0];
+}
+function addDaysToDate(isoStr, days) {
+  const d = new Date(isoStr);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
+let ledgerIdCounter = 0;
+
+function generateLedger(booking) {
+  const plan = PAYMENT_PLANS_SRV[booking.plotSize];
+  const totalPrice = booking.plotPrice || 0;
+  const scale = plan ? totalPrice / plan.total : 1;
+  const start = booking.createdAt || new Date().toISOString();
+  const items = [];
+
+  if (!plan) return items;
+
+  const dp = booking.downPayment > 0 ? booking.downPayment : Math.round(plan.downPayment * scale);
+
+  items.push({
+    id: ++ledgerIdCounter, type: 'down-payment', label: 'Down Payment',
+    dueDate: start.split('T')[0], amount: dp,
+    status: 'paid', paidDate: start.split('T')[0], paidAmount: dp, paidBy: 'Customer', notes: 'Paid at booking',
+  });
+
+  items.push({
+    id: ++ledgerIdCounter, type: 'confirmation', label: 'Confirmation',
+    dueDate: addDaysToDate(start, 30), amount: Math.round(plan.confirmation * scale),
+    status: 'pending', paidDate: null, paidAmount: null, paidBy: null, notes: null,
+  });
+
+  for (let i = 1; i <= plan.monthlyCount; i++) {
+    items.push({
+      id: ++ledgerIdCounter, type: 'monthly', label: `Monthly #${i}`,
+      dueDate: addMonthsToDate(start, i), amount: Math.round(plan.monthlyInstallment * scale),
+      status: 'pending', paidDate: null, paidAmount: null, paidBy: null, notes: null,
+    });
+  }
+
+  for (let i = 1; i <= plan.semiAnnualCount; i++) {
+    items.push({
+      id: ++ledgerIdCounter, type: 'semi-annual', label: `Semi-Annual #${i}`,
+      dueDate: addMonthsToDate(start, i * 6), amount: Math.round(plan.semiAnnualInstallment * scale),
+      status: 'pending', paidDate: null, paidAmount: null, paidBy: null, notes: null,
+    });
+  }
+
+  items.push({
+    id: ++ledgerIdCounter, type: 'possession', label: 'Possession',
+    dueDate: addMonthsToDate(start, 48), amount: Math.round(plan.possession * scale),
+    status: 'pending', paidDate: null, paidAmount: null, paidBy: null, notes: null,
+  });
+
+  return items;
+}
+
+function recomputeOverdue(ledger) {
+  const today = new Date().toISOString().split('T')[0];
+  return ledger.map(item => ({
+    ...item,
+    status: item.status === 'paid' ? 'paid' : (item.dueDate < today ? 'overdue' : 'pending'),
+  }));
+}
+
+function ledgerSummary(ledger) {
+  const live = recomputeOverdue(ledger);
+  const totalAmount = live.reduce((s, i) => s + i.amount, 0);
+  const totalPaid = live.filter(i => i.status === 'paid').reduce((s, i) => s + (i.paidAmount || i.amount), 0);
+  const totalPending = live.filter(i => i.status === 'pending').reduce((s, i) => s + i.amount, 0);
+  const totalOverdue = live.filter(i => i.status === 'overdue').reduce((s, i) => s + i.amount, 0);
+  const upcoming = live.filter(i => i.status !== 'paid').sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0];
+  return { totalAmount, totalPaid, totalPending, totalOverdue, nextDueDate: upcoming?.dueDate || null, nextDueAmount: upcoming?.amount || 0, nextDueLabel: upcoming?.label || null };
+}
+
 // ─── Bookings ─────────────────────────────────────────────────────────────────
 app.post('/api/bookings', (req, res) => {
   const {
@@ -940,9 +1027,79 @@ app.post('/api/admin/bookings/:id/approve', (req, res) => {
   booking.approvedAt = new Date().toISOString();
   booking.approvedBy = req.body.approvedBy || 'Operations';
   booking.receiptNumber = `UE-RCPT-${booking.id}`;
+  if (!booking.ledger || booking.ledger.length === 0) {
+    booking.ledger = generateLedger(booking);
+  }
   const plot = plots.find(p => p.id === booking.plotId);
   if (plot) plot.status = 'sold';
   res.json({ success: true, booking });
+});
+
+// ─── Ledger API ───────────────────────────────────────────────────────────────
+app.get('/api/ledger/:bookingId', (req, res) => {
+  const booking = bookings.find(b => b.id === parseInt(req.params.bookingId) || b.bookingRef === req.params.bookingId);
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  if (!booking.ledger || booking.ledger.length === 0) {
+    if (booking.status === 'confirmed') booking.ledger = generateLedger(booking);
+    else return res.json({ ledger: [], summary: ledgerSummary([]) });
+  }
+  const ledger = recomputeOverdue(booking.ledger);
+  res.json({ bookingRef: booking.bookingRef, customerName: booking.name, plotNumber: booking.plotNumber, plotSize: booking.plotSize, plotPrice: booking.plotPrice, ledger, summary: ledgerSummary(booking.ledger) });
+});
+
+app.post('/api/ledger/:bookingId/:installmentId/pay', (req, res) => {
+  const booking = bookings.find(b => b.id === parseInt(req.params.bookingId));
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  if (!booking.ledger) return res.status(400).json({ error: 'No ledger found' });
+  const item = booking.ledger.find(i => i.id === parseInt(req.params.installmentId));
+  if (!item) return res.status(404).json({ error: 'Installment not found' });
+  if (item.status === 'paid') return res.status(409).json({ error: 'Already paid' });
+  const { paidAmount, paidDate, notes, paidBy } = req.body;
+  item.status = 'paid';
+  item.paidAmount = Number(paidAmount) || item.amount;
+  item.paidDate = paidDate || new Date().toISOString().split('T')[0];
+  item.paidBy = paidBy || 'Dealer';
+  item.notes = notes || null;
+  const ledger = recomputeOverdue(booking.ledger);
+  res.json({ success: true, item, summary: ledgerSummary(booking.ledger) });
+});
+
+app.get('/api/dealer/:dealerId/ledger-summary', (req, res) => {
+  const dealerId = parseInt(req.params.dealerId);
+  const myBookings = bookings.filter(b => b.dealerId === dealerId && b.status === 'confirmed');
+  const result = myBookings.map(b => {
+    if (!b.ledger || b.ledger.length === 0) b.ledger = generateLedger(b);
+    const summary = ledgerSummary(b.ledger);
+    return {
+      bookingId: b.id, bookingRef: b.bookingRef,
+      customerName: b.name, customerPhone: b.phone, customerCnic: b.cnic,
+      plotNumber: b.plotNumber, plotSize: b.plotSize, plotPrice: b.plotPrice,
+      approvedAt: b.approvedAt, ...summary,
+    };
+  });
+  res.json(result);
+});
+
+app.get('/api/dealer/:dealerId/calendar', (req, res) => {
+  const dealerId = parseInt(req.params.dealerId);
+  const month = req.query.month || new Date().toISOString().slice(0, 7);
+  const myBookings = bookings.filter(b => b.dealerId === dealerId && b.status === 'confirmed');
+  const events = [];
+  for (const b of myBookings) {
+    if (!b.ledger || b.ledger.length === 0) b.ledger = generateLedger(b);
+    const live = recomputeOverdue(b.ledger);
+    for (const item of live) {
+      if (item.dueDate && item.dueDate.startsWith(month)) {
+        events.push({
+          ...item,
+          bookingId: b.id, bookingRef: b.bookingRef,
+          customerName: b.name, plotNumber: b.plotNumber, plotSize: b.plotSize,
+        });
+      }
+    }
+  }
+  events.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+  res.json(events);
 });
 
 app.get('/api/admin/notifications', (req, res) => {

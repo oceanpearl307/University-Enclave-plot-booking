@@ -94,7 +94,28 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
   const [showReceipt, setShowReceipt] = useState(null);
   const [deleteBkg, setDeleteBkg] = useState(null);
   const [bkgSearch, setBkgSearch] = useState('');
+  const [adminLedger, setAdminLedger] = useState(null);
+  const [adminLedgerLoading, setAdminLedgerLoading] = useState(false);
+  const [adminPayItem, setAdminPayItem] = useState(null);
+  const [adminPayAmount, setAdminPayAmount] = useState('');
+  const [adminPayDate, setAdminPayDate] = useState('');
+  const [adminPayNotes, setAdminPayNotes] = useState('');
+  const [adminPaySaving, setAdminPaySaving] = useState(false);
+  const [adminPayError, setAdminPayError] = useState('');
   const loadBookings = () => { setBkgsLoading(true); fetch('/api/admin/bookings').then(r => r.json()).then(d => { setBkgs(d); setBkgsLoading(false); }).catch(() => setBkgsLoading(false)); };
+
+  const loadAdminLedger = (bookingId) => {
+    setAdminLedgerLoading(true);
+    setAdminLedger(null);
+    fetch(`/api/ledger/${bookingId}`)
+      .then(r => r.json())
+      .then(d => { setAdminLedger(d); setAdminLedgerLoading(false); })
+      .catch(() => setAdminLedgerLoading(false));
+  };
+
+  const STATUS_STYLE_ADMIN = { paid: { bg: '#d1fae5', color: '#065f46', label: 'Paid' }, pending: { bg: '#fef3c7', color: '#92400e', label: 'Pending' }, overdue: { bg: '#fee2e2', color: '#dc2626', label: 'Overdue' } };
+  const TYPE_ICON_ADMIN = { 'down-payment': '⬇', 'confirmation': '✓', 'monthly': '📅', 'semi-annual': '📆', 'possession': '🔑' };
+  const fmtDateAdmin = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
   const pendingBkgCount = bkgs.filter(b => b.status === 'pending').length;
   const handleDeleteBkg = async (b) => {
     const res = await fetch(`/api/admin/bookings/${b.id}`, { method: 'DELETE' });
@@ -152,6 +173,14 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
     if (tab === 'Deals') { loadDeals(); loadPlots(); }
     if (tab === 'Staff') loadStaff();
   }, [tab]);
+
+  useEffect(() => {
+    if (selectedBkg && selectedBkg.status === 'confirmed') {
+      loadAdminLedger(selectedBkg.id);
+    } else {
+      setAdminLedger(null);
+    }
+  }, [selectedBkg?.id, selectedBkg?.status]);
 
   // ── Dealer assign target ──
   const [assignPanelPlots, setAssignPanelPlots] = useState([]);
@@ -1334,6 +1363,48 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
                         {selectedBkg.rejectionReason && <div style={{ fontSize: '0.75rem', fontWeight: 400, marginTop: '0.2rem' }}>Reason: {selectedBkg.rejectionReason}</div>}
                       </div>
                     )}
+
+                    {/* Payment Ledger (confirmed bookings) */}
+                    {selectedBkg.status === 'confirmed' && (
+                      <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span>💳 Payment Ledger</span>
+                          {adminLedger?.summary && (
+                            <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+                              {adminLedger.summary.totalOverdue > 0 && <span style={{ background: '#fee2e2', color: '#dc2626', borderRadius: 6, padding: '0.15rem 0.4rem', fontSize: '0.68rem', fontWeight: 700 }}>⚠ Overdue</span>}
+                              <span style={{ background: '#d1fae5', color: '#065f46', borderRadius: 6, padding: '0.15rem 0.4rem', fontSize: '0.68rem', fontWeight: 700 }}>✓ PKR {(adminLedger.summary.totalPaid/1000).toFixed(0)}K paid</span>
+                            </div>
+                          )}
+                        </div>
+                        {adminLedgerLoading ? (
+                          <div style={{ textAlign: 'center', padding: '1rem', color: '#94a3b8', fontSize: '0.82rem' }}>Loading ledger...</div>
+                        ) : adminLedger?.ledger?.length > 0 ? (
+                          <div style={{ maxHeight: 320, overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: 10, fontSize: '0.78rem' }}>
+                            {adminLedger.ledger.map((item, i) => {
+                              const s = STATUS_STYLE_ADMIN[item.status] || STATUS_STYLE_ADMIN.pending;
+                              return (
+                                <div key={item.id} style={{ padding: '0.6rem 0.875rem', borderBottom: i < adminLedger.ledger.length - 1 ? '1px solid #f8fafc' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', background: item.status === 'overdue' ? '#fef9f9' : i % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                                  <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>{TYPE_ICON_ADMIN[item.type]} {item.label}</div>
+                                    <div style={{ color: '#94a3b8', fontSize: '0.7rem' }}>Due {fmtDateAdmin(item.dueDate)}{item.paidDate ? ` · Paid ${fmtDateAdmin(item.paidDate)}` : ''}</div>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+                                    <span style={{ fontWeight: 700, color: '#0f172a' }}>PKR {(item.amount/1000).toFixed(0)}K</span>
+                                    <span style={{ background: s.bg, color: s.color, borderRadius: 9999, padding: '0.15rem 0.4rem', fontSize: '0.65rem', fontWeight: 700 }}>{s.label}</span>
+                                    {item.status !== 'paid' && (
+                                      <button onClick={() => { setAdminPayItem(item); setAdminPayAmount(String(item.amount)); setAdminPayDate(new Date().toISOString().split('T')[0]); setAdminPayNotes(''); setAdminPayError(''); }} style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#059669', borderRadius: 6, padding: '0.2rem 0.4rem', fontSize: '0.65rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>Pay</button>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div style={{ textAlign: 'center', padding: '1rem', color: '#94a3b8', fontSize: '0.82rem' }}>No ledger data</div>
+                        )}
+                      </div>
+                    )}
+
                     <button onClick={() => setDeleteBkg(selectedBkg)} style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: 10, padding: '0.65rem 1rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', width: '100%' }}>🗑️ Delete Booking</button>
                   </div>
                 </div>
@@ -1375,6 +1446,48 @@ export default function AdminDashboard({ dealer: admin, onLogout, navigate }) {
               </div>
             )}
             {showReceipt && <BookingReceipt booking={showReceipt} onClose={() => setShowReceipt(null)} />}
+
+            {/* Admin Pay Modal */}
+            {adminPayItem && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 5200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                <div style={{ background: '#fff', borderRadius: 18, padding: '2rem', maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                    <div>
+                      <h3 style={{ fontWeight: 800, color: '#0f172a', margin: 0, fontSize: '1rem' }}>Record Payment</h3>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '0.2rem' }}>{adminPayItem.label} · Due {adminPayItem.dueDate}</div>
+                    </div>
+                    <button onClick={() => setAdminPayItem(null)} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, width: 30, height: 30, cursor: 'pointer' }}>✕</button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#374151', marginBottom: '0.35rem' }}>Amount (PKR)</label>
+                      <input type="number" value={adminPayAmount} onChange={e => setAdminPayAmount(e.target.value)} style={{ width: '100%', padding: '0.65rem 0.875rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontSize: '0.9rem', fontWeight: 700, boxSizing: 'border-box' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#374151', marginBottom: '0.35rem' }}>Payment Date</label>
+                      <input type="date" value={adminPayDate} onChange={e => setAdminPayDate(e.target.value)} style={{ width: '100%', padding: '0.65rem 0.875rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontSize: '0.88rem', boxSizing: 'border-box' }} />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#374151', marginBottom: '0.35rem' }}>Notes (optional)</label>
+                      <input type="text" value={adminPayNotes} onChange={e => setAdminPayNotes(e.target.value)} placeholder="e.g. Bank transfer..." style={{ width: '100%', padding: '0.65rem 0.875rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontSize: '0.85rem', boxSizing: 'border-box' }} />
+                    </div>
+                    {adminPayError && <div style={{ background: '#fef2f2', borderRadius: 8, padding: '0.6rem', color: '#dc2626', fontSize: '0.8rem' }}>{adminPayError}</div>}
+                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.25rem' }}>
+                      <button disabled={adminPaySaving} onClick={async () => {
+                        setAdminPaySaving(true); setAdminPayError('');
+                        const res = await fetch(`/api/ledger/${selectedBkg.id}/${adminPayItem.id}/pay`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paidAmount: Number(adminPayAmount), paidDate: adminPayDate, notes: adminPayNotes, paidBy: 'Admin' }) });
+                        setAdminPaySaving(false);
+                        if (res.ok) { setAdminPayItem(null); loadAdminLedger(selectedBkg.id); }
+                        else { const d = await res.json(); setAdminPayError(d.error || 'Failed'); }
+                      }} style={{ flex: 1, background: '#059669', color: '#fff', border: 'none', borderRadius: 9, padding: '0.7rem', fontWeight: 700, cursor: adminPaySaving ? 'not-allowed' : 'pointer', opacity: adminPaySaving ? 0.7 : 1 }}>
+                        {adminPaySaving ? 'Saving...' : '✓ Mark as Paid'}
+                      </button>
+                      <button onClick={() => setAdminPayItem(null)} style={{ flex: 1, background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 9, padding: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

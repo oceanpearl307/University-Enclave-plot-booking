@@ -4,6 +4,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import PaymentPlanTable from '../components/PaymentPlanTable.jsx';
+import CustomerLedger from './CustomerLedger.jsx';
 
 const fmt = n => n >= 1000000 ? 'PKR ' + (n / 1000000).toFixed(1) + 'M' : n > 0 ? 'PKR ' + (n / 1000).toFixed(0) + 'K' : 'PKR 0';
 
@@ -480,6 +481,9 @@ export default function DealerDashboard({ dealer, onLogout, navigate }) {
             </div>
           </div>
         )}
+
+        {/* Customer Ledger */}
+        <CustomerLedger dealer={dealer} />
 
         {/* Payment Plan */}
         <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', marginBottom: '1.5rem' }}>
