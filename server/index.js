@@ -272,6 +272,7 @@ let announcements = [
   { id: 3, title: 'Society Possession Update', body: 'Plot possession for Block A and B will begin from May 15, 2026. All plot holders are requested to ensure their documentation is complete.', date: '2026-04-10', tag: 'Possession', important: true },
   { id: 4, title: 'Development Work Progress', body: 'Roads, sewerage, and utility infrastructure work in Block C is 80% complete. Expected completion by end of April 2026.', date: '2026-04-05', tag: 'Development', important: false },
 ];
+let annCounter = 4;
 
 // ─── File-based Persistence ───────────────────────────────────────────────────
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
@@ -308,7 +309,8 @@ function applyDb(db) {
   if (db.customerCounter)      { customerCounter = db.customerCounter;        }
   if (db.operationsStaff)      { operationsStaff = db.operationsStaff;        }
   if (db.opsCounter)           { opsCounter = db.opsCounter;                  }
-  if (db.announcements)        { announcements = db.announcements;            }
+  if (db.announcements)        { announcements = db.announcements; annCounter = announcements.reduce((m, a) => Math.max(m, a.id || 0), annCounter); }
+  if (db.annCounter)           { annCounter = db.annCounter;                  }
   if (db.ledgerIdCounter)      { ledgerIdCounter = db.ledgerIdCounter;        }
 }
 
@@ -374,7 +376,7 @@ function saveDb() {
         bookings, bookingCounter,
         customers, customerCounter,
         operationsStaff, opsCounter,
-        announcements,
+        announcements, annCounter,
         ledgerIdCounter,
       };
       fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
@@ -1351,16 +1353,18 @@ app.get('/api/admin/staff', (req, res) => {
 });
 
 app.post('/api/admin/staff', (req, res) => {
-  const { username, password, name, privileges } = req.body;
+  const { username, password, name, staffRole, privileges } = req.body;
   if (!username || !password || !name) return res.status(400).json({ error: 'username, password, name required' });
   if (dealers.find(d => d.username === username) || operationsStaff.find(o => o.username === username))
     return res.status(409).json({ error: 'Username already taken' });
   const staff = {
     id: ++opsCounter, username, password, name, role: 'operations',
-    privileges: privileges || { approveBookings: false, viewPlots: false, viewDealers: false, viewDeals: false, viewRegistrations: false },
+    staffRole: staffRole || 'Operations Staff',
+    privileges: privileges || { approveBookings: false, viewPlots: false, manageInventory: false, viewDealers: false, viewDeals: false, viewRegistrations: false, viewReports: false, exportData: false, manageAnnouncements: false, viewCustomers: false },
     createdAt: new Date().toISOString(),
   };
   operationsStaff.push(staff);
+  saveDb();
   const { password: _, ...safe } = staff;
   res.status(201).json(safe);
 });
@@ -1368,10 +1372,12 @@ app.post('/api/admin/staff', (req, res) => {
 app.put('/api/admin/staff/:id', (req, res) => {
   const staff = operationsStaff.find(o => o.id === parseInt(req.params.id));
   if (!staff) return res.status(404).json({ error: 'Staff not found' });
-  const { name, password, privileges } = req.body;
+  const { name, password, staffRole, privileges } = req.body;
   if (name) staff.name = name;
   if (password) staff.password = password;
+  if (staffRole) staff.staffRole = staffRole;
   if (privileges) staff.privileges = privileges;
+  saveDb();
   const { password: _, ...safe } = staff;
   res.json(safe);
 });
@@ -1380,6 +1386,43 @@ app.delete('/api/admin/staff/:id', (req, res) => {
   const idx = operationsStaff.findIndex(o => o.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Staff not found' });
   operationsStaff.splice(idx, 1);
+  saveDb();
+  res.json({ success: true });
+});
+
+// ─── Admin: Customers list ────────────────────────────────────────────────────
+app.get('/api/admin/customers', (req, res) => {
+  res.json(customers.map(({ password: _, ...safe }) => safe));
+});
+
+// ─── Admin: Announcements CRUD ────────────────────────────────────────────────
+app.post('/api/admin/announcements', (req, res) => {
+  const { title, body, date, tag, important } = req.body;
+  if (!title || !body) return res.status(400).json({ error: 'title and body required' });
+  const ann = { id: ++annCounter, title, body, date: date || new Date().toISOString().slice(0, 10), tag: tag || '', important: !!important };
+  announcements.push(ann);
+  saveDb();
+  res.status(201).json(ann);
+});
+
+app.put('/api/admin/announcements/:id', (req, res) => {
+  const ann = announcements.find(a => a.id === parseInt(req.params.id));
+  if (!ann) return res.status(404).json({ error: 'Not found' });
+  const { title, body, date, tag, important } = req.body;
+  if (title !== undefined) ann.title = title;
+  if (body !== undefined) ann.body = body;
+  if (date !== undefined) ann.date = date;
+  if (tag !== undefined) ann.tag = tag;
+  if (important !== undefined) ann.important = !!important;
+  saveDb();
+  res.json(ann);
+});
+
+app.delete('/api/admin/announcements/:id', (req, res) => {
+  const idx = announcements.findIndex(a => a.id === parseInt(req.params.id));
+  if (idx === -1) return res.status(404).json({ error: 'Not found' });
+  announcements.splice(idx, 1);
+  saveDb();
   res.json({ success: true });
 });
 

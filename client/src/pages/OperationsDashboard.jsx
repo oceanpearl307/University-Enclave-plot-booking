@@ -6,12 +6,30 @@ const statusColor = { pending: '#d97706', confirmed: '#059669', rejected: '#dc26
 const statusBg = { pending: '#fef3c7', confirmed: '#d1fae5', rejected: '#fee2e2' };
 
 const PRIV_TABS = [
-  { key: 'approveBookings', label: 'Bookings', icon: '📋' },
-  { key: 'viewPlots', label: 'Plots', icon: '🏘️' },
-  { key: 'viewDealers', label: 'Dealers', icon: '👥' },
-  { key: 'viewDeals', label: 'Deals', icon: '🏷️' },
-  { key: 'viewRegistrations', label: 'Registrations', icon: '📝' },
+  { key: 'approveBookings',     label: 'Bookings',      icon: '📋' },
+  { key: 'viewPlots',           label: 'Plots',         icon: '🏘️' },
+  { key: 'manageInventory',     label: 'Inventory',     icon: '🏗️' },
+  { key: 'viewDealers',         label: 'Dealers',       icon: '👥' },
+  { key: 'viewDeals',           label: 'Deals',         icon: '🏷️' },
+  { key: 'viewRegistrations',   label: 'Registrations', icon: '📝' },
+  { key: 'viewReports',         label: 'Reports',       icon: '📊' },
+  { key: 'manageAnnouncements', label: 'Announcements', icon: '📢' },
+  { key: 'viewCustomers',       label: 'Customers',     icon: '🙍' },
+  { key: 'exportData',          label: 'Export',        icon: '📤' },
 ];
+
+const PLOT_SIZES = ['5 Marla', '7 Marla', '10 Marla', '1 Kanal', '2 Kanal', '4 Marla', 'Other'];
+const PLOT_CATS = ['residential', 'commercial'];
+const PLOT_STATUSES = ['available', 'booked', 'sold'];
+const ROLE_COLOR = {
+  'Operations Manager': { color: '#7c3aed', bg: '#f5f3ff' },
+  'Sales Staff':        { color: '#059669', bg: '#d1fae5' },
+  'Finance Staff':      { color: '#d97706', bg: '#fef3c7' },
+  'Marketing Staff':    { color: '#dc2626', bg: '#fee2e2' },
+  'Operations Staff':   { color: '#0284c7', bg: '#e0f2fe' },
+};
+const defaultInvForm = () => ({ number: '', area: '', size: '5 Marla', category: 'residential', price: '', status: 'available' });
+const defaultAnnForm = () => ({ title: '', body: '', date: new Date().toISOString().slice(0, 10), tag: '', important: false });
 
 export default function OperationsDashboard({ staff, onLogout }) {
   const privileges = staff.privileges || {};
@@ -28,6 +46,10 @@ export default function OperationsDashboard({ staff, onLogout }) {
 
   const [plots, setPlots] = useState([]);
   const [plotsLoading, setPlotsLoading] = useState(false);
+  const [invEdit, setInvEdit] = useState(null);
+  const [invForm, setInvForm] = useState(defaultInvForm());
+  const [invSaving, setInvSaving] = useState(false);
+  const [invMsg, setInvMsg] = useState('');
 
   const [dealers, setDealers] = useState([]);
   const [dealersLoading, setDealersLoading] = useState(false);
@@ -38,19 +60,44 @@ export default function OperationsDashboard({ staff, onLogout }) {
   const [regs, setRegs] = useState([]);
   const [regsLoading, setRegsLoading] = useState(false);
 
+  const [anns, setAnns] = useState([]);
+  const [annsLoading, setAnnsLoading] = useState(false);
+  const [annEdit, setAnnEdit] = useState(null);
+  const [annForm, setAnnForm] = useState(defaultAnnForm());
+  const [annSaving, setAnnSaving] = useState(false);
+  const [annMsg, setAnnMsg] = useState('');
+
+  const [customers, setCustomers] = useState([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+
   const reloadBookings = () => {
     setBookingsLoading(true);
-    fetch('/api/admin/bookings').then(r => r.json()).then(d => { setBookings(d); setBookingsLoading(false); }).catch(() => setBookingsLoading(false));
+    fetch('/api/admin/bookings').then(r => r.json()).then(d => { setBookings(Array.isArray(d) ? d : []); setBookingsLoading(false); }).catch(() => setBookingsLoading(false));
+  };
+  const reloadPlots = () => {
+    setPlotsLoading(true);
+    fetch('/api/plots').then(r => r.json()).then(d => { setPlots(Array.isArray(d) ? d : []); setPlotsLoading(false); }).catch(() => setPlotsLoading(false));
+  };
+  const reloadAnns = () => {
+    setAnnsLoading(true);
+    fetch('/api/announcements').then(r => r.json()).then(d => { setAnns(Array.isArray(d) ? d : []); setAnnsLoading(false); }).catch(() => setAnnsLoading(false));
+  };
+  const reloadCustomers = () => {
+    setCustomersLoading(true);
+    fetch('/api/admin/customers').then(r => r.json()).then(d => { setCustomers(Array.isArray(d) ? d : []); setCustomersLoading(false); }).catch(() => setCustomersLoading(false));
   };
 
   useEffect(() => {
     if (!tab) return;
     setActionMsg('');
-    if (tab === 'approveBookings') reloadBookings();
-    if (tab === 'viewPlots') { setPlotsLoading(true); fetch('/api/plots').then(r => r.json()).then(d => { setPlots(d); setPlotsLoading(false); }).catch(() => setPlotsLoading(false)); }
-    if (tab === 'viewDealers') { setDealersLoading(true); fetch('/api/admin/dealers').then(r => r.json()).then(d => { setDealers(d); setDealersLoading(false); }).catch(() => setDealersLoading(false)); }
-    if (tab === 'viewDeals') { setDealsLoading(true); fetch('/api/admin/deals').then(r => r.json()).then(d => { setDeals(d); setDealsLoading(false); }).catch(() => setDealsLoading(false)); }
-    if (tab === 'viewRegistrations') { setRegsLoading(true); fetch('/api/admin/registrations').then(r => r.json()).then(d => { setRegs(d); setRegsLoading(false); }).catch(() => setRegsLoading(false)); }
+    if (tab === 'approveBookings' || tab === 'viewReports') reloadBookings();
+    if (tab === 'viewPlots' || tab === 'manageInventory') reloadPlots();
+    if (tab === 'viewDealers') { setDealersLoading(true); fetch('/api/admin/dealers').then(r => r.json()).then(d => { setDealers(Array.isArray(d) ? d : []); setDealersLoading(false); }).catch(() => setDealersLoading(false)); }
+    if (tab === 'viewDeals') { setDealsLoading(true); fetch('/api/admin/deals').then(r => r.json()).then(d => { setDeals(Array.isArray(d) ? d : []); setDealsLoading(false); }).catch(() => setDealsLoading(false)); }
+    if (tab === 'viewRegistrations') { setRegsLoading(true); fetch('/api/admin/registrations').then(r => r.json()).then(d => { setRegs(Array.isArray(d) ? d : []); setRegsLoading(false); }).catch(() => setRegsLoading(false)); }
+    if (tab === 'manageAnnouncements') reloadAnns();
+    if (tab === 'viewCustomers') reloadCustomers();
+    if (tab === 'exportData') { reloadBookings(); reloadPlots(); reloadCustomers(); }
   }, [tab]);
 
   const handleApprove = async (bookingId) => {
@@ -65,8 +112,7 @@ export default function OperationsDashboard({ staff, onLogout }) {
       setSelectedBooking(null);
       reloadBookings();
       setShowReceipt(data.booking);
-    }
-    else setActionMsg('❌ Failed to approve booking.');
+    } else setActionMsg('❌ Failed to approve booking.');
   };
 
   const handleReject = async () => {
@@ -80,8 +126,81 @@ export default function OperationsDashboard({ staff, onLogout }) {
     else setActionMsg('❌ Failed to reject booking.');
   };
 
+  const openInvForm = (p) => {
+    setInvMsg('');
+    if (p) { setInvEdit(p); setInvForm({ number: p.number, area: p.area || '', size: p.size || '5 Marla', category: p.category || 'residential', price: p.price || '', status: p.status || 'available' }); }
+    else { setInvEdit('new'); setInvForm(defaultInvForm()); }
+  };
+  const handleSaveInv = async (e) => {
+    e.preventDefault(); setInvSaving(true); setInvMsg('');
+    try {
+      const isNew = invEdit === 'new';
+      const res = await fetch(isNew ? '/api/admin/plots' : `/api/admin/plots/${invEdit.id}`, {
+        method: isNew ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...invForm, price: parseInt(invForm.price) || 0 }),
+      });
+      if (res.ok) { setInvMsg('✅ Plot saved'); reloadPlots(); setTimeout(() => { setInvEdit(null); setInvMsg(''); }, 1000); }
+      else { const d = await res.json().catch(() => ({})); setInvMsg('❌ ' + (d.error || 'Save failed')); }
+    } catch { setInvMsg('❌ Save failed'); } finally { setInvSaving(false); }
+  };
+  const handleDeleteInv = async (id) => {
+    if (!confirm('Delete this plot? This cannot be undone.')) return;
+    const res = await fetch(`/api/admin/plots/${id}`, { method: 'DELETE' });
+    if (res.ok) reloadPlots();
+  };
+
+  const openAnnForm = (a) => {
+    setAnnMsg('');
+    if (a) { setAnnEdit(a); setAnnForm({ title: a.title, body: a.body, date: a.date, tag: a.tag || '', important: !!a.important }); }
+    else { setAnnEdit('new'); setAnnForm(defaultAnnForm()); }
+  };
+  const handleSaveAnn = async (e) => {
+    e.preventDefault(); setAnnSaving(true); setAnnMsg('');
+    try {
+      const isNew = annEdit === 'new';
+      const res = await fetch(isNew ? '/api/admin/announcements' : `/api/admin/announcements/${annEdit.id}`, {
+        method: isNew ? 'POST' : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(annForm),
+      });
+      if (res.ok) { setAnnMsg('✅ Announcement saved'); reloadAnns(); setTimeout(() => { setAnnEdit(null); setAnnMsg(''); }, 1000); }
+      else { const d = await res.json().catch(() => ({})); setAnnMsg('❌ ' + (d.error || 'Save failed')); }
+    } catch { setAnnMsg('❌ Save failed'); } finally { setAnnSaving(false); }
+  };
+  const handleDeleteAnn = async (id) => {
+    if (!confirm('Delete this announcement?')) return;
+    const res = await fetch(`/api/admin/announcements/${id}`, { method: 'DELETE' });
+    if (res.ok) reloadAnns();
+  };
+
+  const downloadCSV = (rows, filename) => {
+    if (!rows.length) return;
+    const keys = Object.keys(rows[0]);
+    const csv = [keys.join(','), ...rows.map(r => keys.map(k => `"${(r[k] ?? '').toString().replace(/"/g, '""')}"`).join(','))].join('\n');
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: filename });
+    a.click();
+  };
+
   const today = new Date().toISOString().slice(0, 10);
   const pendingCount = bookings.filter(b => b.status === 'pending').length;
+  const confirmedCount = bookings.filter(b => b.status === 'confirmed').length;
+  const rejectedCount = bookings.filter(b => b.status === 'rejected').length;
+  const totalRevenue = bookings.filter(b => b.status === 'confirmed').reduce((s, b) => s + (b.plotPrice || 0), 0);
+
+  const monthlyStats = (() => {
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(); d.setMonth(d.getMonth() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label = d.toLocaleString('en-PK', { month: 'short', year: 'numeric' });
+      const mb = bookings.filter(b => b.createdAt?.slice(0, 7) === key);
+      months.push({ label, total: mb.length, confirmed: mb.filter(b => b.status === 'confirmed').length, revenue: mb.filter(b => b.status === 'confirmed').reduce((s, b) => s + (b.plotPrice || 0), 0) });
+    }
+    return months;
+  })();
+
+  const roleStyle = ROLE_COLOR[staff.staffRole] || ROLE_COLOR['Operations Staff'];
 
   if (availableTabs.length === 0) {
     return (
@@ -104,16 +223,23 @@ export default function OperationsDashboard({ staff, onLogout }) {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
               <div style={{ width: 36, height: 36, background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>⚙️</div>
-              <h1 style={{ fontSize: '1.75rem', fontWeight: 900, color: '#0f172a' }}>Operations Dashboard</h1>
+              <h1 style={{ fontSize: '1.75rem', fontWeight: 900, color: '#0f172a' }}>Staff Portal</h1>
             </div>
-            <p style={{ color: '#64748b', fontSize: '0.875rem', paddingLeft: '3rem' }}>Welcome, <strong style={{ color: '#0284c7' }}>{staff?.name}</strong></p>
+            <div style={{ paddingLeft: '3rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <p style={{ color: '#64748b', fontSize: '0.875rem' }}>Welcome, <strong style={{ color: '#0284c7' }}>{staff?.name}</strong></p>
+              {staff.staffRole && (
+                <span style={{ background: roleStyle.bg, color: roleStyle.color, borderRadius: 9999, padding: '0.15rem 0.625rem', fontSize: '0.72rem', fontWeight: 700, border: `1px solid ${roleStyle.color}33` }}>
+                  {staff.staffRole}
+                </span>
+              )}
+            </div>
           </div>
           <button className="btn btn-primary btn-sm" onClick={onLogout} style={{ background: 'rgba(220,38,38,0.9)', borderColor: 'transparent' }}>Logout</button>
         </div>
 
         <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '1.75rem', background: '#fff', borderRadius: 14, padding: '0.375rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', overflowX: 'auto' }}>
           {availableTabs.map(t => (
-            <button key={t.key} onClick={() => { setTab(t.key); setSelectedBooking(null); }} style={{
+            <button key={t.key} onClick={() => { setTab(t.key); setSelectedBooking(null); setInvEdit(null); setAnnEdit(null); }} style={{
               flex: '0 0 auto', display: 'flex', alignItems: 'center', gap: '0.4rem',
               padding: '0.6rem 1.1rem', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700,
               background: tab === t.key ? 'linear-gradient(135deg, #0ea5e9, #0284c7)' : 'transparent',
@@ -321,6 +447,93 @@ export default function OperationsDashboard({ staff, onLogout }) {
           </div>
         )}
 
+        {/* ─── MANAGE INVENTORY TAB ─── */}
+        {tab === 'manageInventory' && (
+          <div style={{ display: 'grid', gridTemplateColumns: invEdit ? '1fr 370px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+            <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div>
+                  <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Plot Inventory Management</h3>
+                  <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{plots.length} plots — add, edit, or remove plots</p>
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={() => openInvForm(null)}>+ Add Plot</button>
+              </div>
+              {plotsLoading ? <div className="loading"><div className="spinner"></div>Loading...</div> : plots.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🏘️</div>
+                  <div style={{ fontWeight: 600 }}>No plots yet</div>
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
+                        {['Plot', 'Area', 'Size', 'Category', 'Price', 'Status', ''].map(h => (
+                          <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {plots.map(p => (
+                        <tr key={p.id} style={{ borderBottom: '1px solid #f8fafc', background: invEdit?.id === p.id ? '#f0f9ff' : 'transparent' }}
+                          onMouseEnter={e => { if (invEdit?.id !== p.id) e.currentTarget.style.background = '#f8fafc'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = invEdit?.id === p.id ? '#f0f9ff' : 'transparent'; }}>
+                          <td style={{ padding: '0.875rem', fontWeight: 700, color: '#1a6b3c', fontFamily: 'monospace' }}>{p.number}</td>
+                          <td style={{ padding: '0.875rem', color: '#374151' }}>{p.area}</td>
+                          <td style={{ padding: '0.875rem', color: '#374151' }}>{p.size}</td>
+                          <td style={{ padding: '0.875rem', color: '#64748b', textTransform: 'capitalize', fontSize: '0.8rem' }}>{p.category}</td>
+                          <td style={{ padding: '0.875rem', fontWeight: 700 }}>{fmt(p.price)}</td>
+                          <td style={{ padding: '0.875rem' }}>
+                            <span style={{ background: p.status === 'available' ? '#d1fae5' : p.status === 'booked' ? '#fef3c7' : '#fee2e2', color: p.status === 'available' ? '#065f46' : p.status === 'booked' ? '#92400e' : '#dc2626', borderRadius: 9999, padding: '0.2rem 0.5rem', fontSize: '0.72rem', fontWeight: 700, textTransform: 'capitalize' }}>{p.status}</span>
+                          </td>
+                          <td style={{ padding: '0.875rem' }}>
+                            <div style={{ display: 'flex', gap: '0.375rem' }}>
+                              <button onClick={() => openInvForm(p)} style={{ padding: '0.3rem 0.55rem', background: '#f1f5f9', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#374151' }}>✏️</button>
+                              {p.status === 'available' && <button onClick={() => handleDeleteInv(p.id)} style={{ padding: '0.3rem 0.55rem', background: '#fef2f2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#dc2626' }}>🗑️</button>}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            {invEdit && (
+              <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', position: 'sticky', top: 80, overflow: 'hidden' }}>
+                <div style={{ background: 'linear-gradient(135deg, #059669, #047857)', color: '#fff', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>{invEdit === 'new' ? 'Add New Plot' : `Edit — ${invEdit.number}`}</div>
+                  <button onClick={() => { setInvEdit(null); setInvMsg(''); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                </div>
+                <form onSubmit={handleSaveInv} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div className="form-group"><label>Plot Number</label><input required value={invForm.number} onChange={e => setInvForm(f => ({ ...f, number: e.target.value }))} placeholder="e.g. A-101" /></div>
+                  <div className="form-group"><label>Area / Block</label><input required value={invForm.area} onChange={e => setInvForm(f => ({ ...f, area: e.target.value }))} placeholder="e.g. Block A" /></div>
+                  <div className="form-group"><label>Size</label>
+                    <select value={invForm.size} onChange={e => setInvForm(f => ({ ...f, size: e.target.value }))}>
+                      {PLOT_SIZES.map(s => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group"><label>Category</label>
+                    <select value={invForm.category} onChange={e => setInvForm(f => ({ ...f, category: e.target.value }))}>
+                      {PLOT_CATS.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group"><label>Price (PKR)</label><input required type="number" value={invForm.price} onChange={e => setInvForm(f => ({ ...f, price: e.target.value }))} placeholder="e.g. 5000000" /></div>
+                  <div className="form-group"><label>Status</label>
+                    <select value={invForm.status} onChange={e => setInvForm(f => ({ ...f, status: e.target.value }))}>
+                      {PLOT_STATUSES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                    </select>
+                  </div>
+                  {invMsg && <div className={invMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ fontSize: '0.85rem' }}>{invMsg}</div>}
+                  <button type="submit" className="btn btn-primary" disabled={invSaving} style={{ justifyContent: 'center', padding: '0.75rem', background: '#059669' }}>
+                    {invSaving ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> Saving...</> : '✓ Save Plot'}
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ─── DEALERS TAB ─── */}
         {tab === 'viewDealers' && (
           <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
@@ -458,9 +671,215 @@ export default function OperationsDashboard({ staff, onLogout }) {
           </div>
         )}
 
+        {/* ─── REPORTS TAB ─── */}
+        {tab === 'viewReports' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '1rem' }}>
+              {[
+                { label: 'Total Bookings', value: bookings.length,  icon: '📋', color: '#0284c7', bg: '#e0f2fe' },
+                { label: 'Confirmed',       value: confirmedCount,   icon: '✅', color: '#059669', bg: '#d1fae5' },
+                { label: 'Pending',         value: pendingCount,     icon: '⏳', color: '#d97706', bg: '#fef3c7' },
+                { label: 'Rejected',        value: rejectedCount,    icon: '❌', color: '#dc2626', bg: '#fee2e2' },
+                { label: 'Total Revenue',   value: fmt(totalRevenue),icon: '💰', color: '#7c3aed', bg: '#f5f3ff' },
+              ].map(({ label, value, icon, color, bg }) => (
+                <div key={label} style={{ background: '#fff', borderRadius: 14, padding: '1.25rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.5rem' }}>
+                    <div style={{ width: 34, height: 34, background: bg, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.95rem' }}>{icon}</div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
+                  </div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 900, color }}>{value}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+              <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '1rem' }}>Monthly Breakdown (Last 6 Months)</h3>
+              {bookingsLoading ? <div className="loading"><div className="spinner"></div>Loading...</div> : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
+                        {['Month', 'Total Bookings', 'Confirmed', 'Revenue'].map(h => (
+                          <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {monthlyStats.map((m, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          <td style={{ padding: '0.875rem', fontWeight: 700, color: '#0f172a' }}>{m.label}</td>
+                          <td style={{ padding: '0.875rem', color: '#374151' }}>{m.total}</td>
+                          <td style={{ padding: '0.875rem', color: '#059669', fontWeight: 700 }}>{m.confirmed}</td>
+                          <td style={{ padding: '0.875rem', fontWeight: 700, color: '#7c3aed' }}>{fmt(m.revenue)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ─── ANNOUNCEMENTS TAB ─── */}
+        {tab === 'manageAnnouncements' && (
+          <div style={{ display: 'grid', gridTemplateColumns: annEdit ? '1fr 370px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+            <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div>
+                  <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Announcements</h3>
+                  <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Create and manage public announcements shown to visitors</p>
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={() => openAnnForm(null)}>+ New</button>
+              </div>
+              {annsLoading ? <div className="loading"><div className="spinner"></div>Loading...</div> : anns.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📢</div>
+                  <div style={{ fontWeight: 600 }}>No announcements yet</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {anns.map(a => (
+                    <div key={a.id} style={{ border: `1.5px solid ${annEdit?.id === a.id ? '#93c5fd' : a.important ? '#fcd34d' : '#f1f5f9'}`, borderRadius: 12, padding: '1rem 1.25rem', background: annEdit?.id === a.id ? '#f0f9ff' : a.important ? '#fffbeb' : '#fff' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem', flexWrap: 'wrap' }}>
+                            {a.important && <span style={{ fontSize: '0.68rem', fontWeight: 700, background: '#fef3c7', color: '#92400e', borderRadius: 5, padding: '0.1rem 0.4rem' }}>⚠️ Important</span>}
+                            {a.tag && <span style={{ fontSize: '0.68rem', fontWeight: 700, background: '#eff6ff', color: '#1d4ed8', borderRadius: 5, padding: '0.1rem 0.4rem' }}>{a.tag}</span>}
+                            <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{a.date}</span>
+                          </div>
+                          <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>{a.title}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: 1.5 }}>{a.body.length > 100 ? a.body.slice(0, 100) + '…' : a.body}</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.375rem', flexShrink: 0 }}>
+                          <button onClick={() => openAnnForm(a)} style={{ padding: '0.3rem 0.55rem', background: '#f1f5f9', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#374151' }}>✏️</button>
+                          <button onClick={() => handleDeleteAnn(a.id)} style={{ padding: '0.3rem 0.55rem', background: '#fef2f2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#dc2626' }}>🗑️</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {annEdit && (
+              <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', position: 'sticky', top: 80, overflow: 'hidden' }}>
+                <div style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>{annEdit === 'new' ? 'New Announcement' : 'Edit Announcement'}</div>
+                  <button onClick={() => { setAnnEdit(null); setAnnMsg(''); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                </div>
+                <form onSubmit={handleSaveAnn} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div className="form-group"><label>Title</label><input required value={annForm.title} onChange={e => setAnnForm(f => ({ ...f, title: e.target.value }))} placeholder="Announcement title" /></div>
+                  <div className="form-group">
+                    <label>Body</label>
+                    <textarea required value={annForm.body} onChange={e => setAnnForm(f => ({ ...f, body: e.target.value }))} rows={4} placeholder="Announcement details..." style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.9rem', resize: 'vertical', boxSizing: 'border-box' }} />
+                  </div>
+                  <div className="form-group"><label>Date</label><input type="date" required value={annForm.date} onChange={e => setAnnForm(f => ({ ...f, date: e.target.value }))} /></div>
+                  <div className="form-group"><label>Tag (optional)</label><input value={annForm.tag} onChange={e => setAnnForm(f => ({ ...f, tag: e.target.value }))} placeholder="e.g. New Launch, Finance..." /></div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', padding: '0.5rem 0.75rem', background: annForm.important ? '#fef3c7' : '#f8fafc', borderRadius: 9, border: `1.5px solid ${annForm.important ? '#fcd34d' : '#e2e8f0'}` }}>
+                    <input type="checkbox" checked={annForm.important} onChange={e => setAnnForm(f => ({ ...f, important: e.target.checked }))} style={{ width: 16, height: 16 }} />
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: annForm.important ? '#92400e' : '#374151' }}>⚠️ Mark as Important</span>
+                  </label>
+                  {annMsg && <div className={annMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ fontSize: '0.85rem' }}>{annMsg}</div>}
+                  <button type="submit" className="btn btn-primary" disabled={annSaving} style={{ justifyContent: 'center', padding: '0.75rem', background: '#d97706' }}>
+                    {annSaving ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> Saving...</> : '✓ Save Announcement'}
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── CUSTOMERS TAB ─── */}
+        {tab === 'viewCustomers' && (
+          <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+            <div style={{ marginBottom: '1.25rem' }}>
+              <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Customer Accounts</h3>
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{customers.length} registered customers — read-only view</p>
+            </div>
+            {customersLoading ? <div className="loading"><div className="spinner"></div>Loading...</div> : customers.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🙍</div>
+                <div style={{ fontWeight: 600 }}>No registered customers yet</div>
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
+                      {['Name', 'Email', 'CNIC', 'Phone', 'Joined'].map(h => (
+                        <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customers.map(c => (
+                      <tr key={c.id} style={{ borderBottom: '1px solid #f8fafc' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        <td style={{ padding: '0.875rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                            <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '0.8rem', flexShrink: 0 }}>{(c.name || c.email || '?').charAt(0).toUpperCase()}</div>
+                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.85rem' }}>{c.name || '—'}</div>
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.875rem', color: '#374151' }}>{c.email || '—'}</td>
+                        <td style={{ padding: '0.875rem', fontFamily: 'monospace', fontSize: '0.8rem', color: '#64748b' }}>{c.cnic || '—'}</td>
+                        <td style={{ padding: '0.875rem', color: '#374151' }}>{c.phone || '—'}</td>
+                        <td style={{ padding: '0.875rem', fontSize: '0.78rem', color: '#64748b' }}>
+                          {c.createdAt ? new Date(c.createdAt).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── EXPORT TAB ─── */}
+        {tab === 'exportData' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+              <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Export Data</h3>
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1.5rem' }}>Download reports as CSV files — open them in Excel or Google Sheets</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '1rem' }}>
+                {[
+                  {
+                    label: 'Bookings Report', desc: `${bookings.length} records`, icon: '📋', color: '#0284c7', bg: '#e0f2fe',
+                    onClick: () => downloadCSV(bookings.map(b => ({ Ref: b.bookingRef, Buyer: b.name, CNIC: b.cnic, Phone: b.phone, Plot: b.plotNumber, Size: b.plotSize, Area: b.area, Price: b.plotPrice, Status: b.status, Dealer: b.dealerName || '', Date: b.createdAt?.slice(0, 10) || '' })), 'bookings.csv'),
+                  },
+                  {
+                    label: 'Plot Inventory', desc: `${plots.length} plots`, icon: '🏘️', color: '#059669', bg: '#d1fae5',
+                    onClick: () => downloadCSV(plots.map(p => ({ Number: p.number, Area: p.area, Size: p.size, Category: p.category, Price: p.price, Status: p.status })), 'plots.csv'),
+                  },
+                  {
+                    label: 'Customer List', desc: `${customers.length} accounts`, icon: '🙍', color: '#7c3aed', bg: '#f5f3ff',
+                    onClick: () => downloadCSV(customers.map(c => ({ Name: c.name || '', Email: c.email || '', CNIC: c.cnic || '', Phone: c.phone || '', Joined: c.createdAt?.slice(0, 10) || '' })), 'customers.csv'),
+                  },
+                ].map(({ label, desc, icon, color, bg, onClick }) => (
+                  <button key={label} onClick={onClick}
+                    style={{ background: '#fff', border: `1.5px solid #f1f5f9`, borderRadius: 14, padding: '1.25rem', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.background = bg; e.currentTarget.style.borderColor = color + '55'; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.borderColor = '#f1f5f9'; }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.625rem' }}>
+                      <div style={{ width: 40, height: 40, background: bg, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem' }}>{icon}</div>
+                      <div>
+                        <div style={{ fontWeight: 800, color, fontSize: '0.9rem' }}>📥 {label}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600 }}>{desc}</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#64748b' }}>Download as CSV file</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
       </div>
 
-      {/* Reject Modal */}
       {showReceipt && <BookingReceipt booking={showReceipt} onClose={() => setShowReceipt(null)} />}
 
       {rejectModal && (

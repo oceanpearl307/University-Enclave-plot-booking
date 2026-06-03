@@ -576,12 +576,18 @@
       "password": "ops123",
       "name": "Operations Staff",
       "role": "operations",
+      "staffRole": "Operations Staff",
       "privileges": {
         "approveBookings": true,
         "viewPlots": true,
+        "manageInventory": false,
         "viewDealers": false,
         "viewDeals": false,
-        "viewRegistrations": false
+        "viewRegistrations": false,
+        "viewReports": false,
+        "exportData": false,
+        "manageAnnouncements": false,
+        "viewCustomers": false
       },
       "createdAt": "2026-01-01T00:00:00.000Z"
     }

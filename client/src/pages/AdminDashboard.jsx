@@ -24,12 +24,32 @@ const CustomTooltip = ({ active, payload, label }) => {
 const TABS = ['Dealers', 'Registrations', 'Bookings', 'Packages', 'Inventory', 'Deals', 'Staff', 'Backups'];
 const tabIcons = { Dealers: '👥', Registrations: '📋', Bookings: '📩', Packages: '📦', Inventory: '🏘️', Deals: '🏷️', Staff: '⚙️', Backups: '🗄️' };
 const PRIV_OPTIONS = [
-  { key: 'approveBookings', label: 'View & Approve Bookings' },
-  { key: 'viewPlots', label: 'View Plot Inventory' },
-  { key: 'viewDealers', label: 'View Dealers & Targets' },
-  { key: 'viewDeals', label: 'View Deals' },
-  { key: 'viewRegistrations', label: 'View Dealer Registrations' },
+  { key: 'approveBookings',     label: 'Approve Bookings',          icon: '📋', group: 'Bookings'   },
+  { key: 'viewPlots',           label: 'View Plot Inventory',        icon: '🏘️', group: 'Inventory'  },
+  { key: 'manageInventory',     label: 'Add & Edit Plots',           icon: '🏗️', group: 'Inventory'  },
+  { key: 'viewDealers',         label: 'View Dealers & Targets',     icon: '👥', group: 'Dealers'    },
+  { key: 'viewDeals',           label: 'View Active Deals',          icon: '🏷️', group: 'Dealers'    },
+  { key: 'viewRegistrations',   label: 'View Dealer Registrations',  icon: '📝', group: 'Dealers'    },
+  { key: 'viewReports',         label: 'View Sales Reports',         icon: '📊', group: 'Reports'    },
+  { key: 'exportData',          label: 'Export Data to CSV',         icon: '📤', group: 'Reports'    },
+  { key: 'manageAnnouncements', label: 'Manage Announcements',       icon: '📢', group: 'Content'    },
+  { key: 'viewCustomers',       label: 'View Customer Accounts',     icon: '🙍', group: 'Content'    },
 ];
+const PRIV_GROUPS = ['Bookings', 'Inventory', 'Dealers', 'Reports', 'Content'];
+const STAFF_ROLES = [
+  { value: 'Operations Staff',   color: '#0284c7', bg: '#e0f2fe', icon: '⚙️'  },
+  { value: 'Operations Manager', color: '#7c3aed', bg: '#f5f3ff', icon: '🏆'  },
+  { value: 'Sales Staff',        color: '#059669', bg: '#d1fae5', icon: '💼'  },
+  { value: 'Finance Staff',      color: '#d97706', bg: '#fef3c7', icon: '💰'  },
+  { value: 'Marketing Staff',    color: '#dc2626', bg: '#fee2e2', icon: '📣'  },
+];
+const ROLE_PRESETS = {
+  'Operations Manager': { approveBookings: true,  viewPlots: true,  manageInventory: true,  viewDealers: true,  viewDeals: true,  viewRegistrations: true,  viewReports: true,  exportData: true,  manageAnnouncements: true,  viewCustomers: true  },
+  'Operations Staff':   { approveBookings: true,  viewPlots: true,  manageInventory: false, viewDealers: false, viewDeals: false, viewRegistrations: false, viewReports: false, exportData: false, manageAnnouncements: false, viewCustomers: false },
+  'Sales Staff':        { approveBookings: true,  viewPlots: true,  manageInventory: false, viewDealers: true,  viewDeals: true,  viewRegistrations: true,  viewReports: false, exportData: false, manageAnnouncements: false, viewCustomers: true  },
+  'Finance Staff':      { approveBookings: true,  viewPlots: false, manageInventory: false, viewDealers: false, viewDeals: false, viewRegistrations: false, viewReports: true,  exportData: true,  manageAnnouncements: false, viewCustomers: true  },
+  'Marketing Staff':    { approveBookings: false, viewPlots: true,  manageInventory: false, viewDealers: false, viewDeals: true,  viewRegistrations: false, viewReports: true,  exportData: false, manageAnnouncements: true,  viewCustomers: false },
+};
 
 export default function AdminDashboard({ dealer: admin, authToken, onLogout, navigate }) {
   const [tab, setTab] = useState('Dealers');
@@ -172,8 +192,8 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [dealerSort, setDealerSort] = useState({ col: null, dir: 'desc' });
   const [staffLoading, setStaffLoading] = useState(false);
   const [staffEdit, setStaffEdit] = useState(null);
-  const defaultPrivs = () => ({ approveBookings: false, viewPlots: false, viewDealers: false, viewDeals: false, viewRegistrations: false });
-  const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', privileges: defaultPrivs() });
+  const defaultPrivs = () => ({ approveBookings: false, viewPlots: false, manageInventory: false, viewDealers: false, viewDeals: false, viewRegistrations: false, viewReports: false, exportData: false, manageAnnouncements: false, viewCustomers: false });
+  const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', staffRole: 'Operations Staff', privileges: defaultPrivs() });
   const [staffSaving, setStaffSaving] = useState(false);
   const [staffMsg, setStaffMsg] = useState('');
 
@@ -690,10 +710,10 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     setStaffMsg('');
     if (s) {
       setStaffEdit(s);
-      setStaffForm({ name: s.name, username: s.username, password: '', privileges: { ...s.privileges } });
+      setStaffForm({ name: s.name, username: s.username, password: '', staffRole: s.staffRole || 'Operations Staff', privileges: { ...defaultPrivs(), ...s.privileges } });
     } else {
       setStaffEdit('new');
-      setStaffForm({ name: '', username: '', password: '', privileges: defaultPrivs() });
+      setStaffForm({ name: '', username: '', password: '', staffRole: 'Operations Staff', privileges: defaultPrivs() });
     }
   };
 
@@ -703,6 +723,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     try {
       const payload = {
         name: staffForm.name, username: staffForm.username,
+        staffRole: staffForm.staffRole,
         privileges: staffForm.privileges,
         ...(staffForm.password ? { password: staffForm.password } : {}),
       };
@@ -729,6 +750,10 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   const togglePriv = (key) => {
     setStaffForm(f => ({ ...f, privileges: { ...f.privileges, [key]: !f.privileges[key] } }));
+  };
+
+  const applyRolePreset = (role) => {
+    setStaffForm(f => ({ ...f, staffRole: role, privileges: ROLE_PRESETS[role] ? { ...ROLE_PRESETS[role] } : f.privileges }));
   };
 
   const toggleDealPlot = (id) => {
@@ -2735,64 +2760,70 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
         {/* ─── STAFF TAB ─── */}
         {tab === 'Staff' && (
-          <div style={{ display: 'grid', gridTemplateColumns: staffEdit ? '1fr 400px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: staffEdit ? '1fr 420px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
             <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                 <div>
-                  <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Operations Staff</h3>
-                  <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Manage operations accounts and their access privileges</p>
+                  <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Staff Accounts</h3>
+                  <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Manage portal staff accounts, roles, and access privileges</p>
                 </div>
                 <button className="btn btn-primary btn-sm" onClick={() => openStaffForm(null)}>+ Add Staff</button>
               </div>
               {staffLoading ? <div className="loading"><div className="spinner"></div>Loading...</div> : staff.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
                   <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>⚙️</div>
-                  <div style={{ fontWeight: 600 }}>No operations staff yet</div>
+                  <div style={{ fontWeight: 600 }}>No staff accounts yet</div>
                   <div style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>Add staff members to grant them access to the portal</div>
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {staff.map(s => (
-                    <div key={s.id} style={{ border: '1.5px solid #f1f5f9', borderRadius: 12, padding: '1rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.875rem' }}>
-                        <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '1rem', flexShrink: 0 }}>{s.name.charAt(0)}</div>
-                        <div>
-                          <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.15rem' }}>{s.name}</div>
-                          <div style={{ fontSize: '0.78rem', color: '#64748b', fontFamily: 'monospace', marginBottom: '0.5rem' }}>@{s.username}</div>
-                          <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
-                            {PRIV_OPTIONS.map(p => (
-                              <span key={p.key} style={{
-                                background: s.privileges?.[p.key] ? '#dbeafe' : '#f8fafc',
-                                color: s.privileges?.[p.key] ? '#1d4ed8' : '#94a3b8',
-                                borderRadius: 6, padding: '0.15rem 0.5rem', fontSize: '0.7rem', fontWeight: 700,
-                                border: `1px solid ${s.privileges?.[p.key] ? '#bfdbfe' : '#e2e8f0'}`,
-                              }}>
-                                {s.privileges?.[p.key] ? '✓' : '✕'} {p.label}
-                              </span>
-                            ))}
+                  {staff.map(s => {
+                    const roleInfo = STAFF_ROLES.find(r => r.value === s.staffRole) || STAFF_ROLES[0];
+                    const activePrivs = PRIV_OPTIONS.filter(p => s.privileges?.[p.key]);
+                    return (
+                      <div key={s.id} style={{ border: `1.5px solid ${staffEdit?.id === s.id ? '#bfdbfe' : '#f1f5f9'}`, borderRadius: 12, padding: '1rem 1.25rem', background: staffEdit?.id === s.id ? '#f0f9ff' : '#fff' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.875rem' }}>
+                            <div style={{ width: 40, height: 40, borderRadius: '50%', background: `linear-gradient(135deg, ${roleInfo.color}, ${roleInfo.color}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '1rem', flexShrink: 0 }}>{s.name.charAt(0)}</div>
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
+                                <div style={{ fontWeight: 800, color: '#0f172a' }}>{s.name}</div>
+                                <span style={{ background: roleInfo.bg, color: roleInfo.color, borderRadius: 9999, padding: '0.1rem 0.5rem', fontSize: '0.68rem', fontWeight: 700, border: `1px solid ${roleInfo.color}33` }}>{roleInfo.icon} {s.staffRole || 'Operations Staff'}</span>
+                              </div>
+                              <div style={{ fontSize: '0.78rem', color: '#64748b', fontFamily: 'monospace', marginBottom: '0.625rem' }}>@{s.username}</div>
+                              <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
+                                {activePrivs.length === 0 ? (
+                                  <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>No privileges assigned</span>
+                                ) : activePrivs.map(p => (
+                                  <span key={p.key} style={{ background: '#dbeafe', color: '#1d4ed8', borderRadius: 6, padding: '0.15rem 0.5rem', fontSize: '0.68rem', fontWeight: 700, border: '1px solid #bfdbfe' }}>
+                                    {p.icon} {p.label}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.375rem', flexShrink: 0 }}>
+                            <button onClick={() => openStaffForm(s)} style={{ padding: '0.35rem 0.625rem', background: '#f1f5f9', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#374151' }}>✏️ Edit</button>
+                            <button onClick={() => handleDeleteStaff(s.id)} style={{ padding: '0.35rem 0.625rem', background: '#fef2f2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#dc2626' }}>🗑️</button>
                           </div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.375rem', flexShrink: 0 }}>
-                        <button onClick={() => openStaffForm(s)} style={{ padding: '0.35rem 0.625rem', background: '#f1f5f9', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#374151' }}>✏️ Edit</button>
-                        <button onClick={() => handleDeleteStaff(s.id)} style={{ padding: '0.35rem 0.625rem', background: '#fef2f2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#dc2626' }}>🗑️</button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
 
             {staffEdit && (
-              <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', position: 'sticky', top: 80, overflow: 'hidden' }}>
+              <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', position: 'sticky', top: 80, overflow: 'hidden', maxHeight: '90vh', overflowY: 'auto' }}>
                 <div style={{ background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', color: '#fff', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>{staffEdit === 'new' ? 'Add Operations Staff' : `Edit — ${staffEdit.name}`}</div>
+                  <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>{staffEdit === 'new' ? 'Add Staff Account' : `Edit — ${staffEdit.name}`}</div>
                   <button onClick={() => { setStaffEdit(null); setStaffMsg(''); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                 </div>
                 <form onSubmit={handleSaveStaff} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div className="form-group">
                     <label>Full Name</label>
-                    <input required value={staffForm.name} onChange={e => setStaffForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Kamran Operations" />
+                    <input required value={staffForm.name} onChange={e => setStaffForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Kamran Ahmed" />
                   </div>
                   <div className="form-group">
                     <label>Username</label>
@@ -2802,17 +2833,42 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     <label>{staffEdit === 'new' ? 'Password' : 'New Password (leave blank to keep)'}</label>
                     <input type="password" required={staffEdit === 'new'} value={staffForm.password} onChange={e => setStaffForm(f => ({ ...f, password: e.target.value }))} placeholder={staffEdit === 'new' ? 'Set a password' : 'Leave blank to keep current'} />
                   </div>
+
                   <div>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151', marginBottom: '0.625rem' }}>🔑 Access Privileges</div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {PRIV_OPTIONS.map(p => (
-                        <label key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', padding: '0.5rem 0.75rem', background: staffForm.privileges[p.key] ? '#dbeafe' : '#f8fafc', borderRadius: 9, border: `1.5px solid ${staffForm.privileges[p.key] ? '#93c5fd' : '#e2e8f0'}`, transition: 'all 0.15s' }}>
-                          <input type="checkbox" checked={!!staffForm.privileges[p.key]} onChange={() => togglePriv(p.key)} style={{ width: 16, height: 16 }} />
-                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: staffForm.privileges[p.key] ? '#1d4ed8' : '#374151' }}>{p.label}</span>
-                        </label>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>👤 Staff Role</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                      {STAFF_ROLES.map(r => (
+                        <button key={r.value} type="button" onClick={() => applyRolePreset(r.value)}
+                          style={{ padding: '0.5rem 0.625rem', borderRadius: 9, border: `1.5px solid ${staffForm.staffRole === r.value ? r.color : '#e2e8f0'}`, background: staffForm.staffRole === r.value ? r.bg : '#f8fafc', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
+                          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: staffForm.staffRole === r.value ? r.color : '#374151' }}>{r.icon} {r.value}</div>
+                        </button>
                       ))}
                     </div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.4rem' }}>Selecting a role applies a default privilege preset — you can customize below.</div>
                   </div>
+
+                  <div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151', marginBottom: '0.625rem' }}>🔑 Access Privileges</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+                      {PRIV_GROUPS.map(group => {
+                        const groupPrivs = PRIV_OPTIONS.filter(p => p.group === group);
+                        return (
+                          <div key={group}>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.375rem' }}>{group}</div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                              {groupPrivs.map(p => (
+                                <label key={p.key} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', padding: '0.45rem 0.75rem', background: staffForm.privileges[p.key] ? '#dbeafe' : '#f8fafc', borderRadius: 8, border: `1.5px solid ${staffForm.privileges[p.key] ? '#93c5fd' : '#e2e8f0'}`, transition: 'all 0.15s' }}>
+                                  <input type="checkbox" checked={!!staffForm.privileges[p.key]} onChange={() => togglePriv(p.key)} style={{ width: 15, height: 15, flexShrink: 0 }} />
+                                  <span style={{ fontSize: '0.82rem', fontWeight: 600, color: staffForm.privileges[p.key] ? '#1d4ed8' : '#374151' }}>{p.icon} {p.label}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                   {staffMsg && <div className={staffMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ fontSize: '0.85rem' }}>{staffMsg}</div>}
                   <button type="submit" className="btn btn-primary" disabled={staffSaving} style={{ justifyContent: 'center', padding: '0.75rem', background: '#0284c7' }}>
                     {staffSaving ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> Saving...</> : '✓ Save Staff Account'}
