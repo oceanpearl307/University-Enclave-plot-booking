@@ -107,7 +107,7 @@ let plotCounter = 10;
 // ─── Packages ────────────────────────────────────────────────────────────────
 let packages = [
   {
-    id: 1, name: 'Normal Package', totalPlots: 25, commissionPct: 12,
+    id: 1, name: 'Silver Package', totalPlots: 25, commissionPct: 12,
     sizes: [
       { size: '5 Marla', quota: 10 },
       { size: '7 Marla', quota: 8 },
@@ -119,7 +119,7 @@ let packages = [
     createdAt: '2026-01-01T00:00:00.000Z',
   },
   {
-    id: 2, name: 'Premium Package', totalPlots: 50, commissionPct: 15,
+    id: 2, name: 'Gold Package', totalPlots: 50, commissionPct: 15,
     sizes: [
       { size: '5 Marla', quota: 20 },
       { size: '7 Marla', quota: 15 },

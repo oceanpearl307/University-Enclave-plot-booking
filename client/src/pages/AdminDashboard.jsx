@@ -1955,7 +1955,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                 <form onSubmit={handleSavePkg} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.125rem' }}>
                   <div className="form-group">
                     <label>Package Name</label>
-                    <input required value={pkgForm.name} onChange={e => setPkgForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Normal Package" />
+                    <input required value={pkgForm.name} onChange={e => setPkgForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Silver Package" />
                   </div>
                   <div>
                     <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151', marginBottom: '0.625rem' }}>Plot Quotas per Size</div>

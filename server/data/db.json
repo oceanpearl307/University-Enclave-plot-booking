@@ -163,7 +163,7 @@
   "packages": [
     {
       "id": 1,
-      "name": "Normal Package",
+      "name": "Silver Package",
       "totalPlots": 25,
       "commissionPct": 12,
       "sizes": [
@@ -190,7 +190,7 @@
     },
     {
       "id": 2,
-      "name": "Premium Package",
+      "name": "Gold Package",
       "totalPlots": 50,
       "commissionPct": 15,
       "sizes": [
