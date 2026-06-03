@@ -258,16 +258,7 @@
       "vpnRestricted": false,
       "ipLocked": false,
       "trustedIPs": [],
-      "loginHistory": [
-        {
-          "ip": "127.0.0.1",
-          "at": "2026-06-03T19:25:52.979Z",
-          "blocked": false,
-          "vpnDetected": false,
-          "isp": "Local/Private",
-          "country": "Local"
-        }
-      ],
+      "loginHistory": [],
       "commissionPayouts": [
         {
           "id": 1780434183636,
@@ -283,9 +274,7 @@
           "adminName": "Admin",
           "date": "2026-06-02T21:03:14.656Z"
         }
-      ],
-      "lastLoginIP": "127.0.0.1",
-      "lastLoginAt": "2026-06-03T19:25:52.979Z"
+      ]
     },
     {
       "id": 3,
