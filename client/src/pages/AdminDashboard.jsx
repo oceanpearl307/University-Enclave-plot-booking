@@ -35,6 +35,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [tab, setTab] = useState('Dealers');
 
   // ── Dealers tab ──
+  const [restoreAlert, setRestoreAlert] = useState(null);
   const [dealers, setDealers] = useState([]);
   const [dealersLoading, setDealersLoading] = useState(true);
   const [packages, setPackages] = useState([]);
@@ -229,7 +230,15 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   const fmtBytes = (b) => b >= 1048576 ? (b / 1048576).toFixed(2) + ' MB' : b >= 1024 ? (b / 1024).toFixed(1) + ' KB' : b + ' B';
 
-  useEffect(() => { loadDealers(); loadPackages(); fetch('/api/admin/notifications').then(r => r.json()).then(d => { if (d.pendingBookings > 0) setBkgs(prev => prev.length === 0 ? [{ _placeholder: true }] : prev); }).catch(() => {}); }, []);
+  useEffect(() => {
+    loadDealers();
+    loadPackages();
+    fetch('/api/admin/notifications').then(r => r.json()).then(d => { if (d.pendingBookings > 0) setBkgs(prev => prev.length === 0 ? [{ _placeholder: true }] : prev); }).catch(() => {});
+    fetch('/api/admin/restore-alert', { headers: { Authorization: `Bearer ${authToken}` } })
+      .then(r => r.json())
+      .then(d => { if (d.alert) setRestoreAlert(d.alert); })
+      .catch(() => {});
+  }, []);
   useEffect(() => {
     if (tab === 'Registrations') loadRegs();
     if (tab === 'Bookings') loadBookings();
@@ -729,6 +738,21 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
             <button className="btn btn-primary btn-sm" onClick={onLogout}>Logout</button>
           </div>
         </div>
+
+        {/* Auto-Restore Alert Banner */}
+        {restoreAlert && (
+          <div style={{ background: '#fef3c7', border: '1.5px solid #f59e0b', borderRadius: 12, padding: '0.9rem 1.25rem', marginBottom: '1.25rem', display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.3rem', flexShrink: 0 }}>⚠️</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 800, color: '#92400e', fontSize: '0.9rem', marginBottom: '0.2rem' }}>Database auto-restored from backup at startup</div>
+              <div style={{ fontSize: '0.8rem', color: '#b45309' }}>
+                The main data file (db.json) was corrupted or missing. The server automatically recovered data from backup: <strong style={{ fontFamily: 'monospace' }}>{restoreAlert.filename}</strong> at {new Date(restoreAlert.restoredAt).toLocaleString()}.
+                Please visit the <strong>Backups</strong> tab to review available backups.
+              </div>
+            </div>
+            <button onClick={() => setRestoreAlert(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: '#92400e', flexShrink: 0, lineHeight: 1 }} title="Dismiss">✕</button>
+          </div>
+        )}
 
         {/* Tab Bar */}
         <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '1.75rem', background: '#fff', borderRadius: 14, padding: '0.375rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', overflowX: 'auto' }}>

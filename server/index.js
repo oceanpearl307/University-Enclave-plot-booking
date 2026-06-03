@@ -277,6 +277,7 @@ let announcements = [
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
 const DB_DIR = path.dirname(DB_PATH);
 const MAX_BACKUPS = 5;
+let lastAutoRestore = null;
 
 function getBackupFiles() {
   try {
@@ -330,6 +331,7 @@ function loadDb() {
     try {
       const db = JSON.parse(fs.readFileSync(bak, 'utf8'));
       applyDb(db);
+      lastAutoRestore = { filename: path.basename(bak), restoredAt: new Date().toISOString() };
       console.warn('[DB] Restored from backup:', bak);
       return;
     } catch { /* try next */ }
@@ -1376,6 +1378,14 @@ app.delete('/api/admin/staff/:id', (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'Staff not found' });
   operationsStaff.splice(idx, 1);
   res.json({ success: true });
+});
+
+// ─── Admin: Restore Alert ─────────────────────────────────────────────────────
+app.get('/api/admin/restore-alert', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const alert = lastAutoRestore;
+  lastAutoRestore = null;
+  res.json({ alert });
 });
 
 // ─── Admin: Backup Management ─────────────────────────────────────────────────
