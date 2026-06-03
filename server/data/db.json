@@ -226,6 +226,14 @@
       "role": "admin",
       "loginHistory": [
         {
+          "ip": "209.150.144.73",
+          "at": "2026-06-03T19:36:35.463Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "ESS",
+          "country": "Pakistan"
+        },
+        {
           "ip": "127.0.0.1",
           "at": "2026-06-03T19:29:54.764Z",
           "blocked": false,
@@ -274,8 +282,8 @@
           "country": "Local"
         }
       ],
-      "lastLoginIP": "127.0.0.1",
-      "lastLoginAt": "2026-06-03T19:29:54.764Z"
+      "lastLoginIP": "209.150.144.73",
+      "lastLoginAt": "2026-06-03T19:36:35.463Z"
     },
     {
       "id": 2,

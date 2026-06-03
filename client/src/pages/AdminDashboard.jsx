@@ -109,7 +109,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [adminPayNotes, setAdminPayNotes] = useState('');
   const [adminPaySaving, setAdminPaySaving] = useState(false);
   const [adminPayError, setAdminPayError] = useState('');
-  const loadBookings = () => { setBkgsLoading(true); fetch('/api/admin/bookings').then(r => r.json()).then(d => { setBkgs(d); setBkgsLoading(false); }).catch(() => setBkgsLoading(false)); };
+  const loadBookings = () => { setBkgsLoading(true); fetch('/api/admin/bookings').then(r => r.json()).then(d => { setBkgs(Array.isArray(d) ? d : []); setBkgsLoading(false); }).catch(() => setBkgsLoading(false)); };
 
   const loadAdminLedger = (bookingId) => {
     setAdminLedgerLoading(true);
@@ -179,15 +179,15 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   const loadDealers = () => {
     setDealersLoading(true);
-    fetch('/api/admin/dealers').then(r => r.json()).then(d => { setDealers(d); setDealersLoading(false); }).catch(() => setDealersLoading(false));
+    fetch('/api/admin/dealers').then(r => r.json()).then(d => { setDealers(Array.isArray(d) ? d : []); setDealersLoading(false); }).catch(() => setDealersLoading(false));
   };
-  const loadPackages = () => fetch('/api/admin/packages').then(r => r.json()).then(setPackages).catch(() => {});
-  const loadRegs = () => { setRegsLoading(true); fetch('/api/admin/registrations').then(r => r.json()).then(d => { setRegs(d); setRegsLoading(false); }).catch(() => setRegsLoading(false)); };
-  const loadPlots = () => { setPlotsLoading(true); fetch('/api/plots').then(r => r.json()).then(d => { setPlots(d); setPlotsLoading(false); }).catch(() => setPlotsLoading(false)); };
-  const loadSectors = () => fetch('/api/admin/sectors').then(r => r.json()).then(setSectors).catch(() => {});
-  const loadDeals = () => { setDealsLoading(true); fetch('/api/admin/deals').then(r => r.json()).then(d => { setDeals(d); setDealsLoading(false); }).catch(() => setDealsLoading(false)); };
-  const loadStaff = () => { setStaffLoading(true); fetch('/api/admin/staff').then(r => r.json()).then(d => { setStaff(d); setStaffLoading(false); }).catch(() => setStaffLoading(false)); };
-  const loadBackups = () => { setBackupsLoading(true); setBackupsMsg(''); fetch('/api/admin/backups', { headers: { Authorization: `Bearer ${authToken}` } }).then(r => r.json()).then(d => { setBackups(d); setBackupsLoading(false); }).catch(() => { setBackupsLoading(false); setBackupsMsg('❌ Failed to load backups'); }); };
+  const loadPackages = () => fetch('/api/admin/packages').then(r => r.json()).then(d => { if (Array.isArray(d)) setPackages(d); }).catch(() => {});
+  const loadRegs = () => { setRegsLoading(true); fetch('/api/admin/registrations').then(r => r.json()).then(d => { setRegs(Array.isArray(d) ? d : []); setRegsLoading(false); }).catch(() => setRegsLoading(false)); };
+  const loadPlots = () => { setPlotsLoading(true); fetch('/api/plots').then(r => r.json()).then(d => { setPlots(Array.isArray(d) ? d : []); setPlotsLoading(false); }).catch(() => setPlotsLoading(false)); };
+  const loadSectors = () => fetch('/api/admin/sectors').then(r => r.json()).then(d => { if (Array.isArray(d)) setSectors(d); }).catch(() => {});
+  const loadDeals = () => { setDealsLoading(true); fetch('/api/admin/deals').then(r => r.json()).then(d => { setDeals(Array.isArray(d) ? d : []); setDealsLoading(false); }).catch(() => setDealsLoading(false)); };
+  const loadStaff = () => { setStaffLoading(true); fetch('/api/admin/staff').then(r => r.json()).then(d => { setStaff(Array.isArray(d) ? d : []); setStaffLoading(false); }).catch(() => setStaffLoading(false)); };
+  const loadBackups = () => { setBackupsLoading(true); setBackupsMsg(''); fetch('/api/admin/backups', { headers: { Authorization: `Bearer ${authToken}` } }).then(r => { if (r.status === 401) { onLogout(); return []; } return r.json(); }).then(d => { setBackups(Array.isArray(d) ? d : []); setBackupsLoading(false); }).catch(() => { setBackupsLoading(false); setBackupsMsg('❌ Failed to load backups'); }); };
 
   const handleCreateBackup = async () => {
     setCreatingBackup(true);
