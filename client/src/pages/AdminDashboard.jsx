@@ -2662,7 +2662,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                   <span style={{ marginLeft: '0.75rem', color: '#94a3b8' }}>{fmtBytes(bk.size)}</span>
                 </div>
               ); })()}
-              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
                 <button
                   onClick={() => {
                     const bk = backups.find(b => b.filename === restoreConfirm);
@@ -2682,6 +2682,29 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                   style={{ padding: '0.3rem 0.9rem', background: copiedRestoreDetails ? '#dcfce7' : '#f1f5f9', border: `1px solid ${copiedRestoreDetails ? '#86efac' : '#e2e8f0'}`, borderRadius: 8, cursor: 'pointer', fontWeight: 600, color: copiedRestoreDetails ? '#15803d' : '#475569', fontSize: '0.78rem', transition: 'all 0.2s' }}
                 >
                   {copiedRestoreDetails ? '✓ Copied!' : '📋 Copy details'}
+                </button>
+                <button
+                  onClick={() => {
+                    const bk = backups.find(b => b.filename === restoreConfirm);
+                    if (!bk) return;
+                    const d = new Date(bk.createdAt);
+                    const lines = [
+                      `Filename : ${bk.filename}`,
+                      `Date     : ${d.toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric' })} ${d.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}`,
+                      `Size     : ${fmtBytes(bk.size)}`,
+                    ];
+                    if (bk.label) lines.push(`Label    : ${bk.label}`);
+                    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = bk.filename.replace(/\.[^.]+$/, '') + '.txt';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  style={{ padding: '0.3rem 0.9rem', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', fontWeight: 600, color: '#475569', fontSize: '0.78rem', transition: 'all 0.2s' }}
+                >
+                  ⬇️ Download
                 </button>
               </div>
               <p style={{ color: '#dc2626', fontSize: '0.8rem', textAlign: 'center', marginBottom: '1.5rem', fontWeight: 600 }}>
