@@ -559,7 +559,10 @@ app.post('/api/dealer/login', async (req, res) => {
 
 // ─── Per-Dealer Dashboard ─────────────────────────────────────────────────────
 app.get('/api/dealer/dashboard/:dealerId', (req, res) => {
+  const session = validateSession(req);
   const dealerId = parseInt(req.params.dealerId);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (session.role !== 'admin' && session.dealerId !== dealerId) return res.status(403).json({ error: 'Access denied' });
   const dealer = dealers.find(d => d.id === dealerId);
   if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
 
@@ -577,14 +580,14 @@ app.get('/api/dealer/dashboard/:dealerId', (req, res) => {
   const totalTarget = target ? target.sizes.reduce((sum, s) => sum + s.target, 0) : 0;
   const targetPct = totalTarget > 0 ? Math.min(100, Math.round((achieved / totalTarget) * 100)) : 0;
 
-  const monthlySales = [
-    { month: 'Nov', bookings: 0, payments: 0 },
-    { month: 'Dec', bookings: 1, payments: 2800000 },
-    { month: 'Jan', bookings: 0, payments: 0 },
-    { month: 'Feb', bookings: 1, payments: 3500000 },
-    { month: 'Mar', bookings: 1, payments: 2200000 },
-    { month: 'Apr', bookings: myBookings.filter(b => b.createdAt.startsWith('2026-04')).length, payments: myBookings.filter(b => b.createdAt.startsWith('2026-04')).reduce((s, b) => s + b.plotPrice, 0) },
-  ];
+  const now = new Date();
+  const monthlySales = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    const ym = d.toISOString().slice(0, 7);
+    const month = d.toLocaleString('en-US', { month: 'short' });
+    const mb = myBookings.filter(b => b.createdAt.startsWith(ym));
+    return { month, bookings: mb.length, payments: mb.reduce((s, b) => s + b.plotPrice, 0) };
+  });
 
   const plotDistribution = [
     { name: 'Available', value: plots.filter(p => p.status === 'available').length, color: '#059669' },
@@ -1259,7 +1262,7 @@ app.post('/api/ledger/:bookingId/:installmentId/pay', (req, res) => {
   item.paidDate = dateStr;
   item.paidBy = paidBy || (isAdmin ? 'Admin' : 'Dealer');
   item.notes = notes || null;
-  recomputeOverdue(booking.ledger);
+  booking.ledger = recomputeOverdue(booking.ledger);
   res.json({ success: true, item, summary: ledgerSummary(booking.ledger) });
 });
 

@@ -223,7 +223,51 @@
       "username": "admin",
       "password": "admin123",
       "name": "Admin User",
-      "role": "admin"
+      "role": "admin",
+      "loginHistory": [
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-03T19:27:57.839Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-03T19:27:35.441Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-03T19:27:20.775Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-03T19:27:05.960Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-03T19:25:21.650Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        }
+      ],
+      "lastLoginIP": "127.0.0.1",
+      "lastLoginAt": "2026-06-03T19:27:57.839Z"
     },
     {
       "id": 2,
@@ -246,7 +290,40 @@
       "vpnRestricted": false,
       "ipLocked": false,
       "trustedIPs": [],
-      "loginHistory": [],
+      "loginHistory": [
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-03T19:27:35.593Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-03T19:27:20.496Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-03T19:27:06.144Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-03T19:25:52.979Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        }
+      ],
       "commissionPayouts": [
         {
           "id": 1780434183636,
@@ -262,7 +339,9 @@
           "adminName": "Admin",
           "date": "2026-06-02T21:03:14.656Z"
         }
-      ]
+      ],
+      "lastLoginIP": "127.0.0.1",
+      "lastLoginAt": "2026-06-03T19:27:35.593Z"
     },
     {
       "id": 3,
@@ -285,7 +364,18 @@
       "vpnRestricted": false,
       "ipLocked": false,
       "trustedIPs": [],
-      "loginHistory": []
+      "loginHistory": [
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-03T19:27:06.291Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        }
+      ],
+      "lastLoginIP": "127.0.0.1",
+      "lastLoginAt": "2026-06-03T19:27:06.291Z"
     },
     {
       "id": 4,
@@ -308,7 +398,18 @@
       "vpnRestricted": false,
       "ipLocked": false,
       "trustedIPs": [],
-      "loginHistory": []
+      "loginHistory": [
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-03T19:27:06.433Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        }
+      ],
+      "lastLoginIP": "127.0.0.1",
+      "lastLoginAt": "2026-06-03T19:27:06.433Z"
     }
   ],
   "dealerCounter": 4,

@@ -227,30 +227,6 @@
       "loginHistory": [
         {
           "ip": "127.0.0.1",
-          "at": "2026-06-03T19:29:54.764Z",
-          "blocked": false,
-          "vpnDetected": false,
-          "isp": "Local/Private",
-          "country": "Local"
-        },
-        {
-          "ip": "127.0.0.1",
-          "at": "2026-06-03T19:27:57.839Z",
-          "blocked": false,
-          "vpnDetected": false,
-          "isp": "Local/Private",
-          "country": "Local"
-        },
-        {
-          "ip": "127.0.0.1",
-          "at": "2026-06-03T19:27:35.441Z",
-          "blocked": false,
-          "vpnDetected": false,
-          "isp": "Local/Private",
-          "country": "Local"
-        },
-        {
-          "ip": "127.0.0.1",
           "at": "2026-06-03T19:27:20.775Z",
           "blocked": false,
           "vpnDetected": false,
@@ -275,7 +251,7 @@
         }
       ],
       "lastLoginIP": "127.0.0.1",
-      "lastLoginAt": "2026-06-03T19:29:54.764Z"
+      "lastLoginAt": "2026-06-03T19:27:20.775Z"
     },
     {
       "id": 2,
@@ -299,30 +275,6 @@
       "ipLocked": false,
       "trustedIPs": [],
       "loginHistory": [
-        {
-          "ip": "127.0.0.1",
-          "at": "2026-06-03T19:29:55.624Z",
-          "blocked": false,
-          "vpnDetected": false,
-          "isp": "Local/Private",
-          "country": "Local"
-        },
-        {
-          "ip": "127.0.0.1",
-          "at": "2026-06-03T19:29:54.897Z",
-          "blocked": false,
-          "vpnDetected": false,
-          "isp": "Local/Private",
-          "country": "Local"
-        },
-        {
-          "ip": "127.0.0.1",
-          "at": "2026-06-03T19:27:35.593Z",
-          "blocked": false,
-          "vpnDetected": false,
-          "isp": "Local/Private",
-          "country": "Local"
-        },
         {
           "ip": "127.0.0.1",
           "at": "2026-06-03T19:27:20.496Z",
@@ -365,7 +317,7 @@
         }
       ],
       "lastLoginIP": "127.0.0.1",
-      "lastLoginAt": "2026-06-03T19:29:55.624Z"
+      "lastLoginAt": "2026-06-03T19:27:20.496Z"
     },
     {
       "id": 3,
@@ -391,14 +343,6 @@
       "loginHistory": [
         {
           "ip": "127.0.0.1",
-          "at": "2026-06-03T19:29:55.035Z",
-          "blocked": false,
-          "vpnDetected": false,
-          "isp": "Local/Private",
-          "country": "Local"
-        },
-        {
-          "ip": "127.0.0.1",
           "at": "2026-06-03T19:27:06.291Z",
           "blocked": false,
           "vpnDetected": false,
@@ -407,7 +351,7 @@
         }
       ],
       "lastLoginIP": "127.0.0.1",
-      "lastLoginAt": "2026-06-03T19:29:55.035Z"
+      "lastLoginAt": "2026-06-03T19:27:06.291Z"
     },
     {
       "id": 4,
@@ -433,14 +377,6 @@
       "loginHistory": [
         {
           "ip": "127.0.0.1",
-          "at": "2026-06-03T19:29:55.170Z",
-          "blocked": false,
-          "vpnDetected": false,
-          "isp": "Local/Private",
-          "country": "Local"
-        },
-        {
-          "ip": "127.0.0.1",
           "at": "2026-06-03T19:27:06.433Z",
           "blocked": false,
           "vpnDetected": false,
@@ -449,7 +385,7 @@
         }
       ],
       "lastLoginIP": "127.0.0.1",
-      "lastLoginAt": "2026-06-03T19:29:55.170Z"
+      "lastLoginAt": "2026-06-03T19:27:06.433Z"
     }
   ],
   "dealerCounter": 4,
