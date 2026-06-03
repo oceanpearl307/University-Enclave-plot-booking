@@ -1378,6 +1378,58 @@ app.delete('/api/admin/staff/:id', (req, res) => {
   res.json({ success: true });
 });
 
+// ─── Admin: Backup Management ─────────────────────────────────────────────────
+function requireAdmin(req, res) {
+  const session = validateSession(req);
+  if (!session) { res.status(401).json({ error: 'Authentication required' }); return null; }
+  if (session.role !== 'admin') { res.status(403).json({ error: 'Access denied' }); return null; }
+  return session;
+}
+
+app.get('/api/admin/backups', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+    const files = fs.readdirSync(DB_DIR)
+      .filter(f => f.startsWith('db.json.bak-'))
+      .sort()
+      .reverse()
+      .map(f => {
+        const fullPath = path.join(DB_DIR, f);
+        const stat = fs.statSync(fullPath);
+        return { filename: f, size: stat.size, createdAt: stat.mtime.toISOString() };
+      });
+    res.json(files);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to list backups' });
+  }
+});
+
+app.get('/api/admin/backups/:filename', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const filename = path.basename(req.params.filename);
+  if (!filename.startsWith('db.json.bak-')) return res.status(400).json({ error: 'Invalid backup filename' });
+  const fullPath = path.join(DB_DIR, filename);
+  if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'Backup not found' });
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.setHeader('Content-Type', 'application/json');
+  res.sendFile(fullPath);
+});
+
+app.delete('/api/admin/backups/:filename', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const filename = path.basename(req.params.filename);
+  if (!filename.startsWith('db.json.bak-')) return res.status(400).json({ error: 'Invalid backup filename' });
+  const fullPath = path.join(DB_DIR, filename);
+  if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'Backup not found' });
+  try {
+    fs.unlinkSync(fullPath);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete backup' });
+  }
+});
+
 // ─── Production ───────────────────────────────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../dist')));

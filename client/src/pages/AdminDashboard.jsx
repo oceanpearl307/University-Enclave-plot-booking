@@ -21,8 +21,8 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-const TABS = ['Dealers', 'Registrations', 'Bookings', 'Packages', 'Inventory', 'Deals', 'Staff'];
-const tabIcons = { Dealers: '👥', Registrations: '📋', Bookings: '📩', Packages: '📦', Inventory: '🏘️', Deals: '🏷️', Staff: '⚙️' };
+const TABS = ['Dealers', 'Registrations', 'Bookings', 'Packages', 'Inventory', 'Deals', 'Staff', 'Backups'];
+const tabIcons = { Dealers: '👥', Registrations: '📋', Bookings: '📩', Packages: '📦', Inventory: '🏘️', Deals: '🏷️', Staff: '⚙️', Backups: '🗄️' };
 const PRIV_OPTIONS = [
   { key: 'approveBookings', label: 'View & Approve Bookings' },
   { key: 'viewPlots', label: 'View Plot Inventory' },
@@ -151,6 +151,12 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [accessSecMsg, setAccessSecMsg] = useState('');
   const [newTrustedIP, setNewTrustedIP] = useState('');
 
+  // ── Backups tab ──
+  const [backups, setBackups] = useState([]);
+  const [backupsLoading, setBackupsLoading] = useState(false);
+  const [backupsMsg, setBackupsMsg] = useState('');
+  const [deletingBackup, setDeletingBackup] = useState(null);
+
   // ── Staff tab ──
   const [staff, setStaff] = useState([]);
   const [dealerSort, setDealerSort] = useState({ col: null, dir: 'desc' });
@@ -171,6 +177,29 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const loadSectors = () => fetch('/api/admin/sectors').then(r => r.json()).then(setSectors).catch(() => {});
   const loadDeals = () => { setDealsLoading(true); fetch('/api/admin/deals').then(r => r.json()).then(d => { setDeals(d); setDealsLoading(false); }).catch(() => setDealsLoading(false)); };
   const loadStaff = () => { setStaffLoading(true); fetch('/api/admin/staff').then(r => r.json()).then(d => { setStaff(d); setStaffLoading(false); }).catch(() => setStaffLoading(false)); };
+  const loadBackups = () => { setBackupsLoading(true); setBackupsMsg(''); fetch('/api/admin/backups', { headers: { Authorization: `Bearer ${authToken}` } }).then(r => r.json()).then(d => { setBackups(d); setBackupsLoading(false); }).catch(() => { setBackupsLoading(false); setBackupsMsg('❌ Failed to load backups'); }); };
+
+  const handleDeleteBackup = async (filename) => {
+    setDeletingBackup(filename);
+    const res = await fetch(`/api/admin/backups/${encodeURIComponent(filename)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${authToken}` } });
+    setDeletingBackup(null);
+    if (res.ok) { setBackupsMsg('✅ Backup deleted.'); loadBackups(); }
+    else { const d = await res.json().catch(() => ({})); setBackupsMsg(`❌ ${d.error || 'Delete failed'}`); }
+  };
+
+  const handleDownloadBackup = async (filename) => {
+    try {
+      const res = await fetch(`/api/admin/backups/${encodeURIComponent(filename)}`, { headers: { Authorization: `Bearer ${authToken}` } });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); setBackupsMsg(`❌ ${d.error || 'Download failed'}`); return; }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    } catch { setBackupsMsg('❌ Download failed'); }
+  };
+
+  const fmtBytes = (b) => b >= 1048576 ? (b / 1048576).toFixed(2) + ' MB' : b >= 1024 ? (b / 1024).toFixed(1) + ' KB' : b + ' B';
 
   useEffect(() => { loadDealers(); loadPackages(); fetch('/api/admin/notifications').then(r => r.json()).then(d => { if (d.pendingBookings > 0) setBkgs(prev => prev.length === 0 ? [{ _placeholder: true }] : prev); }).catch(() => {}); }, []);
   useEffect(() => {
@@ -179,6 +208,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     if (tab === 'Inventory') { loadPlots(); loadSectors(); }
     if (tab === 'Deals') { loadDeals(); loadPlots(); }
     if (tab === 'Staff') loadStaff();
+    if (tab === 'Backups') loadBackups();
   }, [tab]);
 
   useEffect(() => {
@@ -2398,6 +2428,76 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     {dealSaving ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> Saving...</> : '✓ Save Deal'}
                   </button>
                 </form>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── BACKUPS TAB ─── */}
+        {tab === 'Backups' && (
+          <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <div>
+                <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>🗄️ Backup Files</h3>
+                <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Automatic backups are saved in <code style={{ background: '#f1f5f9', padding: '0.1rem 0.35rem', borderRadius: 4, fontSize: '0.78rem' }}>server/data/</code> each time data changes (up to 5 kept)</p>
+              </div>
+              <button className="btn btn-primary btn-sm" onClick={loadBackups} disabled={backupsLoading} style={{ background: '#0284c7' }}>
+                {backupsLoading ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }}></div> Loading...</> : '↻ Refresh'}
+              </button>
+            </div>
+            {backupsMsg && <div className={backupsMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>{backupsMsg}</div>}
+            {backupsLoading ? (
+              <div className="loading"><div className="spinner"></div>Loading backups...</div>
+            ) : backups.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🗄️</div>
+                <div style={{ fontWeight: 600 }}>No backup files found</div>
+                <div style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>Backups are created automatically when data is modified</div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+                {backups.map((bk, idx) => {
+                  const ts = bk.filename.replace('db.json.bak-', '').replace(/-/g, (m, offset, str) => {
+                    const before = str.slice(0, offset);
+                    const dashes = (before.match(/-/g) || []).length;
+                    return dashes < 2 ? '-' : dashes === 2 ? '-' : dashes < 5 ? ':' : '.';
+                  });
+                  const date = new Date(bk.createdAt);
+                  const isLatest = idx === 0;
+                  return (
+                    <div key={bk.filename} style={{ border: `1.5px solid ${isLatest ? '#bfdbfe' : '#f1f5f9'}`, borderRadius: 12, padding: '0.875rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', background: isLatest ? '#f0f9ff' : '#fff' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+                        <div style={{ fontSize: '1.5rem' }}>💾</div>
+                        <div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                            <span style={{ fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', fontSize: '0.85rem' }}>{bk.filename}</span>
+                            {isLatest && <span style={{ background: '#dbeafe', color: '#1d4ed8', fontSize: '0.68rem', fontWeight: 800, padding: '0.1rem 0.45rem', borderRadius: 5 }}>LATEST</span>}
+                          </div>
+                          <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                            {date.toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric' })}
+                            {' '}{date.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}
+                            <span style={{ marginLeft: '0.75rem', color: '#94a3b8' }}>{fmtBytes(bk.size)}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                        <button
+                          onClick={() => handleDownloadBackup(bk.filename)}
+                          style={{ padding: '0.35rem 0.75rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}
+                        >
+                          ⬇ Download
+                        </button>
+                        <button
+                          onClick={() => { if (window.confirm(`Delete backup "${bk.filename}"? This cannot be undone.`)) handleDeleteBackup(bk.filename); }}
+                          disabled={deletingBackup === bk.filename}
+                          style={{ padding: '0.35rem 0.625rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#dc2626' }}
+                        >
+                          {deletingBackup === bk.filename ? '...' : '🗑️ Delete'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
