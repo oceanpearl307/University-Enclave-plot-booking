@@ -2646,14 +2646,21 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
               <p style={{ color: '#475569', fontSize: '0.875rem', textAlign: 'center', marginBottom: '0.5rem' }}>
                 This will overwrite all current live data with the contents of:
               </p>
-              <p style={{ fontFamily: 'monospace', fontSize: '0.8rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.5rem 0.75rem', textAlign: 'center', marginBottom: (() => { const bk = backups.find(b => b.filename === restoreConfirm); return bk && bk.label ? '0.5rem' : '1rem'; })(), color: '#1e293b', wordBreak: 'break-all' }}>
+              <p style={{ fontFamily: 'monospace', fontSize: '0.8rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.5rem 0.75rem', textAlign: 'center', marginBottom: '0.5rem', color: '#1e293b', wordBreak: 'break-all' }}>
                 {restoreConfirm}
               </p>
               {(() => { const bk = backups.find(b => b.filename === restoreConfirm); return bk && bk.label ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', fontSize: '0.82rem', color: '#0369a1', fontWeight: 600, background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '0.4rem 0.75rem', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', fontSize: '0.82rem', color: '#0369a1', fontWeight: 600, background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, padding: '0.4rem 0.75rem', marginBottom: '0.5rem' }}>
                   <span>🏷️</span><span>{bk.label}</span>
                 </div>
               ) : null; })()}
+              {(() => { const bk = backups.find(b => b.filename === restoreConfirm); if (!bk) return null; const d = new Date(bk.createdAt); return (
+                <div style={{ fontSize: '0.78rem', color: '#64748b', textAlign: 'center', marginBottom: '1rem' }}>
+                  {d.toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric' })}
+                  {' '}{d.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}
+                  <span style={{ marginLeft: '0.75rem', color: '#94a3b8' }}>{fmtBytes(bk.size)}</span>
+                </div>
+              ); })()}
               <p style={{ color: '#dc2626', fontSize: '0.8rem', textAlign: 'center', marginBottom: '1.5rem', fontWeight: 600 }}>
                 Any changes made after this backup was created will be permanently lost.
               </p>
