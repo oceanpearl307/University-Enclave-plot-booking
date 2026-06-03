@@ -157,6 +157,8 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [backupsMsg, setBackupsMsg] = useState('');
   const [deletingBackup, setDeletingBackup] = useState(null);
   const [creatingBackup, setCreatingBackup] = useState(false);
+  const [restoringBackup, setRestoringBackup] = useState(null);
+  const [restoreConfirm, setRestoreConfirm] = useState(null);
 
   // ── Staff tab ──
   const [staff, setStaff] = useState([]);
@@ -198,6 +200,19 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     setDeletingBackup(null);
     if (res.ok) { setBackupsMsg('✅ Backup deleted.'); loadBackups(); }
     else { const d = await res.json().catch(() => ({})); setBackupsMsg(`❌ ${d.error || 'Delete failed'}`); }
+  };
+
+  const handleRestoreBackup = async (filename) => {
+    setRestoringBackup(filename);
+    setBackupsMsg('');
+    try {
+      const res = await fetch(`/api/admin/backups/${encodeURIComponent(filename)}/restore`, { method: 'POST', headers: { Authorization: `Bearer ${authToken}` } });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) { setBackupsMsg(`✅ Restored successfully from "${filename}". Live data has been updated.`); }
+      else { setBackupsMsg(`❌ ${d.error || 'Restore failed'}`); }
+    } catch { setBackupsMsg('❌ Restore failed'); }
+    setRestoringBackup(null);
+    setRestoreConfirm(null);
   };
 
   const handleDownloadBackup = async (filename) => {
@@ -2511,6 +2526,13 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                           ⬇ Download
                         </button>
                         <button
+                          onClick={() => setRestoreConfirm(bk.filename)}
+                          disabled={restoringBackup === bk.filename}
+                          style={{ padding: '0.35rem 0.75rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#b45309' }}
+                        >
+                          {restoringBackup === bk.filename ? <><div className="spinner" style={{ width: 12, height: 12, borderWidth: 2, display: 'inline-block' }}></div> Restoring...</> : '♻️ Restore'}
+                        </button>
+                        <button
                           onClick={() => { if (window.confirm(`Delete backup "${bk.filename}"? This cannot be undone.`)) handleDeleteBackup(bk.filename); }}
                           disabled={deletingBackup === bk.filename}
                           style={{ padding: '0.35rem 0.625rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#dc2626' }}
@@ -2523,6 +2545,40 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {restoreConfirm && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ background: '#fff', borderRadius: 16, padding: '2rem', maxWidth: 440, width: '90%', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.75rem', textAlign: 'center' }}>⚠️</div>
+              <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.5rem', textAlign: 'center' }}>Restore Backup?</h3>
+              <p style={{ color: '#475569', fontSize: '0.875rem', textAlign: 'center', marginBottom: '0.5rem' }}>
+                This will overwrite all current live data with the contents of:
+              </p>
+              <p style={{ fontFamily: 'monospace', fontSize: '0.8rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.5rem 0.75rem', textAlign: 'center', marginBottom: '1rem', color: '#1e293b', wordBreak: 'break-all' }}>
+                {restoreConfirm}
+              </p>
+              <p style={{ color: '#dc2626', fontSize: '0.8rem', textAlign: 'center', marginBottom: '1.5rem', fontWeight: 600 }}>
+                Any changes made after this backup was created will be permanently lost.
+              </p>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                <button
+                  onClick={() => setRestoreConfirm(null)}
+                  disabled={restoringBackup === restoreConfirm}
+                  style={{ padding: '0.55rem 1.25rem', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', fontWeight: 700, color: '#475569', fontSize: '0.875rem' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleRestoreBackup(restoreConfirm)}
+                  disabled={restoringBackup === restoreConfirm}
+                  style={{ padding: '0.55rem 1.25rem', background: '#b45309', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, color: '#fff', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                >
+                  {restoringBackup === restoreConfirm ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }}></div> Restoring...</> : '♻️ Yes, Restore'}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

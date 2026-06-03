@@ -1430,6 +1430,23 @@ app.delete('/api/admin/backups/:filename', (req, res) => {
   }
 });
 
+app.post('/api/admin/backups/:filename/restore', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const filename = path.basename(req.params.filename);
+  if (!filename.startsWith('db.json.bak-')) return res.status(400).json({ error: 'Invalid backup filename' });
+  const fullPath = path.join(DB_DIR, filename);
+  if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'Backup not found' });
+  try {
+    const db = JSON.parse(fs.readFileSync(fullPath, 'utf8'));
+    applyDb(db);
+    saveDb();
+    console.log(`[DB] Admin restored from backup: ${filename}`);
+    res.json({ success: true, message: `Restored from ${filename}` });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to restore backup — file may be corrupted' });
+  }
+});
+
 app.post('/api/admin/backups', (req, res) => {
   if (!requireAdmin(req, res)) return;
   try {
