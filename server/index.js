@@ -282,7 +282,7 @@ let lastAutoRestore = null;
 function getBackupFiles() {
   try {
     return fs.readdirSync(DB_DIR)
-      .filter(f => f.startsWith('db.json.bak-'))
+      .filter(f => f.startsWith('db.json.bak-') && !f.endsWith('.meta.json'))
       .sort()
       .map(f => path.join(DB_DIR, f));
   } catch { return []; }
@@ -359,7 +359,7 @@ function saveDb() {
         const backups = getBackupFiles();
         if (backups.length > MAX_BACKUPS) {
           const toDelete = backups.slice(0, backups.length - MAX_BACKUPS);
-          toDelete.forEach(f => { try { fs.unlinkSync(f); } catch {} });
+          toDelete.forEach(f => { try { fs.unlinkSync(f); } catch {} try { fs.unlinkSync(f + '.meta.json'); } catch {} });
         }
       }
 
@@ -1401,13 +1401,18 @@ app.get('/api/admin/backups', (req, res) => {
   try {
     fs.mkdirSync(DB_DIR, { recursive: true });
     const files = fs.readdirSync(DB_DIR)
-      .filter(f => f.startsWith('db.json.bak-'))
+      .filter(f => f.startsWith('db.json.bak-') && !f.endsWith('.meta.json'))
       .sort()
       .reverse()
       .map(f => {
         const fullPath = path.join(DB_DIR, f);
         const stat = fs.statSync(fullPath);
-        return { filename: f, size: stat.size, createdAt: stat.mtime.toISOString() };
+        let label = '';
+        try {
+          const meta = JSON.parse(fs.readFileSync(fullPath + '.meta.json', 'utf8'));
+          if (typeof meta.label === 'string') label = meta.label;
+        } catch {}
+        return { filename: f, size: stat.size, createdAt: stat.mtime.toISOString(), label };
       });
     res.json(files);
   } catch (e) {
@@ -1418,7 +1423,7 @@ app.get('/api/admin/backups', (req, res) => {
 app.get('/api/admin/backups/:filename', (req, res) => {
   if (!requireAdmin(req, res)) return;
   const filename = path.basename(req.params.filename);
-  if (!filename.startsWith('db.json.bak-')) return res.status(400).json({ error: 'Invalid backup filename' });
+  if (!filename.startsWith('db.json.bak-') || filename.endsWith('.meta.json')) return res.status(400).json({ error: 'Invalid backup filename' });
   const fullPath = path.join(DB_DIR, filename);
   if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'Backup not found' });
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -1429,11 +1434,12 @@ app.get('/api/admin/backups/:filename', (req, res) => {
 app.delete('/api/admin/backups/:filename', (req, res) => {
   if (!requireAdmin(req, res)) return;
   const filename = path.basename(req.params.filename);
-  if (!filename.startsWith('db.json.bak-')) return res.status(400).json({ error: 'Invalid backup filename' });
+  if (!filename.startsWith('db.json.bak-') || filename.endsWith('.meta.json')) return res.status(400).json({ error: 'Invalid backup filename' });
   const fullPath = path.join(DB_DIR, filename);
   if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'Backup not found' });
   try {
     fs.unlinkSync(fullPath);
+    try { fs.unlinkSync(fullPath + '.meta.json'); } catch {}
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: 'Failed to delete backup' });
@@ -1443,7 +1449,7 @@ app.delete('/api/admin/backups/:filename', (req, res) => {
 app.post('/api/admin/backups/:filename/restore', (req, res) => {
   if (!requireAdmin(req, res)) return;
   const filename = path.basename(req.params.filename);
-  if (!filename.startsWith('db.json.bak-')) return res.status(400).json({ error: 'Invalid backup filename' });
+  if (!filename.startsWith('db.json.bak-') || filename.endsWith('.meta.json')) return res.status(400).json({ error: 'Invalid backup filename' });
   const fullPath = path.join(DB_DIR, filename);
   if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'Backup not found' });
   try {
@@ -1468,8 +1474,12 @@ app.post('/api/admin/backups', (req, res) => {
     const filename = `db.json.bak-${ts}`;
     const bakPath = path.join(DB_DIR, filename);
     fs.copyFileSync(DB_PATH, bakPath);
+    const label = typeof req.body.label === 'string' ? req.body.label.trim().slice(0, 120) : '';
+    if (label) {
+      fs.writeFileSync(bakPath + '.meta.json', JSON.stringify({ label }));
+    }
     const stat = fs.statSync(bakPath);
-    res.json({ success: true, filename, size: stat.size, createdAt: stat.mtime.toISOString() });
+    res.json({ success: true, filename, size: stat.size, createdAt: stat.mtime.toISOString(), label });
   } catch (e) {
     res.status(500).json({ error: 'Failed to create backup' });
   }

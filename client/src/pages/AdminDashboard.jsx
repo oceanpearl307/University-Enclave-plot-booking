@@ -159,6 +159,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [deletingBackup, setDeletingBackup] = useState(null);
   const [creatingBackup, setCreatingBackup] = useState(false);
   const [restoringBackup, setRestoringBackup] = useState(null);
+  const [backupLabel, setBackupLabel] = useState('');
   const [restoreConfirm, setRestoreConfirm] = useState(null);
 
   // ── Staff tab ──
@@ -187,9 +188,9 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     setCreatingBackup(true);
     setBackupsMsg('');
     try {
-      const res = await fetch('/api/admin/backups', { method: 'POST', headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await fetch('/api/admin/backups', { method: 'POST', headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ label: backupLabel.trim() }) });
       const d = await res.json().catch(() => ({}));
-      if (res.ok) { setBackupsMsg(`✅ Backup created: ${d.filename}`); loadBackups(); }
+      if (res.ok) { setBackupsMsg(`✅ Backup created: ${d.filename}`); setBackupLabel(''); loadBackups(); }
       else { setBackupsMsg(`❌ ${d.error || 'Failed to create backup'}`); }
     } catch { setBackupsMsg('❌ Failed to create backup'); }
     setCreatingBackup(false);
@@ -2493,7 +2494,16 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                 <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>🗄️ Backup Files</h3>
                 <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Automatic backups are saved in <code style={{ background: '#f1f5f9', padding: '0.1rem 0.35rem', borderRadius: 4, fontSize: '0.78rem' }}>server/data/</code> each time data changes (up to 5 kept)</p>
               </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder="Label / note (optional)"
+                  value={backupLabel}
+                  onChange={e => setBackupLabel(e.target.value)}
+                  maxLength={120}
+                  disabled={creatingBackup}
+                  style={{ padding: '0.35rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', width: 210, outline: 'none', color: '#0f172a' }}
+                />
                 <button
                   className="btn btn-primary btn-sm"
                   onClick={handleCreateBackup}
@@ -2535,6 +2545,11 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                             <span style={{ fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', fontSize: '0.85rem' }}>{bk.filename}</span>
                             {isLatest && <span style={{ background: '#dbeafe', color: '#1d4ed8', fontSize: '0.68rem', fontWeight: 800, padding: '0.1rem 0.45rem', borderRadius: 5 }}>LATEST</span>}
                           </div>
+                          {bk.label && (
+                            <div style={{ fontSize: '0.8rem', color: '#0369a1', fontWeight: 600, marginBottom: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                              <span>🏷️</span><span>{bk.label}</span>
+                            </div>
+                          )}
                           <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
                             {date.toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric' })}
                             {' '}{date.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}
