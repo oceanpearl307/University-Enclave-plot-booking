@@ -161,6 +161,9 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [restoringBackup, setRestoringBackup] = useState(null);
   const [backupLabel, setBackupLabel] = useState('');
   const [restoreConfirm, setRestoreConfirm] = useState(null);
+  const [editingLabelFor, setEditingLabelFor] = useState(null);
+  const [editLabelValue, setEditLabelValue] = useState('');
+  const [savingLabel, setSavingLabel] = useState(null);
 
   // ── Staff tab ──
   const [staff, setStaff] = useState([]);
@@ -215,6 +218,28 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     } catch { setBackupsMsg('❌ Restore failed'); }
     setRestoringBackup(null);
     setRestoreConfirm(null);
+  };
+
+  const handleSaveLabel = async (filename) => {
+    setSavingLabel(filename);
+    try {
+      const res = await fetch(`/api/admin/backups/${encodeURIComponent(filename)}/label`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label: editLabelValue }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setBackups(prev => prev.map(b => b.filename === filename ? { ...b, label: d.label } : b));
+        setEditingLabelFor(null);
+        setEditLabelValue('');
+      } else {
+        setBackupsMsg(`❌ ${d.error || 'Failed to update label'}`);
+      }
+    } catch {
+      setBackupsMsg('❌ Failed to update label');
+    }
+    setSavingLabel(null);
   };
 
   const handleDownloadBackup = async (filename) => {
@@ -2545,9 +2570,35 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                             <span style={{ fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', fontSize: '0.85rem' }}>{bk.filename}</span>
                             {isLatest && <span style={{ background: '#dbeafe', color: '#1d4ed8', fontSize: '0.68rem', fontWeight: 800, padding: '0.1rem 0.45rem', borderRadius: 5 }}>LATEST</span>}
                           </div>
-                          {bk.label && (
+                          {editingLabelFor === bk.filename ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.15rem' }}>
+                              <input
+                                autoFocus
+                                value={editLabelValue}
+                                onChange={e => setEditLabelValue(e.target.value)}
+                                maxLength={120}
+                                placeholder="Enter label…"
+                                onKeyDown={e => { if (e.key === 'Enter') handleSaveLabel(bk.filename); if (e.key === 'Escape') { setEditingLabelFor(null); setEditLabelValue(''); } }}
+                                style={{ fontSize: '0.8rem', padding: '0.2rem 0.45rem', borderRadius: 6, border: '1.5px solid #93c5fd', outline: 'none', width: 180, color: '#0f172a' }}
+                              />
+                              <button
+                                onClick={() => handleSaveLabel(bk.filename)}
+                                disabled={savingLabel === bk.filename}
+                                style={{ padding: '0.2rem 0.5rem', background: '#2563eb', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#fff' }}
+                              >{savingLabel === bk.filename ? '…' : '✓ Save'}</button>
+                              <button
+                                onClick={() => { setEditingLabelFor(null); setEditLabelValue(''); }}
+                                style={{ padding: '0.2rem 0.45rem', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#64748b' }}
+                              >✕</button>
+                            </div>
+                          ) : (
                             <div style={{ fontSize: '0.8rem', color: '#0369a1', fontWeight: 600, marginBottom: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                              <span>🏷️</span><span>{bk.label}</span>
+                              {bk.label ? <><span>🏷️</span><span>{bk.label}</span></> : <span style={{ color: '#94a3b8', fontWeight: 400, fontStyle: 'italic' }}>No label</span>}
+                              <button
+                                onClick={() => { setEditingLabelFor(bk.filename); setEditLabelValue(bk.label || ''); }}
+                                title="Edit label"
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 0.15rem', fontSize: '0.8rem', color: '#94a3b8', lineHeight: 1 }}
+                              >✏️</button>
                             </div>
                           )}
                           <div style={{ fontSize: '0.78rem', color: '#64748b' }}>

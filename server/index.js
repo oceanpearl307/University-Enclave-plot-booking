@@ -1446,6 +1446,26 @@ app.delete('/api/admin/backups/:filename', (req, res) => {
   }
 });
 
+app.patch('/api/admin/backups/:filename/label', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const filename = path.basename(req.params.filename);
+  if (!filename.startsWith('db.json.bak-') || filename.endsWith('.meta.json')) return res.status(400).json({ error: 'Invalid backup filename' });
+  const fullPath = path.join(DB_DIR, filename);
+  if (!fs.existsSync(fullPath)) return res.status(404).json({ error: 'Backup not found' });
+  const label = typeof req.body.label === 'string' ? req.body.label.trim().slice(0, 120) : '';
+  try {
+    const metaPath = fullPath + '.meta.json';
+    if (label) {
+      fs.writeFileSync(metaPath, JSON.stringify({ label }));
+    } else {
+      try { fs.unlinkSync(metaPath); } catch {}
+    }
+    res.json({ success: true, label });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update label' });
+  }
+});
+
 app.post('/api/admin/backups/:filename/restore', (req, res) => {
   if (!requireAdmin(req, res)) return;
   const filename = path.basename(req.params.filename);
