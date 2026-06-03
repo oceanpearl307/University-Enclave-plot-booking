@@ -1430,6 +1430,24 @@ app.delete('/api/admin/backups/:filename', (req, res) => {
   }
 });
 
+app.post('/api/admin/backups', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  try {
+    fs.mkdirSync(DB_DIR, { recursive: true });
+    if (!fs.existsSync(DB_PATH)) {
+      return res.status(400).json({ error: 'No database file exists yet to back up' });
+    }
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `db.json.bak-${ts}`;
+    const bakPath = path.join(DB_DIR, filename);
+    fs.copyFileSync(DB_PATH, bakPath);
+    const stat = fs.statSync(bakPath);
+    res.json({ success: true, filename, size: stat.size, createdAt: stat.mtime.toISOString() });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to create backup' });
+  }
+});
+
 // ─── Production ───────────────────────────────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../dist')));

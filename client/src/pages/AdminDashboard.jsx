@@ -156,6 +156,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [backupsLoading, setBackupsLoading] = useState(false);
   const [backupsMsg, setBackupsMsg] = useState('');
   const [deletingBackup, setDeletingBackup] = useState(null);
+  const [creatingBackup, setCreatingBackup] = useState(false);
 
   // ── Staff tab ──
   const [staff, setStaff] = useState([]);
@@ -178,6 +179,18 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const loadDeals = () => { setDealsLoading(true); fetch('/api/admin/deals').then(r => r.json()).then(d => { setDeals(d); setDealsLoading(false); }).catch(() => setDealsLoading(false)); };
   const loadStaff = () => { setStaffLoading(true); fetch('/api/admin/staff').then(r => r.json()).then(d => { setStaff(d); setStaffLoading(false); }).catch(() => setStaffLoading(false)); };
   const loadBackups = () => { setBackupsLoading(true); setBackupsMsg(''); fetch('/api/admin/backups', { headers: { Authorization: `Bearer ${authToken}` } }).then(r => r.json()).then(d => { setBackups(d); setBackupsLoading(false); }).catch(() => { setBackupsLoading(false); setBackupsMsg('❌ Failed to load backups'); }); };
+
+  const handleCreateBackup = async () => {
+    setCreatingBackup(true);
+    setBackupsMsg('');
+    try {
+      const res = await fetch('/api/admin/backups', { method: 'POST', headers: { Authorization: `Bearer ${authToken}` } });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) { setBackupsMsg(`✅ Backup created: ${d.filename}`); loadBackups(); }
+      else { setBackupsMsg(`❌ ${d.error || 'Failed to create backup'}`); }
+    } catch { setBackupsMsg('❌ Failed to create backup'); }
+    setCreatingBackup(false);
+  };
 
   const handleDeleteBackup = async (filename) => {
     setDeletingBackup(filename);
@@ -2441,9 +2454,19 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                 <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>🗄️ Backup Files</h3>
                 <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Automatic backups are saved in <code style={{ background: '#f1f5f9', padding: '0.1rem 0.35rem', borderRadius: 4, fontSize: '0.78rem' }}>server/data/</code> each time data changes (up to 5 kept)</p>
               </div>
-              <button className="btn btn-primary btn-sm" onClick={loadBackups} disabled={backupsLoading} style={{ background: '#0284c7' }}>
-                {backupsLoading ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }}></div> Loading...</> : '↻ Refresh'}
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={handleCreateBackup}
+                  disabled={creatingBackup || backupsLoading}
+                  style={{ background: '#16a34a', border: 'none' }}
+                >
+                  {creatingBackup ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }}></div> Creating...</> : '💾 Create Backup Now'}
+                </button>
+                <button className="btn btn-primary btn-sm" onClick={loadBackups} disabled={backupsLoading} style={{ background: '#0284c7' }}>
+                  {backupsLoading ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }}></div> Loading...</> : '↻ Refresh'}
+                </button>
+              </div>
             </div>
             {backupsMsg && <div className={backupsMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>{backupsMsg}</div>}
             {backupsLoading ? (
