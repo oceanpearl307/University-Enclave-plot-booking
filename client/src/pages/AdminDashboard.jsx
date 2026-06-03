@@ -162,6 +162,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [backupLabel, setBackupLabel] = useState('');
   const [restoreConfirm, setRestoreConfirm] = useState(null);
   const [copiedRestoreDetails, setCopiedRestoreDetails] = useState(false);
+  const [downloadedRestoreDetails, setDownloadedRestoreDetails] = useState(false);
   const [editingLabelFor, setEditingLabelFor] = useState(null);
   const [editLabelValue, setEditLabelValue] = useState('');
   const [savingLabel, setSavingLabel] = useState(null);
@@ -2701,10 +2702,12 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     a.download = bk.filename.replace(/\.[^.]+$/, '') + '.txt';
                     a.click();
                     URL.revokeObjectURL(url);
+                    setDownloadedRestoreDetails(true);
+                    setTimeout(() => setDownloadedRestoreDetails(false), 1500);
                   }}
-                  style={{ padding: '0.3rem 0.9rem', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', fontWeight: 600, color: '#475569', fontSize: '0.78rem', transition: 'all 0.2s' }}
+                  style={{ padding: '0.3rem 0.9rem', background: downloadedRestoreDetails ? '#dcfce7' : '#f1f5f9', border: `1px solid ${downloadedRestoreDetails ? '#86efac' : '#e2e8f0'}`, borderRadius: 8, cursor: 'pointer', fontWeight: 600, color: downloadedRestoreDetails ? '#15803d' : '#475569', fontSize: '0.78rem', transition: 'all 0.2s' }}
                 >
-                  ⬇️ Download
+                  {downloadedRestoreDetails ? '✓ Downloaded!' : '⬇️ Download'}
                 </button>
               </div>
               <p style={{ color: '#dc2626', fontSize: '0.8rem', textAlign: 'center', marginBottom: '1.5rem', fontWeight: 600 }}>
@@ -2712,7 +2715,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
               </p>
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
                 <button
-                  onClick={() => { setRestoreConfirm(null); setCopiedRestoreDetails(false); }}
+                  onClick={() => { setRestoreConfirm(null); setCopiedRestoreDetails(false); setDownloadedRestoreDetails(false); }}
                   disabled={restoringBackup === restoreConfirm}
                   style={{ padding: '0.55rem 1.25rem', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', fontWeight: 700, color: '#475569', fontSize: '0.875rem' }}
                 >
