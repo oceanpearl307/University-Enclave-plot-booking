@@ -161,6 +161,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [restoringBackup, setRestoringBackup] = useState(null);
   const [backupLabel, setBackupLabel] = useState('');
   const [restoreConfirm, setRestoreConfirm] = useState(null);
+  const [copiedRestoreDetails, setCopiedRestoreDetails] = useState(false);
   const [editingLabelFor, setEditingLabelFor] = useState(null);
   const [editLabelValue, setEditLabelValue] = useState('');
   const [savingLabel, setSavingLabel] = useState(null);
@@ -2655,18 +2656,40 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                 </div>
               ) : null; })()}
               {(() => { const bk = backups.find(b => b.filename === restoreConfirm); if (!bk) return null; const d = new Date(bk.createdAt); return (
-                <div style={{ fontSize: '0.78rem', color: '#64748b', textAlign: 'center', marginBottom: '1rem' }}>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', textAlign: 'center', marginBottom: '0.75rem' }}>
                   {d.toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric' })}
                   {' '}{d.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}
                   <span style={{ marginLeft: '0.75rem', color: '#94a3b8' }}>{fmtBytes(bk.size)}</span>
                 </div>
               ); })()}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+                <button
+                  onClick={() => {
+                    const bk = backups.find(b => b.filename === restoreConfirm);
+                    if (!bk) return;
+                    const d = new Date(bk.createdAt);
+                    const lines = [
+                      `Filename : ${bk.filename}`,
+                      `Date     : ${d.toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric' })} ${d.toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}`,
+                      `Size     : ${fmtBytes(bk.size)}`,
+                    ];
+                    if (bk.label) lines.push(`Label    : ${bk.label}`);
+                    navigator.clipboard.writeText(lines.join('\n')).then(() => {
+                      setCopiedRestoreDetails(true);
+                      setTimeout(() => setCopiedRestoreDetails(false), 1500);
+                    });
+                  }}
+                  style={{ padding: '0.3rem 0.9rem', background: copiedRestoreDetails ? '#dcfce7' : '#f1f5f9', border: `1px solid ${copiedRestoreDetails ? '#86efac' : '#e2e8f0'}`, borderRadius: 8, cursor: 'pointer', fontWeight: 600, color: copiedRestoreDetails ? '#15803d' : '#475569', fontSize: '0.78rem', transition: 'all 0.2s' }}
+                >
+                  {copiedRestoreDetails ? '✓ Copied!' : '📋 Copy details'}
+                </button>
+              </div>
               <p style={{ color: '#dc2626', fontSize: '0.8rem', textAlign: 'center', marginBottom: '1.5rem', fontWeight: 600 }}>
                 Any changes made after this backup was created will be permanently lost.
               </p>
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
                 <button
-                  onClick={() => setRestoreConfirm(null)}
+                  onClick={() => { setRestoreConfirm(null); setCopiedRestoreDetails(false); }}
                   disabled={restoringBackup === restoreConfirm}
                   style={{ padding: '0.55rem 1.25rem', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', fontWeight: 700, color: '#475569', fontSize: '0.875rem' }}
                 >
