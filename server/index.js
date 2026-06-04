@@ -559,6 +559,13 @@ app.post('/api/dealer/login', async (req, res) => {
   }
 });
 
+// ─── Session Validation ───────────────────────────────────────────────────────
+app.get('/api/auth/check', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ valid: false });
+  res.json({ valid: true, role: session.role, dealerId: session.dealerId });
+});
+
 // ─── Per-Dealer Dashboard ─────────────────────────────────────────────────────
 app.get('/api/dealer/dashboard/:dealerId', (req, res) => {
   const session = validateSession(req);

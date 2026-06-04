@@ -33,6 +33,22 @@ export default function App() {
   const [dealer, setDealer] = useState(session.dealer);
   const [customer, setCustomer] = useState(session.customer);
   const [authToken, setAuthToken] = useState(session.token);
+  const [sessionChecked, setSessionChecked] = useState(!session.token);
+
+  useEffect(() => {
+    if (!session.token) return;
+    fetch('/api/auth/check', { headers: { Authorization: `Bearer ${session.token}` } })
+      .then(r => r.json())
+      .then(d => {
+        if (!d.valid) {
+          setDealer(null); setCustomer(null); setAuthToken(null);
+          try { localStorage.removeItem('ue_dealer'); localStorage.removeItem('ue_customer'); localStorage.removeItem('ue_page'); localStorage.removeItem('ue_token'); } catch {}
+          setPage('home');
+        }
+        setSessionChecked(true);
+      })
+      .catch(() => setSessionChecked(true));
+  }, []);
 
   useEffect(() => {
     try {
@@ -98,6 +114,15 @@ export default function App() {
   };
 
   const isFullscreenPage = page === 'dashboard' || page === 'admin-dashboard' || page === 'ops-dashboard';
+
+  if (!sessionChecked) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a' }}>
+      <div style={{ textAlign: 'center', color: '#fff' }}>
+        <div className="spinner" style={{ width: 36, height: 36, borderWidth: 3, margin: '0 auto 1rem' }}></div>
+        <div style={{ fontSize: '0.9rem', color: '#94a3b8' }}>Loading...</div>
+      </div>
+    </div>
+  );
 
   return (
     <div>

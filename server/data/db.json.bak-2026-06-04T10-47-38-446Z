@@ -163,7 +163,7 @@
   "packages": [
     {
       "id": 1,
-      "name": "Normal Package",
+      "name": "Silver Package",
       "totalPlots": 25,
       "commissionPct": 12,
       "sizes": [
@@ -190,7 +190,7 @@
     },
     {
       "id": 2,
-      "name": "Premium Package",
+      "name": "Gold Package",
       "totalPlots": 50,
       "commissionPct": 15,
       "sizes": [
@@ -225,6 +225,22 @@
       "name": "Admin User",
       "role": "admin",
       "loginHistory": [
+        {
+          "ip": "209.150.144.73",
+          "at": "2026-06-03T19:36:35.463Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "ESS",
+          "country": "Pakistan"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-03T19:29:54.764Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
         {
           "ip": "127.0.0.1",
           "at": "2026-06-03T19:27:57.839Z",
@@ -266,8 +282,8 @@
           "country": "Local"
         }
       ],
-      "lastLoginIP": "127.0.0.1",
-      "lastLoginAt": "2026-06-03T19:27:57.839Z"
+      "lastLoginIP": "209.150.144.73",
+      "lastLoginAt": "2026-06-03T19:36:35.463Z"
     },
     {
       "id": 2,
@@ -291,6 +307,86 @@
       "ipLocked": false,
       "trustedIPs": [],
       "loginHistory": [
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-04T10:47:25.332Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-04T10:46:07.513Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-04T10:45:51.030Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-04T10:45:27.621Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-04T10:45:04.665Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-04T10:44:56.947Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "59.103.113.218",
+          "at": "2026-06-04T10:31:09.554Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Pakistan Telecommunication Company Limited",
+          "country": "Pakistan"
+        },
+        {
+          "ip": "59.103.113.218",
+          "at": "2026-06-04T10:30:26.142Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Pakistan Telecommunication Company Limited",
+          "country": "Pakistan"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-03T19:29:55.624Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-03T19:29:54.897Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
         {
           "ip": "127.0.0.1",
           "at": "2026-06-03T19:27:35.593Z",
@@ -341,7 +437,7 @@
         }
       ],
       "lastLoginIP": "127.0.0.1",
-      "lastLoginAt": "2026-06-03T19:27:35.593Z"
+      "lastLoginAt": "2026-06-04T10:47:25.332Z"
     },
     {
       "id": 3,
@@ -367,6 +463,14 @@
       "loginHistory": [
         {
           "ip": "127.0.0.1",
+          "at": "2026-06-03T19:29:55.035Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
           "at": "2026-06-03T19:27:06.291Z",
           "blocked": false,
           "vpnDetected": false,
@@ -375,7 +479,7 @@
         }
       ],
       "lastLoginIP": "127.0.0.1",
-      "lastLoginAt": "2026-06-03T19:27:06.291Z"
+      "lastLoginAt": "2026-06-03T19:29:55.035Z"
     },
     {
       "id": 4,
@@ -401,6 +505,14 @@
       "loginHistory": [
         {
           "ip": "127.0.0.1",
+          "at": "2026-06-03T19:29:55.170Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
           "at": "2026-06-03T19:27:06.433Z",
           "blocked": false,
           "vpnDetected": false,
@@ -409,7 +521,7 @@
         }
       ],
       "lastLoginIP": "127.0.0.1",
-      "lastLoginAt": "2026-06-03T19:27:06.433Z"
+      "lastLoginAt": "2026-06-03T19:29:55.170Z"
     }
   ],
   "dealerCounter": 4,
@@ -528,12 +640,18 @@
       "password": "ops123",
       "name": "Operations Staff",
       "role": "operations",
+      "staffRole": "Operations Staff",
       "privileges": {
         "approveBookings": true,
         "viewPlots": true,
+        "manageInventory": false,
         "viewDealers": false,
         "viewDeals": false,
-        "viewRegistrations": false
+        "viewRegistrations": false,
+        "viewReports": false,
+        "exportData": false,
+        "manageAnnouncements": false,
+        "viewCustomers": false
       },
       "createdAt": "2026-01-01T00:00:00.000Z"
     }
@@ -573,5 +691,6 @@
       "important": false
     }
   ],
+  "annCounter": 4,
   "ledgerIdCounter": 0
 }

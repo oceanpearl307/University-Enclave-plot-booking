@@ -308,6 +308,62 @@
       "trustedIPs": [],
       "loginHistory": [
         {
+          "ip": "127.0.0.1",
+          "at": "2026-06-04T10:47:37.945Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-04T10:47:25.332Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-04T10:46:07.513Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-04T10:45:51.030Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-04T10:45:27.621Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-04T10:45:04.665Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-04T10:44:56.947Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
           "ip": "59.103.113.218",
           "at": "2026-06-04T10:31:09.554Z",
           "blocked": false,
@@ -388,8 +444,8 @@
           "date": "2026-06-02T21:03:14.656Z"
         }
       ],
-      "lastLoginIP": "59.103.113.218",
-      "lastLoginAt": "2026-06-04T10:31:09.554Z"
+      "lastLoginIP": "127.0.0.1",
+      "lastLoginAt": "2026-06-04T10:47:37.945Z"
     },
     {
       "id": 3,
