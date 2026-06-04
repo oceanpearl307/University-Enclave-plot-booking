@@ -67,8 +67,12 @@ export default function DealerDashboard({ dealer, authToken, onLogout, navigate 
     })
       .then(r => r.json())
       .then(d => {
-        if (d.error || !d.stats) { setError(d.error || 'Failed to load dashboard data.'); }
-        else { setData(d); }
+        if (d.error === 'Authentication required' || d.error === 'Access denied') {
+          onLogout();
+          return;
+        }
+        if (d.error || !d.stats) { setError(d.error || 'Failed to load dashboard data.'); setLoading(false); return; }
+        setData(d);
         setLoading(false);
       })
       .catch(() => { setError('Failed to load dashboard data.'); setLoading(false); });
