@@ -15,10 +15,13 @@ function loadSession() {
     const c = localStorage.getItem('ue_customer');
     const p = localStorage.getItem('ue_page');
     const t = localStorage.getItem('ue_token');
+    // Never restore a dashboard page directly — always require fresh login
+    const dashboardPages = ['dashboard', 'admin-dashboard', 'ops-dashboard'];
+    const safePage = dashboardPages.includes(p) ? 'home' : (p || 'home');
     return {
       dealer: d ? JSON.parse(d) : null,
       customer: c ? JSON.parse(c) : null,
-      page: p || 'home',
+      page: safePage,
       token: t || null,
     };
   } catch {
@@ -142,7 +145,7 @@ export default function App() {
           <AdminDashboard dealer={dealer} authToken={authToken} onLogout={handleLogout} navigate={navigate} />
         )}
         {page === 'ops-dashboard' && dealer && dealer.role === 'operations' && (
-          <OperationsDashboard staff={dealer} onLogout={handleLogout} navigate={navigate} />
+          <OperationsDashboard staff={dealer} authToken={authToken} onLogout={handleLogout} navigate={navigate} />
         )}
       </main>
       {!isFullscreenPage && (
