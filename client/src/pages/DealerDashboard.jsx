@@ -64,7 +64,11 @@ export default function DealerDashboard({ dealer, authToken, onLogout, navigate 
     if (!dealer?.id) return;
     fetch(`/api/dealer/dashboard/${dealer.id}`)
       .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); })
+      .then(d => {
+        if (d.error || !d.stats) { setError(d.error || 'Failed to load dashboard data.'); }
+        else { setData(d); }
+        setLoading(false);
+      })
       .catch(() => { setError('Failed to load dashboard data.'); setLoading(false); });
   }, [dealer]);
 
