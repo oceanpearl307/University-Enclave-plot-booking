@@ -62,7 +62,9 @@ export default function DealerDashboard({ dealer, authToken, onLogout, navigate 
 
   useEffect(() => {
     if (!dealer?.id) return;
-    fetch(`/api/dealer/dashboard/${dealer.id}`)
+    fetch(`/api/dealer/dashboard/${dealer.id}`, {
+      headers: { Authorization: `Bearer ${authToken}` },
+    })
       .then(r => r.json())
       .then(d => {
         if (d.error || !d.stats) { setError(d.error || 'Failed to load dashboard data.'); }
