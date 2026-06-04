@@ -31,7 +31,7 @@ export default function Home({ navigate, dealer, customer, onDealerLogin, onCust
       {modal === 'dealer' && (
         <DealerLoginModal
           onClose={() => setModal(null)}
-          onSuccess={d => { onDealerLogin(d); setModal(null); }}
+          onSuccess={(d, token) => { onDealerLogin(d, token); setModal(null); }}
         />
       )}
       {modal === 'signup' && (
