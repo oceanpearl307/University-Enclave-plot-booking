@@ -140,11 +140,11 @@ export default function BookingForm({ plot, navigate, dealer }) {
 
   useEffect(() => {
     if (!scannerOpen) return;
-    let qr = null;
+    let decodeTimeoutId = null;
     const timerId = setTimeout(async () => {
       try {
         const { Html5Qrcode } = await import('html5-qrcode');
-        qr = new Html5Qrcode('cnic-qr-reader');
+        const qr = new Html5Qrcode('cnic-qr-reader');
         qrInstanceRef.current = qr;
         const cameras = await Html5Qrcode.getCameras();
         if (!cameras || cameras.length === 0) {
@@ -156,6 +156,7 @@ export default function BookingForm({ plot, navigate, dealer }) {
           camId,
           { fps: 10, qrbox: { width: 260, height: 160 } },
           (decodedText) => {
+            clearTimeout(decodeTimeoutId);
             const digits = decodedText.replace(/\D/g, '').slice(0, 13);
             const formatted = formatCnic(digits);
             setForm(f => ({ ...f, cnic: formatted }));
@@ -163,11 +164,17 @@ export default function BookingForm({ plot, navigate, dealer }) {
           },
           () => {}
         );
+        decodeTimeoutId = setTimeout(() => {
+          setScannerError('No barcode detected. Please type the CNIC number manually or try again.');
+        }, 7000);
       } catch (err) {
         setScannerError('Could not start camera: ' + (err?.message || err));
       }
     }, 100);
-    return () => clearTimeout(timerId);
+    return () => {
+      clearTimeout(timerId);
+      clearTimeout(decodeTimeoutId);
+    };
   }, [scannerOpen]);
 
   const stopScanner = () => {
