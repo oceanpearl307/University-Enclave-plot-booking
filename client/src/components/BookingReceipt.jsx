@@ -8,6 +8,82 @@ const fmtDate = iso => {
   return d.toLocaleDateString('en-PK', { day: '2-digit', month: 'long', year: 'numeric' });
 };
 
+const PAYMENT_PLANS = {
+  '5 Marla':  { total: 4000000,  downPayment: 400000,  confirmation: 400000,  monthlyInstallment: 20000, monthlyCount: 40, semiAnnualInstallment: 130000, semiAnnualCount: 8, possession: 1360000 },
+  '7 Marla':  { total: 5460000,  downPayment: 546000,  confirmation: 546000,  monthlyInstallment: 25000, monthlyCount: 40, semiAnnualInstallment: 150000, semiAnnualCount: 8, possession: 2168000 },
+  '10 Marla': { total: 7600000,  downPayment: 760000,  confirmation: 760000,  monthlyInstallment: 38000, monthlyCount: 40, semiAnnualInstallment: 200000, semiAnnualCount: 8, possession: 2960000 },
+  '1 Kanal':  { total: 14400000, downPayment: 1440000, confirmation: 1440000, monthlyInstallment: 70000, monthlyCount: 40, semiAnnualInstallment: 300000, semiAnnualCount: 8, possession: 6320000 },
+};
+
+function addMonths(isoDate, n) {
+  const d = new Date(isoDate);
+  d.setMonth(d.getMonth() + n);
+  return d.toLocaleDateString('en-PK', { month: 'short', year: 'numeric' });
+}
+
+function getInstallmentSchedule(booking) {
+  const plan = PAYMENT_PLANS[booking.plotSize];
+  const totalPrice = booking.plotPrice || 0;
+  const scale = plan ? totalPrice / plan.total : 1;
+  const start = booking.createdAt || new Date().toISOString();
+  const dp = booking.downPayment > 0 ? booking.downPayment : (plan ? Math.round(plan.downPayment * scale) : 0);
+
+  const rows = [];
+
+  rows.push({
+    type: 'Down Payment',
+    count: 1,
+    each: dp,
+    total: dp,
+    period: fmtDate(start),
+    status: 'paid',
+  });
+
+  if (plan) {
+    const conf = Math.round(plan.confirmation * scale);
+    rows.push({
+      type: 'Confirmation',
+      count: 1,
+      each: conf,
+      total: conf,
+      period: addMonths(start, 1),
+      status: 'pending',
+    });
+
+    const monthly = Math.round(plan.monthlyInstallment * scale);
+    rows.push({
+      type: 'Monthly',
+      count: plan.monthlyCount,
+      each: monthly,
+      total: monthly * plan.monthlyCount,
+      period: `${addMonths(start, 1)} – ${addMonths(start, plan.monthlyCount)}`,
+      status: 'pending',
+    });
+
+    const semi = Math.round(plan.semiAnnualInstallment * scale);
+    rows.push({
+      type: 'Semi-Annual',
+      count: plan.semiAnnualCount,
+      each: semi,
+      total: semi * plan.semiAnnualCount,
+      period: `Every 6 months`,
+      status: 'pending',
+    });
+
+    const poss = Math.round(plan.possession * scale);
+    rows.push({
+      type: 'Possession',
+      count: 1,
+      each: poss,
+      total: poss,
+      period: addMonths(start, 48),
+      status: 'pending',
+    });
+  }
+
+  return rows;
+}
+
 export default function BookingReceipt({ booking, onClose }) {
   if (!booking) return null;
   const dp = booking.downPayment || 0;
@@ -309,10 +385,10 @@ export default function BookingReceipt({ booking, onClose }) {
                   ))}
                 </tbody>
               </table>
-              <div style={{ marginTop: '0.625rem', fontSize: '0.72rem', color: '#64748b', fontStyle: 'italic', lineHeight: 1.5 }}>
-                * Remaining balance is payable as per the 4-year installment plan. Monthly, semi-annual, and possession payments as per agreed schedule.
-              </div>
             </Section>
+
+            {/* Installment Schedule */}
+            <InstallmentScheduleSection booking={booking} />
 
             {/* Signatures */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', marginTop: '0.5rem' }}>
@@ -361,6 +437,64 @@ export default function BookingReceipt({ booking, onClose }) {
         </div>
       </div>
     </>
+  );
+}
+
+function InstallmentScheduleSection({ booking }) {
+  const rows = getInstallmentSchedule(booking);
+  const grandTotal = rows.reduce((s, r) => s + r.total, 0);
+
+  return (
+    <Section title="Installment Payment Schedule" icon="📅" color="#1d4ed8">
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+        <thead>
+          <tr style={{ background: '#eff6ff' }}>
+            {['Payment Type', 'No.', 'Amount Each', 'Due / Period', 'Sub-Total', 'Status'].map(h => (
+              <th key={h} style={{
+                padding: '0.45rem 0.5rem', textAlign: h === 'No.' || h === 'Amount Each' || h === 'Sub-Total' ? 'right' : 'left',
+                fontWeight: 800, fontSize: '0.65rem', color: '#1d4ed8',
+                textTransform: 'uppercase', letterSpacing: '0.06em',
+                borderBottom: '2px solid #bfdbfe',
+              }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={row.type} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+              <td style={{ padding: '0.45rem 0.5rem', fontWeight: 700, color: '#0f172a' }}>{row.type}</td>
+              <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', color: '#475569', fontWeight: 600 }}>{row.count}</td>
+              <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', color: '#0f172a', fontWeight: 700 }}>{pkr(row.each)}</td>
+              <td style={{ padding: '0.45rem 0.5rem', color: '#64748b', fontSize: '0.72rem' }}>{row.period}</td>
+              <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', fontWeight: 700, color: row.type === 'Down Payment' ? '#059669' : '#0f172a' }}>{pkr(row.total)}</td>
+              <td style={{ padding: '0.45rem 0.5rem' }}>
+                <span style={{
+                  display: 'inline-block',
+                  padding: '0.1rem 0.45rem',
+                  borderRadius: 4,
+                  fontSize: '0.62rem',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  background: row.status === 'paid' ? '#dcfce7' : '#fef3c7',
+                  color: row.status === 'paid' ? '#065f46' : '#92400e',
+                }}>{row.status === 'paid' ? 'Paid' : 'Pending'}</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr style={{ background: '#eff6ff', borderTop: '2px solid #bfdbfe' }}>
+            <td colSpan={4} style={{ padding: '0.5rem 0.5rem', fontWeight: 800, fontSize: '0.78rem', color: '#1d4ed8' }}>Grand Total</td>
+            <td style={{ padding: '0.5rem 0.5rem', textAlign: 'right', fontWeight: 900, fontSize: '0.85rem', color: '#1d4ed8' }}>{pkr(grandTotal)}</td>
+            <td />
+          </tr>
+        </tfoot>
+      </table>
+      <div style={{ marginTop: '0.5rem', fontSize: '0.66rem', color: '#64748b', fontStyle: 'italic', lineHeight: 1.6 }}>
+        * Schedule is based on the standard 4-year (48-month) payment plan. Monthly and semi-annual installments run concurrently. Possession amount is due upon allotment of plot. All amounts are in PKR.
+      </div>
+    </Section>
   );
 }
 
