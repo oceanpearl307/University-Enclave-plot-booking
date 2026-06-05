@@ -230,7 +230,7 @@ export default function DealerDashboard({ dealer, authToken, onLogout, navigate 
               )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.25rem' }}>
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
                   <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151' }}>🎯 Overall Plot Target</div>
@@ -403,7 +403,7 @@ export default function DealerDashboard({ dealer, authToken, onLogout, navigate 
         )}
 
         {/* Charts */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '1.5rem' }}>
+        <div className="dash-charts-grid">
           <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
             <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>My Monthly Bookings</h3>
             <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1.25rem' }}>Bookings made per month</p>

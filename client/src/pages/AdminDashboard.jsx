@@ -918,7 +918,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
               )}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: (selected || accessDealer) ? '1fr 460px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+            <div className="side-panel-layout" style={{ gridTemplateColumns: (selected || accessDealer) ? '1fr 460px' : '1fr' }}>
               <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                   <div>
@@ -1531,7 +1531,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
         {/* ─── REGISTRATIONS TAB ─── */}
         {tab === 'Registrations' && (
-          <div style={{ display: 'grid', gridTemplateColumns: approveTarget ? '1fr 400px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+          <div className="side-panel-layout" style={{ gridTemplateColumns: approveTarget ? '1fr 400px' : '1fr' }}>
             <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
               <div style={{ marginBottom: '1.25rem' }}>
                 <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Dealer Registration Requests</h3>
@@ -1630,7 +1630,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
         {tab === 'Bookings' && (
           <div>
             {bkgMsg && <div className={bkgMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ marginBottom: '1.25rem' }}>{bkgMsg}</div>}
-            <div style={{ display: 'grid', gridTemplateColumns: selectedBkg ? '1fr 400px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+            <div className="side-panel-layout" style={{ gridTemplateColumns: selectedBkg ? '1fr 400px' : '1fr' }}>
               <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
                   <div>
@@ -1928,7 +1928,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
         {/* ─── PACKAGES TAB ─── */}
         {tab === 'Packages' && (
-          <div style={{ display: 'grid', gridTemplateColumns: pkgEdit ? '1fr 420px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+          <div className="side-panel-layout" style={{ gridTemplateColumns: pkgEdit ? '1fr 420px' : '1fr' }}>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                 <div>
@@ -2030,7 +2030,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
             {/* ════ SECTORS VIEW ════ */}
             {inventoryView === 'sectors' && (
-              <div style={{ display: 'grid', gridTemplateColumns: sectorEdit ? '1fr 360px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+              <div className="side-panel-layout" style={{ gridTemplateColumns: sectorEdit ? '1fr 360px' : '1fr' }}>
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                     <div>
@@ -2278,7 +2278,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
             )}
 
             {/* ── Plots Table ── */}
-            <div style={{ display: 'grid', gridTemplateColumns: plotEdit ? '1fr 380px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+            <div className="side-panel-layout" style={{ gridTemplateColumns: plotEdit ? '1fr 380px' : '1fr' }}>
               <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
                   <div>
@@ -2447,7 +2447,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
         {/* ─── DEALS TAB ─── */}
         {tab === 'Deals' && (
-          <div style={{ display: 'grid', gridTemplateColumns: dealEdit ? '1fr 420px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+          <div className="side-panel-layout" style={{ gridTemplateColumns: dealEdit ? '1fr 420px' : '1fr' }}>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                 <div>
@@ -2760,7 +2760,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
         {/* ─── STAFF TAB ─── */}
         {tab === 'Staff' && (
-          <div style={{ display: 'grid', gridTemplateColumns: staffEdit ? '1fr 420px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+          <div className="side-panel-layout" style={{ gridTemplateColumns: staffEdit ? '1fr 420px' : '1fr' }}>
             <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                 <div>

@@ -259,7 +259,7 @@ export default function OperationsDashboard({ staff, onLogout }) {
 
         {/* ─── BOOKINGS TAB ─── */}
         {tab === 'approveBookings' && (
-          <div style={{ display: 'grid', gridTemplateColumns: selectedBooking ? '1fr 400px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+          <div className="side-panel-layout" style={{ gridTemplateColumns: selectedBooking ? '1fr 400px' : '1fr' }}>
             <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
                 <div>
@@ -449,7 +449,7 @@ export default function OperationsDashboard({ staff, onLogout }) {
 
         {/* ─── MANAGE INVENTORY TAB ─── */}
         {tab === 'manageInventory' && (
-          <div style={{ display: 'grid', gridTemplateColumns: invEdit ? '1fr 370px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+          <div className="side-panel-layout" style={{ gridTemplateColumns: invEdit ? '1fr 370px' : '1fr' }}>
             <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                 <div>
@@ -724,7 +724,7 @@ export default function OperationsDashboard({ staff, onLogout }) {
 
         {/* ─── ANNOUNCEMENTS TAB ─── */}
         {tab === 'manageAnnouncements' && (
-          <div style={{ display: 'grid', gridTemplateColumns: annEdit ? '1fr 370px' : '1fr', gap: '1.5rem', alignItems: 'start' }}>
+          <div className="side-panel-layout" style={{ gridTemplateColumns: annEdit ? '1fr 370px' : '1fr' }}>
             <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                 <div>
