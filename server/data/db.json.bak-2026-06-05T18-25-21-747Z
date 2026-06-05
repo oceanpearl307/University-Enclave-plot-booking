@@ -2896,8 +2896,7 @@
         }
       ],
       "lastLoginIP": "209.150.144.73",
-      "lastLoginAt": "2026-06-05T18:24:45.415Z",
-      "commissionPct": 15
+      "lastLoginAt": "2026-06-05T18:24:45.415Z"
     },
     {
       "id": 3,
@@ -2955,28 +2954,22 @@
       "sizes": [
         {
           "size": "5 Marla",
-          "target": 10
+          "target": 3
         },
         {
           "size": "7 Marla",
-          "target": 8
+          "target": 2
         },
         {
           "size": "10 Marla",
-          "target": 5
+          "target": 1
         },
         {
           "size": "1 Kanal",
-          "target": 2
+          "target": 1
         }
       ],
-      "assignedPlots": {
-        "5 Marla": [],
-        "7 Marla": [],
-        "10 Marla": [],
-        "1 Kanal": []
-      },
-      "assignedAt": "2026-06-05T18:25:20.641Z",
+      "assignedAt": "2026-04-01T00:00:00.000Z",
       "notes": "Q2 2026 Sales Target"
     },
     "3": {
