@@ -27,13 +27,17 @@ export default function BookingReceipt({ booking, onClose }) {
             inset: 0 !important;
             width: 210mm !important;
             min-height: 297mm !important;
-            margin: 0 auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
             box-shadow: none !important;
             border-radius: 0 !important;
+            overflow: visible !important;
+            margin-top: 0 !important;
           }
           .no-print { display: none !important; }
+          * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
-        @page { size: A4; margin: 10mm; }
+        @page { size: A4 portrait; margin: 8mm; }
       `}</style>
 
       {/* Overlay */}
@@ -51,7 +55,7 @@ export default function BookingReceipt({ booking, onClose }) {
             border: 'none', borderRadius: 10, padding: '0.65rem 1.5rem',
             fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 16px rgba(26,107,60,0.3)',
-          }}>🖨️ Print Receipt</button>
+          }}>🖨️ Print / Save PDF</button>
           <button onClick={onClose} style={{
             background: '#fff', color: '#374151', border: 'none', borderRadius: 10,
             padding: '0.65rem 1.25rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer',

@@ -267,3 +267,36 @@ input, select, textarea {
   .cal-cell, .cal-empty-cell { min-height: 52px; padding: 0.2rem; }
   .cal-cell .cal-day-num { font-size: 0.7rem !important; }
 }
+
+/* ── PRINT / PDF STYLES ────────────────────────────────────────── */
+@media print {
+  nav,
+  header:not(#ue-receipt header),
+  footer:not(#ue-receipt footer),
+  aside,
+  .no-print,
+  .navbar,
+  .sidebar,
+  .modal-backdrop,
+  .alert,
+  .btn,
+  .spinner,
+  .loading {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+}
