@@ -346,12 +346,20 @@ export default function BookingReceipt({ booking, onClose }) {
                     <Field label="Postal Address" value={booking.postalAddress || '—'} fullWidth />
                   </div>
                 </div>
-                {booking.photo && (
-                  <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
-                    <img src={booking.photo} alt="Buyer" style={{ width: 72, height: 88, objectFit: 'cover', border: '2px solid #e2e8f0', borderRadius: 4 }} />
-                    <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 600 }}>BUYER PHOTO</div>
-                  </div>
-                )}
+                <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
+                  {booking.photo && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
+                      <img src={booking.photo} alt="Buyer" style={{ width: 72, height: 88, objectFit: 'cover', border: '2px solid #e2e8f0', borderRadius: 4 }} />
+                      <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 600 }}>BUYER PHOTO</div>
+                    </div>
+                  )}
+                  {booking.cnicImage && (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
+                      <img src={booking.cnicImage} alt="CNIC" style={{ width: 100, height: 65, objectFit: 'cover', border: '2px solid #fde68a', borderRadius: 4 }} />
+                      <div style={{ fontSize: '0.6rem', color: '#92400e', fontWeight: 600 }}>CNIC / PASSPORT</div>
+                    </div>
+                  )}
+                </div>
               </div>
             </Section>
 

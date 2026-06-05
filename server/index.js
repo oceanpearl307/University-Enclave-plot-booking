@@ -1385,7 +1385,7 @@ app.post('/api/bookings', (req, res) => {
   const {
     plotId, dealerId,
     name, fatherName, cnic, phone, email,
-    residentialAddress, postalAddress, photo,
+    residentialAddress, postalAddress, photo, cnicImage,
     nomineeName, nomineeFatherName, nomineeCnic,
     nomineeRelation, nomineePhone, nomineeAddress,
     downPayment,
@@ -1411,7 +1411,7 @@ app.post('/api/bookings', (req, res) => {
     plotId, plotNumber: plot.number, plotSize: plot.size,
     plotPrice: computeEffectivePrice(plot.price, plot.tags || []), area: plot.area,
     name, fatherName, cnic, phone, email: email || '',
-    residentialAddress, postalAddress, photo,
+    residentialAddress, postalAddress, photo, cnicImage: cnicImage || null,
     nominee: { name: nomineeName, fatherName: nomineeFatherName, cnic: nomineeCnic, relation: nomineeRelation, phone: nomineePhone, address: nomineeAddress },
     dealerId: resolvedDealerId,
     downPayment: Number(downPayment) || 0,

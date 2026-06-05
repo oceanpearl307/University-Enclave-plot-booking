@@ -30,7 +30,7 @@
       "area": "Rose",
       "size": "1 Kanal",
       "price": 14400000,
-      "status": "booked",
+      "status": "available",
       "category": "residential",
       "description": "Normal",
       "tags": []
@@ -3091,41 +3091,9 @@
       "commissionAmount": 2160000,
       "status": "pending",
       "createdAt": "2026-06-05T18:31:24.814Z"
-    },
-    {
-      "id": 1002,
-      "bookingRef": "UE-1002",
-      "plotId": 2,
-      "plotNumber": "UE-R02",
-      "plotSize": "1 Kanal",
-      "plotPrice": 14400000,
-      "area": "Rose",
-      "name": "Test User",
-      "fatherName": "Test Father",
-      "cnic": "35201-1234567-1",
-      "phone": "0300-1234567",
-      "email": "test@test.com",
-      "residentialAddress": "123 Test Street",
-      "postalAddress": "PO Box 123",
-      "photo": "data:image/png;base64,iVBORw0KGgo=",
-      "cnicImage": "data:image/png;base64,iVBORw0KGgoNASIDENTITY=",
-      "nominee": {
-        "name": "Nominee",
-        "fatherName": "Nom Father",
-        "cnic": "35201-7654321-2",
-        "relation": "Spouse",
-        "phone": "0300-7654321",
-        "address": "Same Address"
-      },
-      "dealerId": null,
-      "downPayment": 1440000,
-      "commissionPct": 0,
-      "commissionAmount": 0,
-      "status": "pending",
-      "createdAt": "2026-06-05T18:38:50.072Z"
     }
   ],
-  "bookingCounter": 1002,
+  "bookingCounter": 1001,
   "customers": [],
   "customerCounter": 100,
   "operationsStaff": [

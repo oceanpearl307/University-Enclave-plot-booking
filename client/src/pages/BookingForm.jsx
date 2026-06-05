@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { PAYMENT_PLANS, PaymentPlanCard, generatePaymentSchedule, pkr } from '../components/PaymentPlanTable.jsx';
 import { formatCnic, isValidCnic } from '../utils/cnic.js';
 
@@ -15,10 +15,17 @@ export default function BookingForm({ plot, navigate, dealer }) {
   const [photo, setPhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [photoError, setPhotoError] = useState('');
+  const [cnicImage, setCnicImage] = useState(null);
+  const [cnicImagePreview, setCnicImagePreview] = useState(null);
+  const [cnicImageError, setCnicImageError] = useState('');
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scannerError, setScannerError] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const fileRef = useRef();
+  const cnicFileRef = useRef();
+  const qrInstanceRef = useRef(null);
 
   if (!plot) {
     return (
@@ -131,6 +138,51 @@ export default function BookingForm({ plot, navigate, dealer }) {
     );
   }
 
+  useEffect(() => {
+    if (!scannerOpen) return;
+    let qr = null;
+    const timerId = setTimeout(async () => {
+      try {
+        const { Html5Qrcode } = await import('html5-qrcode');
+        qr = new Html5Qrcode('cnic-qr-reader');
+        qrInstanceRef.current = qr;
+        const cameras = await Html5Qrcode.getCameras();
+        if (!cameras || cameras.length === 0) {
+          setScannerError('No camera found on this device.');
+          return;
+        }
+        const camId = cameras[cameras.length - 1].id;
+        await qr.start(
+          camId,
+          { fps: 10, qrbox: { width: 260, height: 160 } },
+          (decodedText) => {
+            const digits = decodedText.replace(/\D/g, '').slice(0, 13);
+            const formatted = formatCnic(digits);
+            setForm(f => ({ ...f, cnic: formatted }));
+            stopScanner();
+          },
+          () => {}
+        );
+      } catch (err) {
+        setScannerError('Could not start camera: ' + (err?.message || err));
+      }
+    }, 100);
+    return () => clearTimeout(timerId);
+  }, [scannerOpen]);
+
+  const stopScanner = () => {
+    if (qrInstanceRef.current) {
+      qrInstanceRef.current.stop().catch(() => {}).finally(() => {
+        qrInstanceRef.current = null;
+        setScannerOpen(false);
+        setScannerError('');
+      });
+    } else {
+      setScannerOpen(false);
+      setScannerError('');
+    }
+  };
+
   const handleChange = e => {
     const { name, value } = e.target;
     if (name === 'cnic' || name === 'nomineeCnic') {
@@ -160,12 +212,37 @@ export default function BookingForm({ plot, navigate, dealer }) {
     reader.readAsDataURL(file);
   };
 
+  const handleCnicImage = e => {
+    const file = e.target.files[0];
+    setCnicImageError('');
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setCnicImageError('Please upload an image file (JPG, PNG, etc.).');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setCnicImageError('File must be smaller than 5MB.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      setCnicImage(ev.target.result);
+      setCnicImagePreview(ev.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async e => {
     e.preventDefault();
     setError('');
     if (!photo) {
       setPhotoError('Buyer photo is required.');
       fileRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    if (dealer && !cnicImage) {
+      setCnicImageError('Customer CNIC photo is required for dealer bookings.');
+      cnicFileRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     if (Number(downPayment) < minDownPayment) {
@@ -177,7 +254,7 @@ export default function BookingForm({ plot, navigate, dealer }) {
       const res = await fetch('/api/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...form, photo, plotId: plot.id, dealerId: dealer?.id || null, downPayment: Number(downPayment) || 0 }),
+        body: JSON.stringify({ ...form, photo, cnicImage: cnicImage || null, plotId: plot.id, dealerId: dealer?.id || null, downPayment: Number(downPayment) || 0 }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Booking failed');
@@ -241,7 +318,14 @@ export default function BookingForm({ plot, navigate, dealer }) {
                   <div className="grid-2">
                     <div className="form-group">
                       <label>CNIC Number <span className="required">*</span></label>
-                      <input name="cnic" value={form.cnic} onChange={handleChange} placeholder="35201-1234567-1" maxLength={15} required style={{ fontFamily: 'monospace', letterSpacing: '0.04em' }} />
+                      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                        <input name="cnic" value={form.cnic} onChange={handleChange} placeholder="35201-1234567-1" maxLength={15} required style={{ fontFamily: 'monospace', letterSpacing: '0.04em', flex: 1 }} />
+                        <button type="button" onClick={() => { setScannerError(''); setScannerOpen(true); }}
+                          title="Scan CNIC barcode / QR code"
+                          style={{ background: '#1a6b3c', color: '#fff', border: 'none', borderRadius: 7, padding: '0.5rem 0.6rem', cursor: 'pointer', fontSize: '1rem', flexShrink: 0, lineHeight: 1 }}>
+                          📷
+                        </button>
+                      </div>
                       {form.cnic && !isValidCnic(form.cnic) && <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.3rem' }}>⚠️ Format must be: XXXXX-XXXXXXX-X</div>}
                       {form.cnic && isValidCnic(form.cnic) && <div style={{ color: '#059669', fontSize: '0.75rem', marginTop: '0.3rem' }}>✅ Valid CNIC format</div>}
                     </div>
@@ -250,6 +334,47 @@ export default function BookingForm({ plot, navigate, dealer }) {
                       <input name="phone" value={form.phone} onChange={handleChange} placeholder="0300-1234567" required />
                     </div>
                   </div>
+
+                  {/* CNIC / Passport Image Upload — shown to dealer / admin only */}
+                  {dealer && (
+                    <div ref={cnicFileRef} style={{ background: '#fffbeb', border: `1.5px dashed ${cnicImageError ? '#ef4444' : cnicImage ? '#1a6b3c' : '#d97706'}`, borderRadius: 10, padding: '1rem 1.25rem' }}>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#92400e', marginBottom: '0.75rem' }}>
+                        🪪 Customer CNIC / Passport Photo <span style={{ color: '#ef4444' }}>*</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                        <div
+                          onClick={() => document.getElementById('cnicImageInput').click()}
+                          style={{
+                            width: 140, height: 90, border: `2px dashed ${cnicImageError ? '#ef4444' : cnicImage ? '#1a6b3c' : '#d1d5db'}`,
+                            borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            cursor: 'pointer', overflow: 'hidden', background: cnicImage ? '#f0fdf4' : '#fafafa', flexShrink: 0,
+                          }}
+                        >
+                          {cnicImagePreview
+                            ? <img src={cnicImagePreview} alt="CNIC" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : <div style={{ textAlign: 'center', padding: '0.5rem' }}>
+                                <div style={{ fontSize: '1.5rem', marginBottom: '0.2rem' }}>🪪</div>
+                                <div style={{ fontSize: '0.65rem', color: '#6b7280' }}>Click to upload</div>
+                              </div>
+                          }
+                        </div>
+                        <div style={{ flex: 1, minWidth: 160 }}>
+                          <input id="cnicImageInput" type="file" accept="image/*" onChange={handleCnicImage} style={{ display: 'none' }} />
+                          <ul style={{ fontSize: '0.75rem', color: '#6b7280', paddingLeft: '1rem', margin: '0 0 0.6rem', lineHeight: 1.7 }}>
+                            <li>Front side of CNIC or passport photo page</li>
+                            <li>Accepted formats: JPG, PNG</li>
+                            <li>Maximum file size: 5MB</li>
+                          </ul>
+                          <button type="button" onClick={() => document.getElementById('cnicImageInput').click()}
+                            style={{ background: '#92400e', color: '#fff', border: 'none', borderRadius: 6, padding: '0.35rem 0.8rem', fontSize: '0.78rem', cursor: 'pointer' }}>
+                            {cnicImage ? 'Change Image' : 'Upload CNIC Photo'}
+                          </button>
+                          {cnicImageError && <div style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.4rem' }}>{cnicImageError}</div>}
+                          {cnicImage && !cnicImageError && <div style={{ color: '#1a6b3c', fontSize: '0.75rem', marginTop: '0.4rem' }}>✅ CNIC photo uploaded</div>}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div className="form-group">
                     <label>Email Address</label>
                     <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="ali@example.com" />
@@ -416,6 +541,44 @@ export default function BookingForm({ plot, navigate, dealer }) {
             </div>
           </form>
         </div>
+
+        {/* ── CNIC Scanner Modal ── */}
+        {scannerOpen && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.78)', zIndex: 9000,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            padding: '1.5rem',
+          }}>
+            <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', width: '100%', maxWidth: 420, boxShadow: '0 12px 48px rgba(0,0,0,0.4)' }}>
+              <div style={{ background: 'linear-gradient(135deg, #1a6b3c, #145530)', color: '#fff', padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '1rem' }}>📷 Scan CNIC / Passport</div>
+                  <div style={{ fontSize: '0.72rem', color: '#a3e4b8', marginTop: '0.2rem' }}>Point camera at the barcode or QR code on the card</div>
+                </div>
+                <button type="button" onClick={stopScanner} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, padding: '0.4rem 0.75rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }}>✕ Close</button>
+              </div>
+              <div style={{ padding: '1rem' }}>
+                <div id="cnic-qr-reader" style={{ width: '100%', borderRadius: 10, overflow: 'hidden', background: '#000', minHeight: 240 }} />
+                {scannerError && (
+                  <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '0.75rem 1rem', marginTop: '0.75rem', fontSize: '0.82rem', color: '#dc2626' }}>
+                    ⚠️ {scannerError}
+                    <div style={{ marginTop: '0.4rem', color: '#6b7280', fontSize: '0.75rem' }}>
+                      Please type the CNIC number manually instead.
+                    </div>
+                  </div>
+                )}
+                {!scannerError && (
+                  <div style={{ textAlign: 'center', marginTop: '0.75rem', fontSize: '0.75rem', color: '#6b7280' }}>
+                    Hold the card steady — the CNIC number will be filled automatically when detected.
+                  </div>
+                )}
+                <button type="button" onClick={stopScanner} style={{ marginTop: '0.75rem', width: '100%', background: '#f3f4f6', border: 'none', borderRadius: 8, padding: '0.6rem', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600, color: '#374151' }}>
+                  Enter CNIC manually instead
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── Plot Summary + Payment Plan ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
