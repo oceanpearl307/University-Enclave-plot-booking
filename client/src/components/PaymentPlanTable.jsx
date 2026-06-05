@@ -128,10 +128,10 @@ export default function PaymentPlanTable() {
 
         {/* Table */}
         <div style={{ overflowX: 'auto', borderRadius: 18, boxShadow: '0 4px 24px rgba(0,0,0,0.10)', border: '1px solid rgba(212,160,23,0.2)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: activeTab ? 320 : 620 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: activeTab ? 280 : 480 }}>
             <thead>
               <tr style={{ background: 'linear-gradient(135deg, #0d2d1a 0%, #1a4a28 60%, #1a6b3c 100%)' }}>
-                <th style={{ padding: '1.25rem 1.5rem', textAlign: 'left', color: '#a3e4b8', fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', borderRight: '1px solid rgba(255,255,255,0.08)', minWidth: 180 }}>
+                <th style={{ padding: '1rem 1rem', textAlign: 'left', color: '#a3e4b8', fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', borderRight: '1px solid rgba(255,255,255,0.08)', minWidth: 140 }}>
                   Payment Schedule
                 </th>
                 {(activeTab ? [activeTab] : PLAN_SIZES).map((size, i) => (

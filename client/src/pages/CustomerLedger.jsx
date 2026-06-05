@@ -322,7 +322,7 @@ function CalendarView({ dealerId, authToken }) {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
           {Array.from({ length: firstDayOfWeek }).map((_, i) => (
-            <div key={`empty-${i}`} style={{ minHeight: 72, borderRight: '1px solid #f8fafc', borderBottom: '1px solid #f8fafc', background: '#fafafa' }} />
+            <div key={`empty-${i}`} className="cal-empty-cell" />
           ))}
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const day = i + 1;
@@ -337,21 +337,16 @@ function CalendarView({ dealerId, authToken }) {
             return (
               <div
                 key={day}
+                className="cal-cell"
                 onClick={() => hasEvents ? setSelectedDay(isSelected ? null : day) : undefined}
                 style={{
-                  minHeight: 72,
-                  borderRight: '1px solid #f8fafc',
-                  borderBottom: '1px solid #f8fafc',
-                  padding: '0.375rem',
                   background: isSelected ? '#f0fdf4' : isToday ? '#f0f9ff' : '#fff',
-                  position: 'relative',
                   cursor: hasEvents ? 'pointer' : 'default',
                   outline: isSelected ? '2px solid #1a6b3c' : 'none',
                   outlineOffset: '-2px',
-                  transition: 'background 0.1s',
                 }}
               >
-                <div style={{ fontSize: '0.82rem', fontWeight: isToday || isSelected ? 900 : 600, color: isSelected ? '#1a6b3c' : isToday ? '#0ea5e9' : '#374151', marginBottom: '0.25rem' }}>
+                <div className="cal-day-num" style={{ fontSize: '0.82rem', fontWeight: isToday || isSelected ? 900 : 600, color: isSelected ? '#1a6b3c' : isToday ? '#0ea5e9' : '#374151', marginBottom: '0.25rem' }}>
                   {(isToday || isSelected) ? (
                     <span style={{ background: isSelected ? '#1a6b3c' : '#0ea5e9', color: '#fff', borderRadius: '50%', width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 800 }}>{day}</span>
                   ) : day}
