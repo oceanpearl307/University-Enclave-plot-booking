@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ueLogo from '../assets/ue-logo.png';
 
 const pkr = n => 'PKR ' + Number(n || 0).toLocaleString('en-US');
@@ -14,7 +14,61 @@ export default function BookingReceipt({ booking, onClose }) {
   const total = booking.plotPrice || 0;
   const remaining = total - dp;
 
+  const [shareOpen, setShareOpen] = useState(false);
+  const shareRef = useRef(null);
+
+  useEffect(() => {
+    if (!shareOpen) return;
+    const handler = (e) => {
+      if (shareRef.current && !shareRef.current.contains(e.target)) setShareOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [shareOpen]);
+
   const handlePrint = () => window.print();
+
+  const handleEmail = () => {
+    const subject = encodeURIComponent(`Booking Receipt – ${booking.bookingRef}`);
+    const body = encodeURIComponent(
+      `Dear ${booking.name},\n\n` +
+      `Please find your booking confirmation details below:\n\n` +
+      `Booking Reference: ${booking.bookingRef}\n` +
+      `Plot Number:       ${booking.plotNumber}\n` +
+      `Plot Size:         ${booking.plotSize}\n` +
+      `Block / Area:      ${booking.area}\n` +
+      `Total Price:       ${pkr(total)}\n` +
+      `Down Payment:      ${pkr(dp)}\n` +
+      `Remaining Balance: ${pkr(remaining)}\n` +
+      `Booking Date:      ${fmtDate(booking.approvedAt || booking.createdAt)}\n\n` +
+      `For queries, contact us at info@universityenclave.pk or call 111-002 001.\n\n` +
+      `University Enclave Housing Society\n` +
+      `Nathiyaglai Bypass, Havelian, Abbottabad`
+    );
+    const recipient = booking.email ? encodeURIComponent(booking.email) : '';
+    window.open(`mailto:${recipient}?subject=${subject}&body=${body}`, '_blank');
+    setShareOpen(false);
+  };
+
+  const handleWhatsApp = () => {
+    const text = encodeURIComponent(
+      `*University Enclave Housing Society*\n` +
+      `*Booking Confirmation Receipt*\n\n` +
+      `Dear ${booking.name},\n` +
+      `Your plot booking has been confirmed. Details below:\n\n` +
+      `📋 *Booking Ref:* ${booking.bookingRef}\n` +
+      `🏘️ *Plot No:* ${booking.plotNumber} | ${booking.plotSize} | ${booking.area}\n` +
+      `💰 *Total Price:* ${pkr(total)}\n` +
+      `✅ *Down Payment:* ${pkr(dp)}\n` +
+      `⏳ *Remaining:* ${pkr(remaining)}\n` +
+      `📅 *Date:* ${fmtDate(booking.approvedAt || booking.createdAt)}\n\n` +
+      `For queries: 111-002 001 | info@universityenclave.pk`
+    );
+    const phone = booking.phone ? booking.phone.replace(/[^0-9]/g, '') : '';
+    const waPhone = phone.startsWith('92') ? phone : phone.startsWith('0') ? '92' + phone.slice(1) : phone ? '92' + phone : '';
+    window.open(`https://wa.me/${waPhone}?text=${text}`, '_blank');
+    setShareOpen(false);
+  };
 
   return (
     <>
@@ -56,6 +110,64 @@ export default function BookingReceipt({ booking, onClose }) {
             fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 16px rgba(26,107,60,0.3)',
           }}>🖨️ Print / Save PDF</button>
+
+          {/* Share button + popover */}
+          <div ref={shareRef} style={{ position: 'relative' }}>
+            <button onClick={() => setShareOpen(o => !o)} style={{
+              background: 'linear-gradient(135deg, #1d4ed8, #2563eb)', color: '#fff',
+              border: 'none', borderRadius: 10, padding: '0.65rem 1.5rem',
+              fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 16px rgba(29,78,216,0.3)',
+            }}>📤 Share</button>
+
+            {shareOpen && (
+              <div style={{
+                position: 'absolute', top: 'calc(100% + 0.5rem)', right: 0,
+                background: '#fff', borderRadius: 12, boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+                border: '1px solid #e2e8f0', minWidth: 220, overflow: 'hidden', zIndex: 9200,
+              }}>
+                <div style={{ padding: '0.6rem 1rem 0.4rem', borderBottom: '1px solid #f1f5f9' }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    Send Receipt To Customer
+                  </div>
+                </div>
+                <button onClick={handleEmail} style={{
+                  width: '100%', background: 'none', border: 'none', padding: '0.75rem 1rem',
+                  display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer',
+                  fontSize: '0.88rem', fontWeight: 700, color: '#1e293b', textAlign: 'left',
+                  borderBottom: '1px solid #f1f5f9',
+                }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>✉️</span>
+                  <div>
+                    <div>Email Receipt</div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 500, color: '#64748b' }}>
+                      {booking.email || 'Opens email client'}
+                    </div>
+                  </div>
+                </button>
+                <button onClick={handleWhatsApp} style={{
+                  width: '100%', background: 'none', border: 'none', padding: '0.75rem 1rem',
+                  display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer',
+                  fontSize: '0.88rem', fontWeight: 700, color: '#1e293b', textAlign: 'left',
+                }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#f0fdf4'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>💬</span>
+                  <div>
+                    <div>WhatsApp</div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 500, color: '#64748b' }}>
+                      {booking.phone || 'Opens WhatsApp'}
+                    </div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
+
           <button onClick={onClose} style={{
             background: '#fff', color: '#374151', border: 'none', borderRadius: 10,
             padding: '0.65rem 1.25rem', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer',
