@@ -21,8 +21,8 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-const TABS = ['Dealers', 'Registrations', 'Bookings', 'Packages', 'Inventory', 'Deals', 'Staff', 'Backups'];
-const tabIcons = { Dealers: '👥', Registrations: '📋', Bookings: '📩', Packages: '📦', Inventory: '🏘️', Deals: '🏷️', Staff: '⚙️', Backups: '🗄️' };
+const TABS = ['Dealers', 'Registrations', 'Bookings', 'Packages', 'Inventory', 'Deals', 'Staff', 'Backups', 'Announcements'];
+const tabIcons = { Dealers: '👥', Registrations: '📋', Bookings: '📩', Packages: '📦', Inventory: '🏘️', Deals: '🏷️', Staff: '⚙️', Backups: '🗄️', Announcements: '📢' };
 const PRIV_OPTIONS = [
   { key: 'approveBookings',     label: 'Approve Bookings',          icon: '📋', group: 'Bookings'   },
   { key: 'viewPlots',           label: 'View Plot Inventory',        icon: '🏘️', group: 'Inventory'  },
@@ -187,6 +187,15 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [editLabelValue, setEditLabelValue] = useState('');
   const [savingLabel, setSavingLabel] = useState(null);
 
+  // ── Announcements tab ──
+  const [anns, setAnns] = useState([]);
+  const [annsLoading, setAnnsLoading] = useState(false);
+  const [annEdit, setAnnEdit] = useState(null);
+  const defaultAnnForm = () => ({ title: '', body: '', date: new Date().toISOString().slice(0, 10), tag: '', important: false, images: [] });
+  const [annForm, setAnnForm] = useState(defaultAnnForm());
+  const [annSaving, setAnnSaving] = useState(false);
+  const [annMsg, setAnnMsg] = useState('');
+
   // ── Staff tab ──
   const [staff, setStaff] = useState([]);
   const [dealerSort, setDealerSort] = useState({ col: null, dir: 'desc' });
@@ -207,6 +216,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const loadSectors = () => fetch('/api/admin/sectors').then(r => r.json()).then(d => { if (Array.isArray(d)) setSectors(d); }).catch(() => {});
   const loadDeals = () => { setDealsLoading(true); fetch('/api/admin/deals').then(r => r.json()).then(d => { setDeals(Array.isArray(d) ? d : []); setDealsLoading(false); }).catch(() => setDealsLoading(false)); };
   const loadStaff = () => { setStaffLoading(true); fetch('/api/admin/staff').then(r => r.json()).then(d => { setStaff(Array.isArray(d) ? d : []); setStaffLoading(false); }).catch(() => setStaffLoading(false)); };
+  const loadAnns = () => { setAnnsLoading(true); fetch('/api/announcements').then(r => r.json()).then(d => { setAnns(Array.isArray(d) ? d : []); setAnnsLoading(false); }).catch(() => setAnnsLoading(false)); };
   const loadBackups = () => { setBackupsLoading(true); setBackupsMsg(''); fetch('/api/admin/backups', { headers: { Authorization: `Bearer ${authToken}` } }).then(r => { if (r.status === 401) { onLogout(); return []; } return r.json(); }).then(d => { setBackups(Array.isArray(d) ? d : []); setBackupsLoading(false); }).catch(() => { setBackupsLoading(false); setBackupsMsg('❌ Failed to load backups'); }); };
 
   const handleCreateBackup = async () => {
@@ -294,6 +304,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     if (tab === 'Deals') { loadDeals(); loadPlots(); }
     if (tab === 'Staff') loadStaff();
     if (tab === 'Backups') loadBackups();
+    if (tab === 'Announcements') loadAnns();
   }, [tab]);
 
   useEffect(() => {
@@ -704,6 +715,50 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     if (!confirm('Delete this deal?')) return;
     await fetch(`/api/admin/deals/${id}`, { method: 'DELETE' });
     loadDeals();
+  };
+
+  const openAnnForm = (ann) => {
+    setAnnMsg('');
+    if (ann) {
+      setAnnEdit(ann);
+      setAnnForm({ title: ann.title, body: ann.body, date: ann.date, tag: ann.tag || '', important: !!ann.important, images: ann.images || [] });
+    } else {
+      setAnnEdit('new');
+      setAnnForm(defaultAnnForm());
+    }
+  };
+
+  const handleAnnImageUpload = e => {
+    const files = Array.from(e.target.files);
+    const remaining = 8 - annForm.images.length;
+    files.slice(0, remaining).forEach(file => {
+      if (file.size > 5 * 1024 * 1024) { setAnnMsg('❌ Each image must be under 5 MB'); return; }
+      const reader = new FileReader();
+      reader.onload = ev => setAnnForm(f => ({ ...f, images: [...f.images, ev.target.result] }));
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const removeAnnImage = idx => setAnnForm(f => ({ ...f, images: f.images.filter((_, i) => i !== idx) }));
+
+  const handleSaveAnn = async e => {
+    e.preventDefault(); setAnnSaving(true); setAnnMsg('');
+    try {
+      const url = annEdit === 'new' ? '/api/admin/announcements' : `/api/admin/announcements/${annEdit.id}`;
+      const method = annEdit === 'new' ? 'POST' : 'PUT';
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(annForm) });
+      if (!res.ok) throw new Error('Failed');
+      setAnnMsg('✅ Saved!');
+      setTimeout(() => { setAnnEdit(null); setAnnMsg(''); }, 800);
+      loadAnns();
+    } catch { setAnnMsg('❌ Save failed'); } finally { setAnnSaving(false); }
+  };
+
+  const handleDeleteAnn = async (id) => {
+    if (!confirm('Delete this announcement?')) return;
+    await fetch(`/api/admin/announcements/${id}`, { method: 'DELETE' });
+    loadAnns();
   };
 
   const openStaffForm = (s) => {
@@ -2926,6 +2981,119 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                   {staffMsg && <div className={staffMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ fontSize: '0.85rem' }}>{staffMsg}</div>}
                   <button type="submit" className="btn btn-primary" disabled={staffSaving} style={{ justifyContent: 'center', padding: '0.75rem', background: '#0284c7' }}>
                     {staffSaving ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> Saving...</> : '✓ Save Staff Account'}
+                  </button>
+                </form>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'Announcements' && (
+          <div className="side-panel-layout" style={{ gridTemplateColumns: annEdit ? '1fr 420px' : '1fr' }}>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <div>
+                  <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>📢 Announcements</h3>
+                  <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Manage public announcements shown on the home page and announcements page</p>
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={() => openAnnForm(null)}>+ New Announcement</button>
+              </div>
+
+              {annsLoading ? (
+                <div className="loading"><div className="spinner"></div>Loading...</div>
+              ) : anns.length === 0 ? (
+                <div style={{ background: '#fff', borderRadius: 16, padding: '3rem', textAlign: 'center', color: '#94a3b8', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📭</div>
+                  <div style={{ fontWeight: 600 }}>No announcements yet. Create one to publish to visitors.</div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+                  {[...anns].sort((a, b) => new Date(b.date) - new Date(a.date)).map(a => (
+                    <div key={a.id} style={{ background: '#fff', borderRadius: 14, padding: '1.25rem 1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: `1.5px solid ${annEdit?.id === a.id ? '#bfdbfe' : a.important ? '#fde68a' : '#f1f5f9'}`, borderLeft: `4px solid ${a.important ? '#d4a017' : '#e2e8f0'}` }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.3rem', flexWrap: 'wrap' }}>
+                            {a.important && <span style={{ background: '#fef2f2', color: '#dc2626', fontSize: '0.68rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: 9999, border: '1px solid #fecaca' }}>🔴 Important</span>}
+                            {a.tag && <span style={{ background: '#f1f5f9', color: '#475569', fontSize: '0.68rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: 9999, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{a.tag}</span>}
+                            {a.images?.length > 0 && <span style={{ background: '#f0fdf4', color: '#15803d', fontSize: '0.68rem', fontWeight: 700, padding: '0.15rem 0.45rem', borderRadius: 9999, border: '1px solid #bbf7d0' }}>🖼 {a.images.length} image{a.images.length !== 1 ? 's' : ''}</span>}
+                          </div>
+                          <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a', marginBottom: '0.3rem' }}>{a.title}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#64748b', lineHeight: 1.55, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{a.body}</div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem', flexShrink: 0 }}>
+                          <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{new Date(a.date).toLocaleDateString('en-PK', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
+                          <div style={{ display: 'flex', gap: '0.4rem' }}>
+                            <button onClick={() => openAnnForm(a)} style={{ padding: '0.3rem 0.6rem', background: '#f1f5f9', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700 }}>✏️</button>
+                            <button onClick={() => handleDeleteAnn(a.id)} style={{ padding: '0.3rem 0.6rem', background: '#fef2f2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#dc2626' }}>🗑️</button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {annEdit && (
+              <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', position: 'sticky', top: 80, overflow: 'hidden', maxHeight: '90vh', overflowY: 'auto' }}>
+                <div style={{ background: 'linear-gradient(135deg, #1a6b3c, #145530)', color: '#fff', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>{annEdit === 'new' ? '+ New Announcement' : 'Edit Announcement'}</div>
+                  <button onClick={() => { setAnnEdit(null); setAnnMsg(''); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                </div>
+                <form onSubmit={handleSaveAnn} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label>Title</label>
+                    <input required value={annForm.title} onChange={e => setAnnForm(f => ({ ...f, title: e.target.value }))} placeholder="Announcement title" />
+                  </div>
+                  <div className="form-group">
+                    <label>Body</label>
+                    <textarea required value={annForm.body} onChange={e => setAnnForm(f => ({ ...f, body: e.target.value }))} placeholder="Announcement details…" rows={5} style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.9rem', resize: 'vertical' }} />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div className="form-group">
+                      <label>Date</label>
+                      <input required type="date" value={annForm.date} onChange={e => setAnnForm(f => ({ ...f, date: e.target.value }))} />
+                    </div>
+                    <div className="form-group">
+                      <label>Tag</label>
+                      <input value={annForm.tag} onChange={e => setAnnForm(f => ({ ...f, tag: e.target.value }))} placeholder="e.g. Finance" />
+                    </div>
+                  </div>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', padding: '0.625rem 0.875rem', background: '#fefce8', borderRadius: 9, border: '1.5px solid #fcd34d' }}>
+                    <input type="checkbox" checked={annForm.important} onChange={e => setAnnForm(f => ({ ...f, important: e.target.checked }))} />
+                    <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#92400e' }}>🔴 Mark as Important</span>
+                  </label>
+
+                  <div>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>
+                      🖼 Images ({annForm.images.length}/8)
+                    </div>
+                    {annForm.images.length > 0 && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.625rem' }}>
+                        {annForm.images.map((img, idx) => (
+                          <div key={idx} style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 8, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                            <img src={img} alt={`img-${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                            <button
+                              type="button"
+                              onClick={() => removeAnnImage(idx)}
+                              style={{ position: 'absolute', top: 3, right: 3, background: 'rgba(220,38,38,0.85)', border: 'none', color: '#fff', width: 20, height: 20, borderRadius: '50%', cursor: 'pointer', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
+                            >✕</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {annForm.images.length < 8 && (
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.625rem 0.875rem', border: '2px dashed #d1d5db', borderRadius: 9, cursor: 'pointer', fontSize: '0.82rem', color: '#6b7280', fontWeight: 600 }}>
+                        <input type="file" accept="image/*" multiple onChange={handleAnnImageUpload} style={{ display: 'none' }} />
+                        📎 Add images (JPG/PNG, max 5 MB each)
+                      </label>
+                    )}
+                    <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '0.3rem' }}>Up to 8 images per announcement</div>
+                  </div>
+
+                  {annMsg && <div className={annMsg.startsWith('✅') ? 'alert alert-success' : 'alert alert-error'} style={{ fontSize: '0.85rem' }}>{annMsg}</div>}
+                  <button type="submit" className="btn btn-primary" disabled={annSaving} style={{ justifyContent: 'center', padding: '0.75rem', background: '#1a6b3c' }}>
+                    {annSaving ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> Saving...</> : '✓ Save Announcement'}
                   </button>
                 </form>
               </div>

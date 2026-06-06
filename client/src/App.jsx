@@ -5,6 +5,7 @@ import Plots from './pages/Plots.jsx';
 import BookingForm from './pages/BookingForm.jsx';
 import BookingStatus from './pages/BookingStatus.jsx';
 import About from './pages/About.jsx';
+import Announcements from './pages/Announcements.jsx';
 import DealerDashboard from './pages/DealerDashboard.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import OperationsDashboard from './pages/OperationsDashboard.jsx';
@@ -138,6 +139,7 @@ export default function App() {
         {page === 'booking' && (dealer || customer ? <BookingForm plot={selectedPlot} navigate={navigate} dealer={dealer} /> : <Home navigate={navigate} {...authProps} />)}
         {page === 'status' && (dealer || customer ? <BookingStatus navigate={navigate} /> : <Home navigate={navigate} {...authProps} />)}
         {page === 'about' && <About navigate={navigate} />}
+        {page === 'announcements' && <Announcements navigate={navigate} />}
         {page === 'dashboard' && dealer && dealer.role === 'dealer' && (
           <DealerDashboard dealer={dealer} authToken={authToken} onLogout={handleLogout} navigate={navigate} />
         )}

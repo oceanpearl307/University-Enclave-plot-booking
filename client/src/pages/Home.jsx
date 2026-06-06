@@ -202,6 +202,12 @@ export default function Home({ navigate, dealer, customer, onDealerLogin, onCust
               </div>
               <p style={{ color: '#78716c', fontSize: '0.875rem' }}>Stay updated with the latest news from University Enclave</p>
             </div>
+            <button
+              onClick={() => navigate('announcements')}
+              style={{ background: '#1a6b3c', color: '#fff', border: 'none', borderRadius: 9, padding: '0.5rem 1.125rem', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap' }}
+            >
+              View all →
+            </button>
           </div>
 
           {announcements.length === 0 ? (

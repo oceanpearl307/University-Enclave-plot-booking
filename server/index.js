@@ -500,10 +500,10 @@ let operationsStaff = [
 let opsCounter = 1;
 
 let announcements = [
-  { id: 1, title: 'New Block D Plots Available!', body: 'We are pleased to announce the launch of commercial plots in Block D. Limited plots available — book early to secure your spot.', date: '2026-04-20', tag: 'New Launch', important: true },
-  { id: 2, title: 'Revised Payment Plan 2026', body: 'Flexible installment plans are now available for all residential plots. Pay in 24 easy monthly installments with zero markup.', date: '2026-04-15', tag: 'Finance', important: false },
-  { id: 3, title: 'Society Possession Update', body: 'Plot possession for Block A and B will begin from May 15, 2026. All plot holders are requested to ensure their documentation is complete.', date: '2026-04-10', tag: 'Possession', important: true },
-  { id: 4, title: 'Development Work Progress', body: 'Roads, sewerage, and utility infrastructure work in Block C is 80% complete. Expected completion by end of April 2026.', date: '2026-04-05', tag: 'Development', important: false },
+  { id: 1, title: 'Rose Area Plots Now Available!', body: 'We are pleased to announce the launch of 246 residential plots in the Rose area. All plots are 1 Kanal in size. Limited availability — book early to secure your preferred plot.', date: '2026-04-20', tag: 'New Launch', important: true, images: [] },
+  { id: 2, title: 'Revised Payment Plan 2026', body: 'Flexible 4-year installment plans are now available for all Rose area plots. Pay a 10% down payment and spread the balance across monthly and semi-annual installments with zero markup.', date: '2026-04-15', tag: 'Finance', important: false, images: [] },
+  { id: 3, title: 'Development Work Update', body: 'Roads, boundary walls, and utility infrastructure work in the Rose area is progressing rapidly. Underground water, electricity, and gas connections are being laid in phases. Expected first-phase completion by mid-2026.', date: '2026-04-10', tag: 'Development', important: true, images: [] },
+  { id: 4, title: 'Corner Plot Premium Pricing', body: '34 corner plots in the Rose area carry a 10% premium on the base price. Corner plots offer extra frontage, natural light, and superior resale value. These are selling fast — enquire today.', date: '2026-04-05', tag: 'Notice', important: false, images: [] },
 ];
 let annCounter = 4;
 
@@ -1637,9 +1637,9 @@ app.get('/api/admin/customers', (req, res) => {
 
 // ─── Admin: Announcements CRUD ────────────────────────────────────────────────
 app.post('/api/admin/announcements', (req, res) => {
-  const { title, body, date, tag, important } = req.body;
+  const { title, body, date, tag, important, images } = req.body;
   if (!title || !body) return res.status(400).json({ error: 'title and body required' });
-  const ann = { id: ++annCounter, title, body, date: date || new Date().toISOString().slice(0, 10), tag: tag || '', important: !!important };
+  const ann = { id: ++annCounter, title, body, date: date || new Date().toISOString().slice(0, 10), tag: tag || '', important: !!important, images: Array.isArray(images) ? images : [] };
   announcements.push(ann);
   saveDb();
   res.status(201).json(ann);
@@ -1648,12 +1648,13 @@ app.post('/api/admin/announcements', (req, res) => {
 app.put('/api/admin/announcements/:id', (req, res) => {
   const ann = announcements.find(a => a.id === parseInt(req.params.id));
   if (!ann) return res.status(404).json({ error: 'Not found' });
-  const { title, body, date, tag, important } = req.body;
+  const { title, body, date, tag, important, images } = req.body;
   if (title !== undefined) ann.title = title;
   if (body !== undefined) ann.body = body;
   if (date !== undefined) ann.date = date;
   if (tag !== undefined) ann.tag = tag;
   if (important !== undefined) ann.important = !!important;
+  if (images !== undefined) ann.images = Array.isArray(images) ? images : [];
   saveDb();
   res.json(ann);
 });
