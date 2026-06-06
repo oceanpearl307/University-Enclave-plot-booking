@@ -200,6 +200,26 @@ export default function BookingForm({ plot, navigate, dealer }) {
     }
   };
 
+  const compressImage = (file, maxPx = 1200, quality = 0.82) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = ev => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        const scale = Math.min(1, maxPx / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
   const handlePhoto = e => {
     const file = e.target.files[0];
     setPhotoError('');
@@ -212,12 +232,12 @@ export default function BookingForm({ plot, navigate, dealer }) {
       setPhotoError('Photo must be smaller than 5MB.');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = ev => {
-      setPhoto(ev.target.result);
-      setPhotoPreview(ev.target.result);
-    };
-    reader.readAsDataURL(file);
+    compressImage(file).then(dataUrl => {
+      setPhoto(dataUrl);
+      setPhotoPreview(dataUrl);
+    }).catch(() => {
+      setPhotoError('Could not process the image. Please try a different file.');
+    });
   };
 
   const handleCnicImage = e => {
@@ -232,12 +252,12 @@ export default function BookingForm({ plot, navigate, dealer }) {
       setCnicImageError('File must be smaller than 5MB.');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = ev => {
-      setCnicImage(ev.target.result);
-      setCnicImagePreview(ev.target.result);
-    };
-    reader.readAsDataURL(file);
+    compressImage(file, 1600, 0.85).then(dataUrl => {
+      setCnicImage(dataUrl);
+      setCnicImagePreview(dataUrl);
+    }).catch(() => {
+      setCnicImageError('Could not process the image. Please try a different file.');
+    });
   };
 
   const handleSubmit = async e => {
