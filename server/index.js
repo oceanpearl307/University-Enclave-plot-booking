@@ -8,7 +8,7 @@ const app = express();
 const PORT = 3001;
 
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '100mb' }));
 app.set('trust proxy', true);
 
 // Auto-persist on every mutating request once a response is sent
@@ -1637,29 +1637,35 @@ app.get('/api/admin/customers', (req, res) => {
 
 // ─── Admin: Announcements CRUD ────────────────────────────────────────────────
 app.post('/api/admin/announcements', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const { title, body, date, tag, important, images } = req.body;
   if (!title || !body) return res.status(400).json({ error: 'title and body required' });
-  const ann = { id: ++annCounter, title, body, date: date || new Date().toISOString().slice(0, 10), tag: tag || '', important: !!important, images: Array.isArray(images) ? images : [] };
+  if (Array.isArray(images) && images.length > 8) return res.status(400).json({ error: 'Maximum 8 images per announcement' });
+  const validImages = Array.isArray(images) ? images.filter(img => typeof img === 'string' && img.startsWith('data:image/')) : [];
+  const ann = { id: ++annCounter, title, body, date: date || new Date().toISOString().slice(0, 10), tag: tag || '', important: !!important, images: validImages };
   announcements.push(ann);
   saveDb();
   res.status(201).json(ann);
 });
 
 app.put('/api/admin/announcements/:id', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const ann = announcements.find(a => a.id === parseInt(req.params.id));
   if (!ann) return res.status(404).json({ error: 'Not found' });
   const { title, body, date, tag, important, images } = req.body;
+  if (Array.isArray(images) && images.length > 8) return res.status(400).json({ error: 'Maximum 8 images per announcement' });
   if (title !== undefined) ann.title = title;
   if (body !== undefined) ann.body = body;
   if (date !== undefined) ann.date = date;
   if (tag !== undefined) ann.tag = tag;
   if (important !== undefined) ann.important = !!important;
-  if (images !== undefined) ann.images = Array.isArray(images) ? images : [];
+  if (images !== undefined) ann.images = Array.isArray(images) ? images.filter(img => typeof img === 'string' && img.startsWith('data:image/')) : [];
   saveDb();
   res.json(ann);
 });
 
 app.delete('/api/admin/announcements/:id', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const idx = announcements.findIndex(a => a.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
   announcements.splice(idx, 1);

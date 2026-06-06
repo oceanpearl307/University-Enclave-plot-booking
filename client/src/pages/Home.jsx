@@ -206,7 +206,7 @@ export default function Home({ navigate, dealer, customer, onDealerLogin, onCust
               onClick={() => navigate('announcements')}
               style={{ background: '#1a6b3c', color: '#fff', border: 'none', borderRadius: 9, padding: '0.5rem 1.125rem', fontSize: '0.85rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap' }}
             >
-              View all →
+              View all announcements →
             </button>
           </div>
 

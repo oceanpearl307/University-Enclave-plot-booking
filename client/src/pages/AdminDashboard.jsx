@@ -747,18 +747,19 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     try {
       const url = annEdit === 'new' ? '/api/admin/announcements' : `/api/admin/announcements/${annEdit.id}`;
       const method = annEdit === 'new' ? 'POST' : 'PUT';
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(annForm) });
-      if (!res.ok) throw new Error('Failed');
+      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }, body: JSON.stringify(annForm) });
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Failed'); }
       setAnnMsg('✅ Saved!');
       setTimeout(() => { setAnnEdit(null); setAnnMsg(''); }, 800);
       loadAnns();
-    } catch { setAnnMsg('❌ Save failed'); } finally { setAnnSaving(false); }
+    } catch (err) { setAnnMsg(`❌ ${err.message || 'Save failed'}`); } finally { setAnnSaving(false); }
   };
 
   const handleDeleteAnn = async (id) => {
     if (!confirm('Delete this announcement?')) return;
-    await fetch(`/api/admin/announcements/${id}`, { method: 'DELETE' });
-    loadAnns();
+    const res = await fetch(`/api/admin/announcements/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${authToken}` } });
+    if (res.ok) loadAnns();
+    else { const d = await res.json().catch(() => ({})); setAnnMsg(`❌ ${d.error || 'Delete failed'}`); }
   };
 
   const openStaffForm = (s) => {
@@ -3084,8 +3085,8 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     )}
                     {annForm.images.length < 8 && (
                       <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.625rem 0.875rem', border: '2px dashed #d1d5db', borderRadius: 9, cursor: 'pointer', fontSize: '0.82rem', color: '#6b7280', fontWeight: 600 }}>
-                        <input type="file" accept="image/*" multiple onChange={handleAnnImageUpload} style={{ display: 'none' }} />
-                        📎 Add images (JPG/PNG, max 5 MB each)
+                        <input type="file" accept="image/jpeg,image/png" multiple onChange={handleAnnImageUpload} style={{ display: 'none' }} />
+                        📎 Add images (JPG or PNG, max 5 MB each)
                       </label>
                     )}
                     <div style={{ fontSize: '0.72rem', color: '#9ca3af', marginTop: '0.3rem' }}>Up to 8 images per announcement</div>
