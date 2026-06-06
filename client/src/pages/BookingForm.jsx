@@ -20,6 +20,7 @@ export default function BookingForm({ plot, navigate, dealer }) {
   const [cnicImageError, setCnicImageError] = useState('');
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scannerError, setScannerError] = useState('');
+  const [scanTarget, setScanTarget] = useState('buyer');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
@@ -159,7 +160,7 @@ export default function BookingForm({ plot, navigate, dealer }) {
             clearTimeout(decodeTimeoutId);
             const digits = decodedText.replace(/\D/g, '').slice(0, 13);
             const formatted = formatCnic(digits);
-            setForm(f => ({ ...f, cnic: formatted }));
+            setForm(f => ({ ...f, [scanTarget === 'nominee' ? 'nomineeCnic' : 'cnic']: formatted }));
             stopScanner();
           },
           () => {}
@@ -327,7 +328,7 @@ export default function BookingForm({ plot, navigate, dealer }) {
                       <label>CNIC Number <span className="required">*</span></label>
                       <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
                         <input name="cnic" value={form.cnic} onChange={handleChange} placeholder="35201-1234567-1" maxLength={15} required style={{ fontFamily: 'monospace', letterSpacing: '0.04em', flex: 1 }} />
-                        <button type="button" onClick={() => { setScannerError(''); setScannerOpen(true); }}
+                        <button type="button" onClick={() => { setScanTarget('buyer'); setScannerError(''); setScannerOpen(true); }}
                           title="Scan CNIC barcode / QR code"
                           style={{ background: '#1a6b3c', color: '#fff', border: 'none', borderRadius: 7, padding: '0.5rem 0.6rem', cursor: 'pointer', fontSize: '1rem', flexShrink: 0, lineHeight: 1 }}>
                           📷
@@ -454,7 +455,14 @@ export default function BookingForm({ plot, navigate, dealer }) {
                   <div className="grid-2">
                     <div className="form-group">
                       <label>Nominee CNIC Number <span className="required">*</span></label>
-                      <input name="nomineeCnic" value={form.nomineeCnic} onChange={handleChange} placeholder="35201-7654321-1" maxLength={15} required style={{ fontFamily: 'monospace', letterSpacing: '0.04em' }} />
+                      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                        <input name="nomineeCnic" value={form.nomineeCnic} onChange={handleChange} placeholder="35201-7654321-1" maxLength={15} required style={{ fontFamily: 'monospace', letterSpacing: '0.04em', flex: 1 }} />
+                        <button type="button" onClick={() => { setScanTarget('nominee'); setScannerError(''); setScannerOpen(true); }}
+                          title="Scan Nominee CNIC barcode / QR code"
+                          style={{ background: '#1a6b3c', color: '#fff', border: 'none', borderRadius: 7, padding: '0.5rem 0.6rem', cursor: 'pointer', fontSize: '1rem', flexShrink: 0, lineHeight: 1 }}>
+                          📷
+                        </button>
+                      </div>
                       {form.nomineeCnic && !isValidCnic(form.nomineeCnic) && <div style={{ color: '#dc2626', fontSize: '0.75rem', marginTop: '0.3rem' }}>⚠️ Format must be: XXXXX-XXXXXXX-X</div>}
                       {form.nomineeCnic && isValidCnic(form.nomineeCnic) && <div style={{ color: '#059669', fontSize: '0.75rem', marginTop: '0.3rem' }}>✅ Valid CNIC format</div>}
                     </div>
@@ -559,7 +567,7 @@ export default function BookingForm({ plot, navigate, dealer }) {
             <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', width: '100%', maxWidth: 420, boxShadow: '0 12px 48px rgba(0,0,0,0.4)' }}>
               <div style={{ background: 'linear-gradient(135deg, #1a6b3c, #145530)', color: '#fff', padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: '1rem' }}>📷 Scan CNIC / Passport</div>
+                  <div style={{ fontWeight: 800, fontSize: '1rem' }}>📷 Scan {scanTarget === 'nominee' ? 'Nominee' : 'Buyer'} CNIC / Passport</div>
                   <div style={{ fontSize: '0.72rem', color: '#a3e4b8', marginTop: '0.2rem' }}>Point camera at the barcode or QR code on the card</div>
                 </div>
                 <button type="button" onClick={stopScanner} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, padding: '0.4rem 0.75rem', cursor: 'pointer', fontWeight: 700, fontSize: '0.85rem' }}>✕ Close</button>
