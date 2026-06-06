@@ -1727,10 +1727,64 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     <button onClick={() => setSelectedBkg(null)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                   </div>
                   <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                    {selectedBkg.photo && (
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                        <img src={selectedBkg.photo} alt="Buyer" style={{ width: 90, height: 110, objectFit: 'cover', borderRadius: 8, border: '2px solid #e5e7eb' }} />
-                        <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>Buyer Photo</div>
+                    {/* ── Buyer Photo + CNIC Image thumbnails ── */}
+                    {(selectedBkg.photo || selectedBkg.cnicImage) && (
+                      <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                        {/* Buyer Photo */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', flex: 1 }}>
+                          {selectedBkg.photo ? (
+                            <>
+                              <img src={selectedBkg.photo} alt="Buyer" style={{ width: '100%', maxWidth: 90, height: 110, objectFit: 'cover', borderRadius: 8, border: '2px solid #e5e7eb', display: 'block' }} />
+                              <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>Buyer Photo</div>
+                              <a
+                                href={selectedBkg.photo}
+                                download={`buyer-photo-${selectedBkg.bookingRef}.jpg`}
+                                style={{ fontSize: '0.68rem', background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#065f46', borderRadius: 6, padding: '0.2rem 0.5rem', fontWeight: 700, textDecoration: 'none', cursor: 'pointer' }}
+                              >⬇ Download</a>
+                            </>
+                          ) : (
+                            <>
+                              <div style={{ width: '100%', maxWidth: 90, height: 110, borderRadius: 8, border: '2px dashed #e5e7eb', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1', fontSize: '1.5rem' }}>🧑</div>
+                              <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>Buyer Photo</div>
+                              <div style={{ fontSize: '0.68rem', color: '#94a3b8', fontStyle: 'italic' }}>Not provided</div>
+                            </>
+                          )}
+                        </div>
+                        {/* CNIC Image */}
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', flex: 1 }}>
+                          {selectedBkg.cnicImage ? (
+                            <>
+                              <img src={selectedBkg.cnicImage} alt="CNIC" style={{ width: '100%', maxWidth: 120, height: 110, objectFit: 'cover', borderRadius: 8, border: '2px solid #fde68a', display: 'block' }} />
+                              <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>CNIC Photo</div>
+                              <a
+                                href={selectedBkg.cnicImage}
+                                download={`cnic-${selectedBkg.bookingRef}.jpg`}
+                                style={{ fontSize: '0.68rem', background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', borderRadius: 6, padding: '0.2rem 0.5rem', fontWeight: 700, textDecoration: 'none', cursor: 'pointer' }}
+                              >⬇ Download</a>
+                            </>
+                          ) : (
+                            <>
+                              <div style={{ width: '100%', maxWidth: 120, height: 110, borderRadius: 8, border: '2px dashed #fde68a', background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fbbf24', fontSize: '1.5rem' }}>🪪</div>
+                              <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>CNIC Photo</div>
+                              <div style={{ fontSize: '0.68rem', color: '#94a3b8', fontStyle: 'italic' }}>Not provided</div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    {/* Show placeholder row when neither photo exists */}
+                    {!selectedBkg.photo && !selectedBkg.cnicImage && (
+                      <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', flex: 1 }}>
+                          <div style={{ width: '100%', maxWidth: 90, height: 110, borderRadius: 8, border: '2px dashed #e5e7eb', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#cbd5e1', fontSize: '1.5rem' }}>🧑</div>
+                          <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>Buyer Photo</div>
+                          <div style={{ fontSize: '0.68rem', color: '#94a3b8', fontStyle: 'italic' }}>Not provided</div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', flex: 1 }}>
+                          <div style={{ width: '100%', maxWidth: 120, height: 110, borderRadius: 8, border: '2px dashed #fde68a', background: '#fffbeb', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fbbf24', fontSize: '1.5rem' }}>🪪</div>
+                          <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>CNIC Photo</div>
+                          <div style={{ fontSize: '0.68rem', color: '#94a3b8', fontStyle: 'italic' }}>Not provided</div>
+                        </div>
                       </div>
                     )}
                     <div style={{ background: '#f0fdf4', borderRadius: 10, padding: '0.875rem 1rem' }}>
