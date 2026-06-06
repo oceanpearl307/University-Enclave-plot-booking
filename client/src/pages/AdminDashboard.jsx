@@ -741,6 +741,13 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   };
 
   const removeAnnImage = idx => setAnnForm(f => ({ ...f, images: f.images.filter((_, i) => i !== idx) }));
+  const moveAnnImage = (idx, dir) => setAnnForm(f => {
+    const imgs = [...f.images];
+    const target = idx + dir;
+    if (target < 0 || target >= imgs.length) return f;
+    [imgs[idx], imgs[target]] = [imgs[target], imgs[idx]];
+    return { ...f, images: imgs };
+  });
 
   const handleSaveAnn = async e => {
     e.preventDefault(); setAnnSaving(true); setAnnMsg('');
@@ -3072,13 +3079,32 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     {annForm.images.length > 0 && (
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.625rem' }}>
                         {annForm.images.map((img, idx) => (
-                          <div key={idx} style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 8, overflow: 'hidden', border: '1px solid #e2e8f0' }}>
+                          <div key={idx} style={{ position: 'relative', aspectRatio: '4/3', borderRadius: 8, overflow: 'hidden', border: idx === 0 ? '2px solid #1a6b3c' : '1px solid #e2e8f0' }}>
                             <img src={img} alt={`img-${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                            {idx === 0 && (
+                              <div style={{ position: 'absolute', top: 3, left: 3, background: '#1a6b3c', color: '#fff', fontSize: '0.6rem', fontWeight: 700, padding: '1px 5px', borderRadius: 4, letterSpacing: '0.03em' }}>COVER</div>
+                            )}
                             <button
                               type="button"
                               onClick={() => removeAnnImage(idx)}
                               style={{ position: 'absolute', top: 3, right: 3, background: 'rgba(220,38,38,0.85)', border: 'none', color: '#fff', width: 20, height: 20, borderRadius: '50%', cursor: 'pointer', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
                             >✕</button>
+                            <div style={{ position: 'absolute', bottom: 3, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 3 }}>
+                              <button
+                                type="button"
+                                onClick={() => moveAnnImage(idx, -1)}
+                                disabled={idx === 0}
+                                title="Move left"
+                                style={{ background: idx === 0 ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.55)', border: 'none', color: '#fff', width: 20, height: 20, borderRadius: 4, cursor: idx === 0 ? 'not-allowed' : 'pointer', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
+                              >◀</button>
+                              <button
+                                type="button"
+                                onClick={() => moveAnnImage(idx, 1)}
+                                disabled={idx === annForm.images.length - 1}
+                                title="Move right"
+                                style={{ background: idx === annForm.images.length - 1 ? 'rgba(0,0,0,0.25)' : 'rgba(0,0,0,0.55)', border: 'none', color: '#fff', width: 20, height: 20, borderRadius: 4, cursor: idx === annForm.images.length - 1 ? 'not-allowed' : 'pointer', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}
+                              >▶</button>
+                            </div>
                           </div>
                         ))}
                       </div>
