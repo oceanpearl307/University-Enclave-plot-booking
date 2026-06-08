@@ -417,10 +417,19 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       ? `${df.from || 'all'} to ${df.to || 'all'}`
       : 'All dates';
 
-    const metaRows = [
-      [`Dealer: ${dealerName}`],
-      [`Period: ${rangeLabel}`],
-      [`Exported: ${today}`],
+    const comm = ledger.commission || {};
+    const totalPaidOut = (ledger.payoutHistory || []).reduce((s, p) => s + (p.amount || 0), 0);
+
+    const summaryBlock = [
+      ['COMMISSION STATEMENT'],
+      [],
+      ['Dealer Name', dealerName],
+      ['Export Date', today],
+      ['Period', rangeLabel],
+      ['Commission Rate (%)', comm.rate ?? ''],
+      ['Total Earned (PKR)', comm.earned ?? 0],
+      ['Total Paid Out (PKR)', comm.paid ?? 0],
+      ['Outstanding Balance (PKR)', comm.outstanding ?? 0],
       [],
     ];
 
@@ -442,11 +451,20 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       `Totals (${ledger.bookings.length})`, '', '', '', '',
       ledger.bookings.reduce((s, b) => s + b.effectivePrice, 0),
       ledger.bookings.reduce((s, b) => s + (b.downPayment || 0), 0),
-      '', ledger.commission.earned, '', '',
+      '', comm.earned ?? 0, '', '',
     ];
-    const wsBookings = XLSX.utils.aoa_to_sheet([...metaRows, bookingHeaders, ...bookingRows, totalsRow]);
+    const wsBookings = XLSX.utils.aoa_to_sheet([...summaryBlock, bookingHeaders, ...bookingRows, totalsRow]);
     wsBookings['!cols'] = [4, 16, 22, 14, 10, 24, 28, 14, 24, 14, 12].map(w => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, wsBookings, 'Bookings & Commissions');
+
+    const payoutSummaryBlock = [
+      ['PAYOUT HISTORY'],
+      [],
+      ['Dealer Name', dealerName],
+      ['Export Date', today],
+      ['Total Paid Out (PKR)', totalPaidOut],
+      [],
+    ];
 
     const payoutHeaders = ['#', 'Date', 'Amount (PKR)', 'Notes', 'By'];
     const payoutRows = (ledger.payoutHistory || []).map((p, i) => [
@@ -456,7 +474,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       p.notes || '',
       p.adminName || 'Admin',
     ]);
-    const wsPayouts = XLSX.utils.aoa_to_sheet([payoutHeaders, ...payoutRows]);
+    const wsPayouts = XLSX.utils.aoa_to_sheet([...payoutSummaryBlock, payoutHeaders, ...payoutRows]);
     wsPayouts['!cols'] = [4, 14, 16, 36, 16].map(w => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, wsPayouts, 'Payout History');
 
