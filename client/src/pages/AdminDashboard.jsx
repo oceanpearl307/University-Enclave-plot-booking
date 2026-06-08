@@ -1383,6 +1383,26 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                                         <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '1rem' }}>{d.name}</div>
                                       </div>
                                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        {/* Preset period chips */}
+                                        {[
+                                          { label: 'This Month', getRange: () => { const now = new Date(); const y = now.getFullYear(), m = now.getMonth(); const from = `${y}-${String(m+1).padStart(2,'0')}-01`; const last = new Date(y, m+1, 0); const to = `${y}-${String(m+1).padStart(2,'0')}-${String(last.getDate()).padStart(2,'0')}`; return { from, to }; } },
+                                          { label: 'Last Month', getRange: () => { const now = new Date(); const d_ = new Date(now.getFullYear(), now.getMonth(), 0); const y = d_.getFullYear(), m = d_.getMonth(); const from = `${y}-${String(m+1).padStart(2,'0')}-01`; const to = `${y}-${String(m+1).padStart(2,'0')}-${String(d_.getDate()).padStart(2,'0')}`; return { from, to }; } },
+                                          { label: 'Last Quarter', getRange: () => { const now = new Date(); const q = Math.floor(now.getMonth() / 3); const pq = q === 0 ? 3 : q - 1; const y = q === 0 ? now.getFullYear() - 1 : now.getFullYear(); const startM = pq * 3; const endM = startM + 2; const last = new Date(y, endM + 1, 0); const from = `${y}-${String(startM+1).padStart(2,'0')}-01`; const to = `${y}-${String(endM+1).padStart(2,'0')}-${String(last.getDate()).padStart(2,'0')}`; return { from, to }; } },
+                                          { label: 'This Year', getRange: () => { const y = new Date().getFullYear(); return { from: `${y}-01-01`, to: `${y}-12-31` }; } },
+                                        ].map(preset => {
+                                          const cur = ledgerDateFilter[d.id] || {};
+                                          const r = preset.getRange();
+                                          const isActive = cur.from === r.from && cur.to === r.to;
+                                          return (
+                                            <button key={preset.label} onClick={() => {
+                                              const newFilter = isActive ? {} : r;
+                                              setLedgerDateFilter(f => ({ ...f, [d.id]: newFilter }));
+                                              refreshLedger(d.id, newFilter);
+                                            }} style={{ background: isActive ? '#1d4ed8' : '#f1f5f9', color: isActive ? '#fff' : '#475569', border: `1.5px solid ${isActive ? '#1d4ed8' : '#e2e8f0'}`, borderRadius: 20, padding: '0.2rem 0.65rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>
+                                              {preset.label}
+                                            </button>
+                                          );
+                                        })}
                                         {/* Date range filter */}
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '0.3rem 0.6rem' }}>
                                           <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>From</span>
