@@ -867,6 +867,13 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       ['E-504', 'Block E', '10 Marla', 5000000, 'residential', 'available', 'Park Facing+Corner'],
       ['E-505', 'Block E', '10 Marla', 5000000, 'residential', 'available', 'Main Boulevard'],
     ]);
+    const hdrStyle = {
+      font: { bold: true, color: { rgb: 'FFFFFF' } },
+      fill: { fgColor: { rgb: '4472C4' } },
+    };
+    ['A1','B1','C1','D1','E1','F1','G1'].forEach(addr => {
+      if (ws[addr]) ws[addr].s = hdrStyle;
+    });
     ws['!cols'] = [14, 12, 10, 14, 14, 12, 38].map(w => ({ wch: w }));
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Plots');
