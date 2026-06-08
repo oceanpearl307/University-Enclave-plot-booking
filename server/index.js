@@ -1274,11 +1274,7 @@ app.get('/api/plots', (req, res) => {
       target.sizes.forEach(s => {
         if ((s.target || 0) <= 0) return;
         const assignedIds = (target.assignedPlots || {})[s.size] || [];
-        if (assignedIds.length > 0) {
-          assignedIds.forEach(id => allowedIds.add(id));
-        } else {
-          filtered.filter(p => p.size === s.size).forEach(p => allowedIds.add(p.id));
-        }
+        assignedIds.forEach(id => allowedIds.add(id));
       });
       filtered = filtered.filter(p => allowedIds.has(p.id));
     } else {
