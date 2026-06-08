@@ -108,6 +108,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkMsg, setBulkMsg] = useState('');
   const [importRows, setImportRows] = useState([]);
+  const [importErrors, setImportErrors] = useState([]); // per-row server errors
   const [importMsg, setImportMsg] = useState('');
   const [importSaving, setImportSaving] = useState(false);
   const fileInputRef = useRef(null);
@@ -685,13 +686,19 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     try {
       const res = await fetch('/api/admin/plots/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plots: importRows }) });
       const data = await res.json();
-      const parts = [];
-      if (data.added?.length) parts.push(`✅ ${data.added.length} added`);
-      if (data.skipped?.length) parts.push(`⚠️ ${data.skipped.length} skipped (duplicates)`);
-      if (data.errors?.length) parts.push(`❌ ${data.errors.length} errors`);
-      setImportMsg(parts.join(' · ') || '✅ Done');
-      if (data.added?.length) { loadPlots(); setImportRows([]); }
-    } catch { setImportMsg('❌ Import failed, please try again.'); } finally { setImportSaving(false); }
+      if (!res.ok) { setImportMsg(`❌ Server error: ${data.error || res.statusText}`); return; }
+      const addedCount = data.added?.length || 0;
+      const skippedCount = data.skipped?.length || 0;
+      const errorRows = [...(data.errors || []), ...(data.skipped || []).map(s => ({ number: s.number, reason: s.reason || 'Duplicate — already exists' }))];
+      setImportErrors(errorRows);
+      if (addedCount > 0) {
+        setImportMsg(`✅ ${addedCount} plot${addedCount > 1 ? 's' : ''} imported successfully${skippedCount ? ` · ${skippedCount} skipped` : ''}.`);
+        setImportRows([]);
+        loadPlots();
+      } else {
+        setImportMsg(errorRows.length ? `❌ No plots were imported — see errors below.` : '⚠️ No new plots to import (all may be duplicates).');
+      }
+    } catch (err) { setImportMsg(`❌ Import failed: ${err.message || 'network error'}.`); } finally { setImportSaving(false); }
   };
 
   // ── Deals ──
@@ -2323,82 +2330,88 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
             {/* ── Excel Import Panel ── */}
             {bulkMode === 'import' && (
               <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                <div style={{ background: 'linear-gradient(135deg, #0ea5e9, #0369a1)', color: '#fff', padding: '1.1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>Import from Excel / CSV</div>
-                    <div style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '0.1rem' }}>Upload a .xlsx or .csv file — download the template for the correct format</div>
-                  </div>
-                  <button onClick={() => { setBulkMode(null); setImportRows([]); setImportMsg(''); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>✕</button>
+                <div style={{ background: 'linear-gradient(135deg, #0ea5e9, #0369a1)', color: '#fff', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 800, fontSize: '1rem' }}>Import Plots from Excel / CSV</div>
+                  <button onClick={() => { setBulkMode(null); setImportRows([]); setImportMsg(''); setImportErrors([]); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>✕</button>
                 </div>
-                <div style={{ padding: '1.5rem' }}>
-                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
-                    <button onClick={downloadTemplate} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 9, cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, color: '#065f46' }}>
-                      ⬇️ Download Template
-                    </button>
-                    <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleFileChange} style={{ display: 'none' }} />
-                    <button onClick={() => fileInputRef.current?.click()} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', padding: '0.5rem 1rem', background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 9, cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, color: '#1d4ed8' }}>
-                      📂 Choose File (.xlsx / .csv)
-                    </button>
-                  </div>
+                <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
+                  {/* Upload zone */}
+                  {importRows.length === 0 && (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      style={{ border: '2px dashed #bfdbfe', borderRadius: 12, padding: '2rem', textAlign: 'center', cursor: 'pointer', background: '#f0f9ff', transition: 'background 0.15s' }}
+                      onMouseEnter={e => e.currentTarget.style.background = '#e0f2fe'}
+                      onMouseLeave={e => e.currentTarget.style.background = '#f0f9ff'}
+                    >
+                      <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📂</div>
+                      <div style={{ fontWeight: 700, color: '#0369a1', marginBottom: '0.25rem' }}>Click to choose a file</div>
+                      <div style={{ fontSize: '0.78rem', color: '#64748b' }}>.xlsx, .xls or .csv · columns: Plot Number, Area, Size, Price (PKR), Category, Status</div>
+                      <div style={{ marginTop: '0.875rem' }}>
+                        <button onClick={e => { e.stopPropagation(); downloadTemplate(); }} style={{ fontSize: '0.78rem', color: '#059669', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700, textDecoration: 'underline' }}>
+                          ⬇ Download template
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv" onChange={e => { setImportErrors([]); handleFileChange(e); }} style={{ display: 'none' }} />
+
+                  {/* Status / error message */}
                   {importMsg && (
-                    <div style={{ marginBottom: '1rem', padding: '0.6rem 1rem', borderRadius: 9, background: importMsg.startsWith('❌') ? '#fef2f2' : '#f0f9ff', border: `1px solid ${importMsg.startsWith('❌') ? '#fecaca' : '#bae6fd'}`, fontSize: '0.85rem', fontWeight: 600, color: importMsg.startsWith('❌') ? '#b91c1c' : '#0369a1' }}>
-                      {importMsg}
+                    <div style={{ padding: '0.75rem 1rem', borderRadius: 10, display: 'flex', alignItems: 'flex-start', gap: '0.6rem', background: importMsg.startsWith('✅') ? '#f0fdf4' : importMsg.startsWith('⚠️') ? '#fffbeb' : '#fef2f2', border: `1.5px solid ${importMsg.startsWith('✅') ? '#bbf7d0' : importMsg.startsWith('⚠️') ? '#fcd34d' : '#fecaca'}` }}>
+                      <span style={{ fontSize: '1.1rem', lineHeight: 1 }}>{importMsg.startsWith('✅') ? '✅' : importMsg.startsWith('⚠️') ? '⚠️' : '❌'}</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 600, color: importMsg.startsWith('✅') ? '#065f46' : importMsg.startsWith('⚠️') ? '#92400e' : '#b91c1c', flex: 1 }}>
+                        {importMsg.replace(/^[✅⚠️❌]\s*/, '')}
+                      </span>
                     </div>
                   )}
 
-                  {importRows.length > 0 && (
-                    <>
-                      <div style={{ overflowX: 'auto', marginBottom: '1rem', maxHeight: 320, overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: 10 }}>
-                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', minWidth: 700 }}>
-                          <thead style={{ position: 'sticky', top: 0, background: '#f8fafc', zIndex: 1 }}>
-                            <tr style={{ borderBottom: '2px solid #e2e8f0' }}>
-                              {['Plot Number', 'Area', 'Size', 'Price (PKR)', 'Category', 'Status', 'Description'].map(h => (
-                                <th key={h} style={{ padding: '0.5rem 0.75rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {importRows.map((r, i) => (
-                              <tr key={i} style={{ borderBottom: '1px solid #f8fafc' }}
-                                onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
-                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700, color: '#1a6b3c', fontFamily: 'monospace' }}>{r.number || <span style={{ color: '#ef4444' }}>—</span>}</td>
-                                <td style={{ padding: '0.5rem 0.75rem', color: '#374151' }}>{r.area || <span style={{ color: '#ef4444' }}>—</span>}</td>
-                                <td style={{ padding: '0.5rem 0.75rem', color: '#374151' }}>{r.size}</td>
-                                <td style={{ padding: '0.5rem 0.75rem', fontWeight: 700 }}>
-                                  {r.price ? (
-                                    <div>
-                                      <span>{fmt(r.price)}</span>
-                                      {r.priceAdjusted && (
-                                        <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center', marginTop: '0.15rem' }}>
-                                          <span style={{ fontSize: '0.65rem', color: '#94a3b8', textDecoration: 'line-through' }}>{fmt(r.basePrice)}</span>
-                                          <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 5, padding: '0.1rem 0.35rem', fontSize: '0.65rem', fontWeight: 800 }}>+{Math.round((r.priceMultiplier - 1) * 100)}%</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : <span style={{ color: '#ef4444' }}>—</span>}
-                                </td>
-                                <td style={{ padding: '0.5rem 0.75rem', color: '#64748b', textTransform: 'capitalize' }}>{r.category}</td>
-                                <td style={{ padding: '0.5rem 0.75rem' }}><span style={{ background: r.status === 'available' ? '#d1fae5' : r.status === 'booked' ? '#fef3c7' : '#fee2e2', color: statusColor[r.status] || '#374151', borderRadius: 9999, padding: '0.15rem 0.5rem', fontSize: '0.7rem', fontWeight: 700, textTransform: 'capitalize' }}>{r.status}</span></td>
-                                <td style={{ padding: '0.5rem 0.75rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                  {r.priceAdjusted
-                                    ? <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 6, padding: '0.15rem 0.5rem', fontSize: '0.72rem', fontWeight: 700 }}>{r.description}</span>
-                                    : <span style={{ color: '#64748b' }}>{r.description || '—'}</span>}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                  {/* Per-row error list */}
+                  {importErrors.length > 0 && (
+                    <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 10, padding: '0.875rem 1rem' }}>
+                      <div style={{ fontWeight: 700, color: '#b91c1c', fontSize: '0.82rem', marginBottom: '0.5rem' }}>
+                        {importErrors.length} row{importErrors.length > 1 ? 's' : ''} with issues:
                       </div>
-                      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <button onClick={handleImportSubmit} disabled={importSaving} className="btn btn-primary btn-sm" style={{ background: 'linear-gradient(135deg, #0ea5e9, #0369a1)' }}>
-                          {importSaving ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }}></div> Importing...</> : `✓ Import ${importRows.length} Plot(s)`}
-                        </button>
-                        <button onClick={() => { setImportRows([]); setImportMsg(''); }} style={{ padding: '0.45rem 0.875rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#64748b' }}>Clear</button>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', maxHeight: 160, overflowY: 'auto' }}>
+                        {importErrors.map((e, i) => (
+                          <div key={i} style={{ fontSize: '0.8rem', color: '#7f1d1d', display: 'flex', gap: '0.5rem' }}>
+                            <span style={{ fontFamily: 'monospace', fontWeight: 700, minWidth: 80 }}>{e.number || '(no #)'}</span>
+                            <span style={{ color: '#b91c1c' }}>{e.reason}</span>
+                          </div>
+                        ))}
                       </div>
-                    </>
+                    </div>
                   )}
+
+                  {/* Preview + confirm */}
+                  {importRows.length > 0 && (
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: '0.875rem 1rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                        <div>
+                          <span style={{ fontWeight: 700, color: '#0f172a' }}>{importRows.length} plots ready to import</span>
+                          {importRows.filter(r => !r.number).length > 0 && (
+                            <span style={{ marginLeft: '0.75rem', fontSize: '0.78rem', color: '#d97706', fontWeight: 600 }}>
+                              ⚠️ {importRows.filter(r => !r.number).length} row(s) missing plot number
+                            </span>
+                          )}
+                          {importRows.filter(r => !r.price).length > 0 && (
+                            <span style={{ marginLeft: '0.75rem', fontSize: '0.78rem', color: '#d97706', fontWeight: 600 }}>
+                              ⚠️ {importRows.filter(r => !r.price).length} row(s) missing price
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <button onClick={() => { setImportRows([]); setImportMsg(''); setImportErrors([]); }} style={{ padding: '0.4rem 0.875rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600, color: '#64748b' }}>
+                            Change file
+                          </button>
+                          <button onClick={handleImportSubmit} disabled={importSaving} className="btn btn-primary btn-sm">
+                            {importSaving ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }}></div> Importing…</> : `✓ Import ${importRows.length} Plot${importRows.length > 1 ? 's' : ''}`}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               </div>
             )}
