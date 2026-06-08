@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from 'recharts';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 import BookingReceipt from '../components/BookingReceipt.jsx';
 
 const fmt = n => n >= 1000000 ? 'PKR ' + (n / 1000000).toFixed(1) + 'M' : n > 0 ? 'PKR ' + (n / 1000).toFixed(0) + 'K' : 'PKR 0';
@@ -420,6 +420,43 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     const comm = ledger.commission || {};
     const totalPaidOut = (ledger.payoutHistory || []).reduce((s, p) => s + (p.amount || 0), 0);
 
+    const colLetter = c => String.fromCharCode(65 + c);
+    const cellRef = (r, c) => `${colLetter(c)}${r + 1}`;
+
+    const applyRowStyle = (ws, rowIdx, numCols, style) => {
+      for (let c = 0; c < numCols; c++) {
+        const ref = cellRef(rowIdx, c);
+        if (!ws[ref]) ws[ref] = { t: 'z', v: '' };
+        ws[ref].s = style;
+      }
+    };
+
+    const STYLE_TITLE = {
+      font: { bold: true, sz: 13, color: { rgb: 'FFFFFF' } },
+      fill: { fgColor: { rgb: '17375E' } },
+      alignment: { horizontal: 'left', vertical: 'center' },
+    };
+    const STYLE_LABEL = {
+      font: { bold: true, color: { rgb: '1A3652' } },
+      fill: { fgColor: { rgb: 'DCE6F1' } },
+      alignment: { horizontal: 'left', vertical: 'center' },
+    };
+    const STYLE_VALUE = {
+      font: { color: { rgb: '1A3652' } },
+      fill: { fgColor: { rgb: 'DCE6F1' } },
+      alignment: { horizontal: 'left', vertical: 'center' },
+    };
+    const STYLE_COL_HEADER = {
+      font: { bold: true, color: { rgb: 'FFFFFF' } },
+      fill: { fgColor: { rgb: '4472C4' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+    };
+    const STYLE_TOTALS = {
+      font: { bold: true, color: { rgb: '145A32' } },
+      fill: { fgColor: { rgb: 'E2EFDA' } },
+      alignment: { horizontal: 'left', vertical: 'center' },
+    };
+
     const summaryBlock = [
       ['COMMISSION STATEMENT'],
       [],
@@ -434,6 +471,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     ];
 
     const bookingHeaders = ['#', 'Booking Ref', 'Customer', 'Plot Number', 'Size', 'Effective Price (PKR)', 'Down Payment Collected (PKR)', 'Commission %', 'Commission Amount (PKR)', 'Date', 'Status'];
+    const NUM_BOOKING_COLS = bookingHeaders.length;
     const bookingRows = ledger.bookings.map((b, i) => [
       i + 1,
       b.bookingRef,
@@ -453,8 +491,28 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       ledger.bookings.reduce((s, b) => s + (b.downPayment || 0), 0),
       '', comm.earned ?? 0, '', '',
     ];
+
     const wsBookings = XLSX.utils.aoa_to_sheet([...summaryBlock, bookingHeaders, ...bookingRows, totalsRow]);
     wsBookings['!cols'] = [4, 16, 22, 14, 10, 24, 28, 14, 24, 14, 12].map(w => ({ wch: w }));
+
+    applyRowStyle(wsBookings, 0, NUM_BOOKING_COLS, STYLE_TITLE);
+    for (let r = 2; r <= 8; r++) {
+      const labelRef = cellRef(r, 0);
+      const valueRef = cellRef(r, 1);
+      if (!wsBookings[labelRef]) wsBookings[labelRef] = { t: 'z', v: '' };
+      if (!wsBookings[valueRef]) wsBookings[valueRef] = { t: 'z', v: '' };
+      wsBookings[labelRef].s = STYLE_LABEL;
+      wsBookings[valueRef].s = STYLE_VALUE;
+      for (let c = 2; c < NUM_BOOKING_COLS; c++) {
+        const ref = cellRef(r, c);
+        if (!wsBookings[ref]) wsBookings[ref] = { t: 'z', v: '' };
+        wsBookings[ref].s = STYLE_VALUE;
+      }
+    }
+    applyRowStyle(wsBookings, 10, NUM_BOOKING_COLS, STYLE_COL_HEADER);
+    const totalsRowIdx = 11 + bookingRows.length;
+    applyRowStyle(wsBookings, totalsRowIdx, NUM_BOOKING_COLS, STYLE_TOTALS);
+
     XLSX.utils.book_append_sheet(wb, wsBookings, 'Bookings & Commissions');
 
     const payoutSummaryBlock = [
@@ -467,6 +525,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     ];
 
     const payoutHeaders = ['#', 'Date', 'Amount (PKR)', 'Notes', 'By'];
+    const NUM_PAYOUT_COLS = payoutHeaders.length;
     const payoutRows = (ledger.payoutHistory || []).map((p, i) => [
       i + 1,
       p.date ? new Date(p.date).toLocaleDateString() : '',
@@ -474,8 +533,26 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       p.notes || '',
       p.adminName || 'Admin',
     ]);
+
     const wsPayouts = XLSX.utils.aoa_to_sheet([...payoutSummaryBlock, payoutHeaders, ...payoutRows]);
     wsPayouts['!cols'] = [4, 14, 16, 36, 16].map(w => ({ wch: w }));
+
+    applyRowStyle(wsPayouts, 0, NUM_PAYOUT_COLS, STYLE_TITLE);
+    for (let r = 2; r <= 4; r++) {
+      const labelRef = cellRef(r, 0);
+      const valueRef = cellRef(r, 1);
+      if (!wsPayouts[labelRef]) wsPayouts[labelRef] = { t: 'z', v: '' };
+      if (!wsPayouts[valueRef]) wsPayouts[valueRef] = { t: 'z', v: '' };
+      wsPayouts[labelRef].s = STYLE_LABEL;
+      wsPayouts[valueRef].s = STYLE_VALUE;
+      for (let c = 2; c < NUM_PAYOUT_COLS; c++) {
+        const ref = cellRef(r, c);
+        if (!wsPayouts[ref]) wsPayouts[ref] = { t: 'z', v: '' };
+        wsPayouts[ref].s = STYLE_VALUE;
+      }
+    }
+    applyRowStyle(wsPayouts, 6, NUM_PAYOUT_COLS, STYLE_COL_HEADER);
+
     XLSX.utils.book_append_sheet(wb, wsPayouts, 'Payout History');
 
     const safeName = dealerName.replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '_');
