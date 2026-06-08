@@ -999,6 +999,60 @@ app.get('/api/admin/dealers/:id/commission-payouts', (req, res) => {
   res.json([...(dealer.commissionPayouts || [])].reverse());
 });
 
+// ─── Admin: Dealer Account Ledger ─────────────────────────────────────────────
+app.get('/api/admin/dealers/:id/account', (req, res) => {
+  const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
+  if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
+
+  const target = dealerTargets[dealer.id];
+  const pkg = target?.packageId ? packages.find(p => p.id === target.packageId) : null;
+  const effectiveCommissionPct = (dealer.commissionPct !== null && dealer.commissionPct !== undefined)
+    ? dealer.commissionPct
+    : (pkg?.commissionPct || 0);
+
+  const myBookings = bookings.filter(b => b.dealerId === dealer.id);
+  const bookingList = myBookings.map(b => {
+    const plot = plots.find(p => p.id === b.plotId);
+    return {
+      bookingRef: b.bookingRef,
+      bookingId: b.id,
+      plotNumber: b.plotNumber || plot?.plotNumber || '',
+      plotSize: b.plotSize || plot?.size || '',
+      bookingStatus: b.status,
+      effectivePrice: b.plotPrice || 0,
+      commissionPct: b.commissionPct ?? effectiveCommissionPct,
+      commissionAmount: b.commissionAmount || 0,
+      customerName: b.customerName || '',
+      bookedAt: b.createdAt || b.bookedAt || '',
+      downPayment: b.downPayment || 0,
+    };
+  }).sort((a, b) => new Date(b.bookedAt) - new Date(a.bookedAt));
+
+  const commissionEarned = myBookings.reduce((s, b) => s + (b.commissionAmount || 0), 0);
+  const commissionPaid = dealer.commissionPaidAmount || 0;
+  const commissionOutstanding = Math.max(0, commissionEarned - commissionPaid);
+  const paymentsCollected = myBookings.reduce((s, b) => s + (b.plotPrice || 0), 0);
+  const paymentTarget = target?.paymentTarget || 0;
+  const targetPct = paymentTarget > 0 ? Math.min(100, Math.round((paymentsCollected / paymentTarget) * 100)) : 0;
+
+  res.json({
+    bookings: bookingList,
+    commission: {
+      pct: effectiveCommissionPct,
+      hasOverride: dealer.commissionPct !== null && dealer.commissionPct !== undefined,
+      earned: commissionEarned,
+      paid: commissionPaid,
+      outstanding: commissionOutstanding,
+    },
+    paymentTarget: {
+      target: paymentTarget,
+      collected: paymentsCollected,
+      pct: targetPct,
+    },
+    payoutHistory: [...(dealer.commissionPayouts || [])].reverse(),
+  });
+});
+
 // ─── Admin: Mark Reward Given ─────────────────────────────────────────────────
 app.patch('/api/admin/dealers/:id/commission', (req, res) => {
   const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');

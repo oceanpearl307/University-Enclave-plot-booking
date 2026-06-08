@@ -6,6 +6,8 @@ import * as XLSX from 'xlsx';
 import BookingReceipt from '../components/BookingReceipt.jsx';
 
 const fmt = n => n >= 1000000 ? 'PKR ' + (n / 1000000).toFixed(1) + 'M' : n > 0 ? 'PKR ' + (n / 1000).toFixed(0) + 'K' : 'PKR 0';
+const fmtFull = n => 'PKR ' + Number(n || 0).toLocaleString('en-US');
+const fmtDate = d => d ? new Date(d).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 const PLOT_SIZES = ['5 Marla', '7 Marla', '10 Marla', '1 Kanal'];
 const ALL_SIZES = ['5 Marla', '7 Marla', '10 Marla', '1 Kanal', '2 Kanal', '4 Marla', 'Other'];
 
@@ -162,6 +164,14 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   // ── Access Control panel ──
   const [accessDealer, setAccessDealer] = useState(null);
+
+  // ── Dealer Account Ledger ──
+  const [expandedLedger, setExpandedLedger] = useState(null);
+  const [ledgerDataMap, setLedgerDataMap] = useState({});
+  const [ledgerLoadingMap, setLedgerLoadingMap] = useState({});
+  const [ledgerPayoutForm, setLedgerPayoutForm] = useState(null);
+  const [ledgerPayoutSaving, setLedgerPayoutSaving] = useState(false);
+  const [ledgerPayoutMsg, setLedgerPayoutMsg] = useState('');
   const [loginHistory, setLoginHistory] = useState([]);
   const [loginHistoryLoading, setLoginHistoryLoading] = useState(false);
   const [genPwd, setGenPwd] = useState(null);
@@ -346,6 +356,53 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       depositPaid: d.securityDepositPaid || false,
       commissionPct: d.commissionPctOverride !== null && d.commissionPctOverride !== undefined ? String(d.commissionPctOverride) : '',
     });
+  };
+
+  const openLedger = async (dealerId) => {
+    const next = expandedLedger === dealerId ? null : dealerId;
+    setExpandedLedger(next);
+    setLedgerPayoutForm(null);
+    setLedgerPayoutMsg('');
+    if (next && !ledgerDataMap[next]) {
+      setLedgerLoadingMap(p => ({ ...p, [next]: true }));
+      try {
+        const r = await fetch(`/api/admin/dealers/${next}/account`, { headers: { Authorization: `Bearer ${authToken}` } });
+        const data = await r.json();
+        setLedgerDataMap(p => ({ ...p, [next]: data }));
+      } catch {}
+      setLedgerLoadingMap(p => ({ ...p, [next]: false }));
+    }
+  };
+
+  const refreshLedger = async (dealerId) => {
+    setLedgerLoadingMap(p => ({ ...p, [dealerId]: true }));
+    try {
+      const r = await fetch(`/api/admin/dealers/${dealerId}/account`, { headers: { Authorization: `Bearer ${authToken}` } });
+      const data = await r.json();
+      setLedgerDataMap(p => ({ ...p, [dealerId]: data }));
+    } catch {}
+    setLedgerLoadingMap(p => ({ ...p, [dealerId]: false }));
+  };
+
+  const handleLedgerPayout = async (dealerId) => {
+    const form = ledgerPayoutForm;
+    const amount = parseInt(form?.amount);
+    if (!amount || amount <= 0) { setLedgerPayoutMsg('Enter a valid amount'); return; }
+    setLedgerPayoutSaving(true);
+    setLedgerPayoutMsg('');
+    try {
+      const r = await fetch(`/api/admin/dealers/${dealerId}/commission-payout`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ amount, notes: form.notes || '', adminName: admin?.name || 'Admin' }),
+      });
+      const data = await r.json();
+      if (!r.ok) { setLedgerPayoutMsg(data.error || 'Failed'); setLedgerPayoutSaving(false); return; }
+      setLedgerPayoutMsg('✓ Payout recorded');
+      setLedgerPayoutForm(null);
+      await Promise.all([refreshLedger(dealerId), loadDealers()]);
+    } catch { setLedgerPayoutMsg('Network error'); }
+    setLedgerPayoutSaving(false);
   };
 
   const handlePackageSelect = (pkgId) => {
@@ -1129,11 +1186,15 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                           const pct = d.totalTarget > 0 ? Math.min(100, Math.round((d.achieved / d.totalTarget) * 100)) : 0;
                           const isSelected = selected?.id === d.id;
                           const rank = rankMap[d.id];
+                          const isLedgerOpen = expandedLedger === d.id;
+                          const ledger = ledgerDataMap[d.id];
+                          const ledgerLoading_ = ledgerLoadingMap[d.id];
                           return (
-                            <tr key={d.id} style={{ borderBottom: '1px solid #f8fafc', background: isSelected ? '#f0fdf4' : 'transparent', cursor: 'pointer' }}
+                            <React.Fragment key={d.id}>
+                            <tr style={{ borderBottom: isLedgerOpen ? 'none' : '1px solid #f8fafc', background: isLedgerOpen ? '#eff6ff' : isSelected ? '#f0fdf4' : 'transparent', cursor: 'pointer' }}
                               onClick={() => openAssign(d)}
-                              onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
-                              onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = isSelected ? '#f0fdf4' : 'transparent'; }}>
+                              onMouseEnter={e => { if (!isSelected && !isLedgerOpen) e.currentTarget.style.background = '#f8fafc'; }}
+                              onMouseLeave={e => { if (!isSelected && !isLedgerOpen) e.currentTarget.style.background = 'transparent'; }}>
                               <td style={{ padding: '0.875rem', textAlign: 'center' }}>
                                 {rank ? (
                                   rank <= 3
@@ -1141,13 +1202,15 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                                     : <span style={{ fontSize: '0.72rem', fontWeight: 800, color: '#94a3b8' }}>#{rank}</span>
                                 ) : <span style={{ color: '#e5e7eb', fontSize: '0.8rem' }}>—</span>}
                               </td>
-                              <td style={{ padding: '0.875rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #1a6b3c, #059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '0.8rem', flexShrink: 0 }}>{d.name.charAt(0)}</div>
+                              <td style={{ padding: '0.875rem' }}
+                                onClick={e => { e.stopPropagation(); openLedger(d.id); }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', cursor: 'pointer' }}>
+                                  <div style={{ width: 32, height: 32, borderRadius: '50%', background: isLedgerOpen ? 'linear-gradient(135deg, #1d4ed8, #3b82f6)' : 'linear-gradient(135deg, #1a6b3c, #059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '0.8rem', flexShrink: 0 }}>{d.name.charAt(0)}</div>
                                   <div>
-                                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.85rem' }}>{d.name}</div>
+                                    <div style={{ fontWeight: 700, color: isLedgerOpen ? '#1d4ed8' : '#0f172a', fontSize: '0.85rem', textDecoration: isLedgerOpen ? 'underline' : 'none', textDecorationStyle: 'dotted' }}>{d.name}</div>
                                     <div style={{ fontSize: '0.7rem', color: '#94a3b8', fontFamily: 'monospace' }}>{d.username}</div>
                                   </div>
+                                  <span style={{ fontSize: '0.65rem', color: isLedgerOpen ? '#1d4ed8' : '#cbd5e1', marginLeft: '0.1rem' }}>{isLedgerOpen ? '▲' : '▼'}</span>
                                 </div>
                               </td>
                               <td style={{ padding: '0.875rem' }}>
@@ -1211,6 +1274,180 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                                 </div>
                               </td>
                             </tr>
+                            {isLedgerOpen && (
+                              <tr>
+                                <td colSpan={13} style={{ padding: 0, borderBottom: '2px solid #bfdbfe', background: '#f0f9ff' }}>
+                                  <div style={{ padding: '1.5rem 2rem' }}>
+                                    {/* Panel header */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                                      <div>
+                                        <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#1d4ed8', marginBottom: '0.15rem' }}>Account Ledger</div>
+                                        <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '1rem' }}>{d.name}</div>
+                                      </div>
+                                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                        <button onClick={() => refreshLedger(d.id)} style={{ background: '#dbeafe', border: 'none', color: '#1d4ed8', borderRadius: 8, padding: '0.35rem 0.75rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>↻ Refresh</button>
+                                        <button onClick={() => { setExpandedLedger(null); setLedgerPayoutForm(null); setLedgerPayoutMsg(''); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', fontSize: '0.875rem', fontWeight: 700, color: '#64748b' }}>✕</button>
+                                      </div>
+                                    </div>
+
+                                    {ledgerLoading_ ? (
+                                      <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.875rem' }}>Loading ledger...</div>
+                                    ) : ledger ? (
+                                      <>
+                                        {/* Commission Summary */}
+                                        <div style={{ display: 'flex', gap: '0.875rem', flexWrap: 'wrap', marginBottom: '1.25rem', alignItems: 'flex-start' }}>
+                                          {[
+                                            { label: 'Commission Rate', val: `${ledger.commission.pct}%${ledger.commission.hasOverride ? ' ★' : ''}`, bg: ledger.commission.hasOverride ? '#fef3c7' : '#f0fdf4', color: ledger.commission.hasOverride ? '#92400e' : '#065f46', border: ledger.commission.hasOverride ? '#fde68a' : '#bbf7d0' },
+                                            { label: 'Total Earned', val: fmtFull(ledger.commission.earned), bg: '#f0fdf4', color: '#065f46', border: '#bbf7d0' },
+                                            { label: 'Paid Out', val: fmtFull(ledger.commission.paid), bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
+                                            { label: 'Outstanding', val: fmtFull(ledger.commission.outstanding), bg: ledger.commission.outstanding > 0 ? '#fef3c7' : '#f0fdf4', color: ledger.commission.outstanding > 0 ? '#92400e' : '#065f46', border: ledger.commission.outstanding > 0 ? '#fde68a' : '#bbf7d0' },
+                                          ].map(c => (
+                                            <div key={c.label} style={{ background: c.bg, border: `1.5px solid ${c.border}`, borderRadius: 12, padding: '0.75rem 1rem', minWidth: 140 }}>
+                                              <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.2rem' }}>{c.label}</div>
+                                              <div style={{ fontWeight: 800, color: c.color, fontSize: '0.95rem' }}>{c.val}</div>
+                                            </div>
+                                          ))}
+                                          <div style={{ display: 'flex', alignItems: 'center', marginLeft: 'auto', gap: '0.5rem' }}>
+                                            {ledgerPayoutMsg && <span style={{ fontSize: '0.8rem', color: ledgerPayoutMsg.startsWith('✓') ? '#059669' : '#dc2626', fontWeight: 700 }}>{ledgerPayoutMsg}</span>}
+                                            {ledgerPayoutForm?.dealerId === d.id ? (
+                                              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: '#fff', border: '1.5px solid #bfdbfe', borderRadius: 10, padding: '0.5rem 0.75rem' }}>
+                                                <input
+                                                  type="number"
+                                                  placeholder="Amount (PKR)"
+                                                  value={ledgerPayoutForm.amount}
+                                                  onChange={e => setLedgerPayoutForm(f => ({ ...f, amount: e.target.value }))}
+                                                  style={{ width: 130, padding: '0.35rem 0.5rem', border: '1.5px solid #e2e8f0', borderRadius: 7, fontSize: '0.82rem', fontWeight: 700 }}
+                                                />
+                                                <input
+                                                  type="text"
+                                                  placeholder="Notes (optional)"
+                                                  value={ledgerPayoutForm.notes}
+                                                  onChange={e => setLedgerPayoutForm(f => ({ ...f, notes: e.target.value }))}
+                                                  style={{ width: 160, padding: '0.35rem 0.5rem', border: '1.5px solid #e2e8f0', borderRadius: 7, fontSize: '0.82rem' }}
+                                                />
+                                                <button onClick={() => handleLedgerPayout(d.id)} disabled={ledgerPayoutSaving} style={{ background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 7, padding: '0.35rem 0.75rem', fontWeight: 700, cursor: ledgerPayoutSaving ? 'not-allowed' : 'pointer', fontSize: '0.78rem', opacity: ledgerPayoutSaving ? 0.7 : 1 }}>
+                                                  {ledgerPayoutSaving ? 'Saving...' : '✓ Save'}
+                                                </button>
+                                                <button onClick={() => { setLedgerPayoutForm(null); setLedgerPayoutMsg(''); }} style={{ background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 7, padding: '0.35rem 0.6rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.78rem' }}>✕</button>
+                                              </div>
+                                            ) : (
+                                              <button onClick={() => { setLedgerPayoutForm({ dealerId: d.id, amount: '', notes: '' }); setLedgerPayoutMsg(''); }} style={{ background: '#1d4ed8', color: '#fff', border: 'none', borderRadius: 9, padding: '0.5rem 1rem', fontWeight: 700, cursor: 'pointer', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>
+                                                💳 Record Payout
+                                              </button>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {/* Payment Target Progress */}
+                                        {ledger.paymentTarget.target > 0 && (
+                                          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '0.875rem 1.25rem', marginBottom: '1.25rem' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                                              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151' }}>💰 Payment Target Progress</div>
+                                              <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
+                                                {fmtFull(ledger.paymentTarget.collected)} of {fmtFull(ledger.paymentTarget.target)}
+                                              </div>
+                                            </div>
+                                            <div style={{ height: 8, background: '#f1f5f9', borderRadius: 9999, overflow: 'hidden', marginBottom: '0.35rem' }}>
+                                              <div style={{ height: '100%', width: `${ledger.paymentTarget.pct}%`, background: ledger.paymentTarget.pct >= 80 ? '#059669' : ledger.paymentTarget.pct >= 50 ? '#d97706' : '#3b82f6', borderRadius: 9999, transition: 'width 0.4s ease' }} />
+                                            </div>
+                                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>{ledger.paymentTarget.pct}% collected</div>
+                                          </div>
+                                        )}
+
+                                        {/* Bookings Table */}
+                                        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                                          <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid #f1f5f9', fontWeight: 800, fontSize: '0.875rem', color: '#0f172a', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span>Bookings & Commissions</span>
+                                            <span style={{ fontWeight: 400, fontSize: '0.78rem', color: '#94a3b8' }}>{ledger.bookings.length} booking{ledger.bookings.length !== 1 ? 's' : ''}</span>
+                                          </div>
+                                          {ledger.bookings.length === 0 ? (
+                                            <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.875rem' }}>No bookings yet for this dealer</div>
+                                          ) : (
+                                            <div style={{ overflowX: 'auto' }}>
+                                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                                                <thead>
+                                                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                                                    {['#', 'Booking Ref', 'Customer', 'Plot', 'Size', 'Effective Price', 'Comm %', 'Commission Amt', 'Date', 'Status'].map(h => (
+                                                      <th key={h} style={{ padding: '0.6rem 0.875rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                                                    ))}
+                                                  </tr>
+                                                </thead>
+                                                <tbody>
+                                                  {ledger.bookings.map((b, i) => {
+                                                    const statusStyle = b.bookingStatus === 'confirmed' ? { bg: '#d1fae5', color: '#065f46', label: 'Confirmed' } : b.bookingStatus === 'rejected' ? { bg: '#fee2e2', color: '#dc2626', label: 'Rejected' } : { bg: '#fef3c7', color: '#92400e', label: 'Pending' };
+                                                    return (
+                                                      <tr key={b.bookingId || i} style={{ borderBottom: '1px solid #f8fafc' }}
+                                                        onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                                                        onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                                                        <td style={{ padding: '0.6rem 0.875rem', color: '#94a3b8', fontSize: '0.72rem', fontWeight: 600 }}>{i + 1}</td>
+                                                        <td style={{ padding: '0.6rem 0.875rem', fontWeight: 700, color: '#1d4ed8', fontFamily: 'monospace', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>{b.bookingRef}</td>
+                                                        <td style={{ padding: '0.6rem 0.875rem', color: '#374151', fontWeight: 600, whiteSpace: 'nowrap', maxWidth: 160, overflow: 'hidden', textOverflow: 'ellipsis' }}>{b.customerName || '—'}</td>
+                                                        <td style={{ padding: '0.6rem 0.875rem', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{b.plotNumber || '—'}</td>
+                                                        <td style={{ padding: '0.6rem 0.875rem', color: '#64748b', whiteSpace: 'nowrap' }}>{b.plotSize}</td>
+                                                        <td style={{ padding: '0.6rem 0.875rem', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{fmtFull(b.effectivePrice)}</td>
+                                                        <td style={{ padding: '0.6rem 0.875rem', whiteSpace: 'nowrap' }}>
+                                                          <span style={{ background: '#f0fdf4', color: '#065f46', borderRadius: 6, padding: '0.15rem 0.45rem', fontWeight: 800, fontSize: '0.78rem' }}>{b.commissionPct}%</span>
+                                                        </td>
+                                                        <td style={{ padding: '0.6rem 0.875rem', fontWeight: 800, color: '#059669', whiteSpace: 'nowrap' }}>{fmtFull(b.commissionAmount)}</td>
+                                                        <td style={{ padding: '0.6rem 0.875rem', color: '#94a3b8', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>{fmtDate(b.bookedAt)}</td>
+                                                        <td style={{ padding: '0.6rem 0.875rem' }}>
+                                                          <span style={{ background: statusStyle.bg, color: statusStyle.color, borderRadius: 9999, padding: '0.15rem 0.5rem', fontSize: '0.7rem', fontWeight: 700, whiteSpace: 'nowrap' }}>{statusStyle.label}</span>
+                                                        </td>
+                                                      </tr>
+                                                    );
+                                                  })}
+                                                </tbody>
+                                                <tfoot>
+                                                  <tr style={{ background: '#f8fafc', borderTop: '2px solid #e2e8f0' }}>
+                                                    <td colSpan={5} style={{ padding: '0.6rem 0.875rem', fontWeight: 700, fontSize: '0.78rem', color: '#374151' }}>Totals ({ledger.bookings.length} bookings)</td>
+                                                    <td style={{ padding: '0.6rem 0.875rem', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap' }}>{fmtFull(ledger.bookings.reduce((s, b) => s + b.effectivePrice, 0))}</td>
+                                                    <td style={{ padding: '0.6rem 0.875rem' }}></td>
+                                                    <td style={{ padding: '0.6rem 0.875rem', fontWeight: 800, color: '#059669', whiteSpace: 'nowrap' }}>{fmtFull(ledger.commission.earned)}</td>
+                                                    <td colSpan={2}></td>
+                                                  </tr>
+                                                </tfoot>
+                                              </table>
+                                            </div>
+                                          )}
+                                        </div>
+
+                                        {/* Payout History */}
+                                        {ledger.payoutHistory?.length > 0 && (
+                                          <div style={{ marginTop: '1rem', background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                                            <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid #f1f5f9', fontWeight: 800, fontSize: '0.875rem', color: '#0f172a' }}>Payout History</div>
+                                            <div style={{ overflowX: 'auto' }}>
+                                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+                                                <thead>
+                                                  <tr style={{ background: '#f8fafc' }}>
+                                                    {['#', 'Date', 'Amount', 'Notes', 'By'].map(h => (
+                                                      <th key={h} style={{ padding: '0.5rem 0.875rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                                                    ))}
+                                                  </tr>
+                                                </thead>
+                                                <tbody>
+                                                  {ledger.payoutHistory.map((p, i) => (
+                                                    <tr key={p.id || i} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                                      <td style={{ padding: '0.5rem 0.875rem', color: '#94a3b8', fontSize: '0.72rem' }}>{i + 1}</td>
+                                                      <td style={{ padding: '0.5rem 0.875rem', color: '#64748b', whiteSpace: 'nowrap' }}>{fmtDate(p.date)}</td>
+                                                      <td style={{ padding: '0.5rem 0.875rem', fontWeight: 700, color: '#1d4ed8', whiteSpace: 'nowrap' }}>{fmtFull(p.amount)}</td>
+                                                      <td style={{ padding: '0.5rem 0.875rem', color: '#64748b', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.notes || '—'}</td>
+                                                      <td style={{ padding: '0.5rem 0.875rem', color: '#94a3b8', fontSize: '0.75rem' }}>{p.adminName || 'Admin'}</td>
+                                                    </tr>
+                                                  ))}
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>Failed to load ledger data</div>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                            </React.Fragment>
                           );
                         });
                         })()}
