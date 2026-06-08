@@ -643,29 +643,37 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       try {
         const wb = XLSX.read(ev.target.result, { type: 'array' });
         const ws = wb.Sheets[wb.SheetNames[0]];
+        if (!ws) { setImportMsg('❌ The file has no sheets. Please check the file and try again.'); return; }
         const raw = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        const norm = s => String(s || '').toLowerCase().replace(/[\s_()]+/g, '');
+        const getCol = (row, ...keys) => {
+          const colMap = {};
+          Object.keys(row).forEach(k => { colMap[norm(k)] = row[k]; });
+          for (const k of keys) { const v = colMap[norm(k)]; if (v !== undefined && v !== '') return v; }
+          return '';
+        };
         const mapped = raw.map(row => {
-          const description = String(row['Description'] || row['description'] || '').trim();
-          const basePrice = parseInt(row['Price (PKR)'] || row['price'] || 0) || 0;
+          const description = String(getCol(row, 'Description', 'Desc', 'Notes') || '').trim();
+          const basePrice = parseInt(getCol(row, 'Price (PKR)', 'Price', 'PricePKR', 'Amount') || 0) || 0;
           const mult = descMultiplier(description);
           const finalPrice = mult > 1 ? Math.round(basePrice * mult) : basePrice;
           return {
-            number: String(row['Plot Number'] || row['number'] || '').trim(),
-            area: String(row['Area'] || row['area'] || '').trim(),
-            size: String(row['Size'] || row['size'] || '5 Marla').trim(),
+            number: String(getCol(row, 'Plot Number', 'PlotNumber', 'Plot No', 'PlotNo', 'Number', 'No') || '').trim(),
+            area: String(getCol(row, 'Area', 'Block', 'Sector', 'Location', 'Zone') || '').trim(),
+            size: String(getCol(row, 'Size', 'PlotSize', 'Marla', 'Type') || '5 Marla').trim() || '5 Marla',
             price: finalPrice,
             basePrice,
             priceAdjusted: mult > 1,
             priceMultiplier: mult,
-            category: String(row['Category'] || row['category'] || 'residential').toLowerCase().trim(),
-            status: String(row['Status'] || row['status'] || 'available').toLowerCase().trim(),
+            category: String(getCol(row, 'Category', 'Type', 'Cat') || 'residential').toLowerCase().trim() || 'residential',
+            status: String(getCol(row, 'Status', 'State', 'Availability') || 'available').toLowerCase().trim() || 'available',
             description,
           };
         }).filter(r => r.number || r.area);
-        if (mapped.length === 0) { setImportMsg('❌ No valid rows found. Make sure the file uses the correct column headers.'); return; }
+        if (mapped.length === 0) { setImportMsg('❌ No valid rows found. Expected columns: "Plot Number", "Area", "Size", "Price (PKR)". Column names are flexible — download the template for reference.'); return; }
         setImportRows(mapped);
         setImportMsg(`📋 ${mapped.length} row${mapped.length > 1 ? 's' : ''} ready to import. Review below then click Import.`);
-      } catch (err) { setImportMsg('❌ Could not read the file. Use .xlsx or .csv format.'); }
+      } catch (err) { setImportMsg(`❌ Could not read the file: ${err.message || 'unknown error'}. Use .xlsx or .csv format.`); }
     };
     reader.readAsArrayBuffer(file);
     e.target.value = '';

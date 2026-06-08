@@ -1148,7 +1148,7 @@ app.post('/api/admin/plots/bulk', (req, res) => {
   const results = { added: [], skipped: [], errors: [] };
   for (const item of incoming) {
     const { number, size, price, status, category, description, area } = item;
-    if (!number || !size || !price || !area) {
+    if (!number || !size || price === undefined || price === null || price === '' || !area) {
       results.errors.push({ number: number || '?', reason: 'Missing required fields (number, size, price, area)' });
       continue;
     }
@@ -1165,10 +1165,12 @@ app.post('/api/admin/plots/bulk', (req, res) => {
       category: category || 'residential',
       description: description || '',
       area: String(area).trim(),
+      tags: [],
     };
     plots.push(plot);
     results.added.push(plot);
   }
+  saveDb();
   res.status(201).json(results);
 });
 
