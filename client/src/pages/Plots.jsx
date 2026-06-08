@@ -102,9 +102,9 @@ export default function Plots({ navigate, dealer }) {
         <div className="loading"><div className="spinner"></div>Loading plots...</div>
       ) : plots.length === 0 ? (
         <div className="empty-state">
-          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔍</div>
-          <h3>No plots found</h3>
-          <p>Try adjusting your filters to see more results.</p>
+          <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>{isDealer ? '📋' : '🔍'}</div>
+          <h3>{isDealer ? 'No plots assigned to you yet' : 'No plots found'}</h3>
+          <p>{isDealer ? 'Your admin needs to assign a target and plots to your account before you can book.' : 'Try adjusting your filters to see more results.'}</p>
         </div>
       ) : (
         <>

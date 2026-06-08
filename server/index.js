@@ -1281,6 +1281,8 @@ app.get('/api/plots', (req, res) => {
         }
       });
       filtered = filtered.filter(p => allowedIds.has(p.id));
+    } else {
+      filtered = [];
     }
   }
 
