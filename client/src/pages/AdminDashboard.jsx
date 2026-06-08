@@ -172,6 +172,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [ledgerPayoutForm, setLedgerPayoutForm] = useState(null);
   const [ledgerPayoutSaving, setLedgerPayoutSaving] = useState(false);
   const [ledgerPayoutMsg, setLedgerPayoutMsg] = useState('');
+  const [ledgerDateFilter, setLedgerDateFilter] = useState({});
   const [loginHistory, setLoginHistory] = useState([]);
   const [loginHistoryLoading, setLoginHistoryLoading] = useState(false);
   const [genPwd, setGenPwd] = useState(null);
@@ -358,6 +359,15 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     });
   };
 
+  const buildLedgerUrl = (dealerId, dateFilter) => {
+    const f = dateFilter || {};
+    const params = new URLSearchParams();
+    if (f.from) params.set('from', f.from);
+    if (f.to) params.set('to', f.to);
+    const qs = params.toString();
+    return `/api/admin/dealers/${dealerId}/account${qs ? '?' + qs : ''}`;
+  };
+
   const openLedger = async (dealerId) => {
     const next = expandedLedger === dealerId ? null : dealerId;
     setExpandedLedger(next);
@@ -366,7 +376,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     if (next && !ledgerDataMap[next]) {
       setLedgerLoadingMap(p => ({ ...p, [next]: true }));
       try {
-        const r = await fetch(`/api/admin/dealers/${next}/account`, { headers: { Authorization: `Bearer ${authToken}` } });
+        const r = await fetch(buildLedgerUrl(next, ledgerDateFilter[next]), { headers: { Authorization: `Bearer ${authToken}` } });
         if (!r.ok) {
           const err = await r.json().catch(() => ({}));
           setLedgerDataMap(p => ({ ...p, [next]: { error: err.error || `Error ${r.status}` } }));
@@ -381,10 +391,10 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     }
   };
 
-  const refreshLedger = async (dealerId) => {
+  const refreshLedger = async (dealerId, dateFilter) => {
     setLedgerLoadingMap(p => ({ ...p, [dealerId]: true }));
     try {
-      const r = await fetch(`/api/admin/dealers/${dealerId}/account`, { headers: { Authorization: `Bearer ${authToken}` } });
+      const r = await fetch(buildLedgerUrl(dealerId, dateFilter !== undefined ? dateFilter : ledgerDateFilter[dealerId]), { headers: { Authorization: `Bearer ${authToken}` } });
       if (!r.ok) {
         const err = await r.json().catch(() => ({}));
         setLedgerDataMap(p => ({ ...p, [dealerId]: { error: err.error || `Error ${r.status}` } }));
@@ -398,9 +408,21 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     setLedgerLoadingMap(p => ({ ...p, [dealerId]: false }));
   };
 
-  const exportLedgerToExcel = (ledger, dealerName) => {
+  const exportLedgerToExcel = (ledger, dealerName, dateFilter) => {
     const wb = XLSX.utils.book_new();
     const today = new Date().toISOString().split('T')[0];
+    const df = dateFilter || {};
+    const hasFilter = df.from || df.to;
+    const rangeLabel = hasFilter
+      ? `${df.from || 'all'} to ${df.to || 'all'}`
+      : 'All dates';
+
+    const metaRows = [
+      [`Dealer: ${dealerName}`],
+      [`Period: ${rangeLabel}`],
+      [`Exported: ${today}`],
+      [],
+    ];
 
     const bookingHeaders = ['#', 'Booking Ref', 'Customer', 'Plot Number', 'Size', 'Effective Price (PKR)', 'Down Payment Collected (PKR)', 'Commission %', 'Commission Amount (PKR)', 'Date', 'Status'];
     const bookingRows = ledger.bookings.map((b, i) => [
@@ -422,7 +444,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       ledger.bookings.reduce((s, b) => s + (b.downPayment || 0), 0),
       '', ledger.commission.earned, '', '',
     ];
-    const wsBookings = XLSX.utils.aoa_to_sheet([bookingHeaders, ...bookingRows, totalsRow]);
+    const wsBookings = XLSX.utils.aoa_to_sheet([...metaRows, bookingHeaders, ...bookingRows, totalsRow]);
     wsBookings['!cols'] = [4, 16, 22, 14, 10, 24, 28, 14, 24, 14, 12].map(w => ({ wch: w }));
     XLSX.utils.book_append_sheet(wb, wsBookings, 'Bookings & Commissions');
 
@@ -1337,15 +1359,51 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                                 <td colSpan={13} style={{ padding: 0, borderBottom: '2px solid #bfdbfe', background: '#f0f9ff' }}>
                                   <div style={{ padding: '1.5rem 2rem' }}>
                                     {/* Panel header */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', gap: '1rem', flexWrap: 'wrap' }}>
                                       <div>
                                         <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#1d4ed8', marginBottom: '0.15rem' }}>Account Ledger</div>
                                         <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '1rem' }}>{d.name}</div>
                                       </div>
-                                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                        {/* Date range filter */}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', background: '#fff', border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '0.3rem 0.6rem' }}>
+                                          <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>From</span>
+                                          <input
+                                            type="date"
+                                            value={ledgerDateFilter[d.id]?.from || ''}
+                                            onChange={e => {
+                                              const newFilter = { ...(ledgerDateFilter[d.id] || {}), from: e.target.value };
+                                              setLedgerDateFilter(f => ({ ...f, [d.id]: newFilter }));
+                                              refreshLedger(d.id, newFilter);
+                                            }}
+                                            style={{ border: 'none', outline: 'none', fontSize: '0.78rem', color: '#0f172a', background: 'transparent', cursor: 'pointer' }}
+                                          />
+                                          <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginLeft: '0.35rem' }}>To</span>
+                                          <input
+                                            type="date"
+                                            value={ledgerDateFilter[d.id]?.to || ''}
+                                            onChange={e => {
+                                              const newFilter = { ...(ledgerDateFilter[d.id] || {}), to: e.target.value };
+                                              setLedgerDateFilter(f => ({ ...f, [d.id]: newFilter }));
+                                              refreshLedger(d.id, newFilter);
+                                            }}
+                                            style={{ border: 'none', outline: 'none', fontSize: '0.78rem', color: '#0f172a', background: 'transparent', cursor: 'pointer' }}
+                                          />
+                                          {(ledgerDateFilter[d.id]?.from || ledgerDateFilter[d.id]?.to) && (
+                                            <button
+                                              onClick={() => {
+                                                const cleared = {};
+                                                setLedgerDateFilter(f => ({ ...f, [d.id]: cleared }));
+                                                refreshLedger(d.id, cleared);
+                                              }}
+                                              title="Clear date filter"
+                                              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontWeight: 700, fontSize: '0.75rem', padding: '0 0.15rem', lineHeight: 1 }}
+                                            >✕</button>
+                                          )}
+                                        </div>
                                         <button onClick={() => refreshLedger(d.id)} style={{ background: '#dbeafe', border: 'none', color: '#1d4ed8', borderRadius: 8, padding: '0.35rem 0.75rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>↻ Refresh</button>
                                         {ledger && !ledger.error && (
-                                          <button onClick={() => exportLedgerToExcel(ledger, d.name)} style={{ background: '#d1fae5', border: 'none', color: '#065f46', borderRadius: 8, padding: '0.35rem 0.75rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>⬇ Export Excel</button>
+                                          <button onClick={() => exportLedgerToExcel(ledger, d.name, ledgerDateFilter[d.id])} style={{ background: '#d1fae5', border: 'none', color: '#065f46', borderRadius: 8, padding: '0.35rem 0.75rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>⬇ Export Excel</button>
                                         )}
                                         <button onClick={() => { setExpandedLedger(null); setLedgerPayoutForm(null); setLedgerPayoutMsg(''); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', fontSize: '0.875rem', fontWeight: 700, color: '#64748b' }}>✕</button>
                                       </div>

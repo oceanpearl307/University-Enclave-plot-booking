@@ -1016,8 +1016,20 @@ app.get('/api/admin/dealers/:id/account', (req, res) => {
     ? dealer.commissionPct
     : (pkg?.commissionPct || 0);
 
+  const fromDate = req.query.from ? new Date(req.query.from) : null;
+  const toDate = req.query.to ? new Date(req.query.to + 'T23:59:59') : null;
+
   const myBookings = bookings.filter(b => b.dealerId === dealer.id);
-  const bookingList = myBookings.map(b => {
+  const filteredBookings = myBookings.filter(b => {
+    const booked = b.createdAt || b.bookedAt;
+    if (!booked) return true;
+    const d = new Date(booked);
+    if (fromDate && d < fromDate) return false;
+    if (toDate && d > toDate) return false;
+    return true;
+  });
+
+  const bookingList = filteredBookings.map(b => {
     const plot = plots.find(p => p.id === b.plotId);
     return {
       bookingRef: b.bookingRef,
@@ -1034,9 +1046,10 @@ app.get('/api/admin/dealers/:id/account', (req, res) => {
     };
   }).sort((a, b) => new Date(b.bookedAt) - new Date(a.bookedAt));
 
-  const commissionEarned = myBookings.reduce((s, b) => s + (b.commissionAmount || 0), 0);
+  const commissionEarned = filteredBookings.reduce((s, b) => s + (b.commissionAmount || 0), 0);
+  const commissionEarnedAll = myBookings.reduce((s, b) => s + (b.commissionAmount || 0), 0);
   const commissionPaid = dealer.commissionPaidAmount || 0;
-  const commissionOutstanding = Math.max(0, commissionEarned - commissionPaid);
+  const commissionOutstanding = Math.max(0, commissionEarnedAll - commissionPaid);
 
   // Payment target: compute from assigned plots' effective prices × 20%
   const assignedPlotIds = target?.assignedPlots
