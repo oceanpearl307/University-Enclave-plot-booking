@@ -1306,6 +1306,10 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
                                     {ledgerLoading_ ? (
                                       <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.875rem' }}>Loading ledger...</div>
+                                    ) : ledger?.error ? (
+                                      <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '1rem 1.25rem', color: '#dc2626', fontSize: '0.875rem', fontWeight: 600 }}>
+                                        ⚠️ {ledger.error}
+                                      </div>
                                     ) : ledger ? (
                                       <>
                                         {/* Commission Summary */}
@@ -1461,10 +1465,6 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                                           </div>
                                         )}
                                       </>
-                                    ) : ledger?.error ? (
-                                      <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '1rem 1.25rem', color: '#dc2626', fontSize: '0.875rem', fontWeight: 600 }}>
-                                        ⚠️ {ledger.error}
-                                      </div>
                                     ) : (
                                       <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>Failed to load ledger data</div>
                                     )}

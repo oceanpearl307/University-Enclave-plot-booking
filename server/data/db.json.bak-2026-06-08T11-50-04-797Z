@@ -8950,7 +8950,7 @@
       "securityDepositRequired": 2500000,
       "securityDepositPaid": true,
       "rewardGiven": false,
-      "commissionPaidAmount": 1000,
+      "commissionPaidAmount": 0,
       "vpnRestricted": false,
       "ipLocked": false,
       "trustedIPs": [],
@@ -8990,16 +8990,7 @@
       ],
       "lastLoginIP": "59.103.113.218",
       "lastLoginAt": "2026-06-08T11:14:15.635Z",
-      "commissionPct": 15,
-      "commissionPayouts": [
-        {
-          "id": 1780919404296,
-          "amount": 1000,
-          "notes": "",
-          "adminName": "Admin",
-          "date": "2026-06-08T11:50:04.296Z"
-        }
-      ]
+      "commissionPct": 15
     },
     {
       "id": 3,

@@ -973,6 +973,9 @@ app.post('/api/admin/dealers/:id/deposit', (req, res) => {
 
 // ─── Admin: Commission Payout ─────────────────────────────────────────────────
 app.patch('/api/admin/dealers/:id/commission-payout', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (session.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
   const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
   if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
   const amount = parseInt(req.body.amount);
@@ -1025,7 +1028,7 @@ app.get('/api/admin/dealers/:id/account', (req, res) => {
       effectivePrice: b.plotPrice || 0,
       commissionPct: b.commissionPct ?? effectiveCommissionPct,
       commissionAmount: b.commissionAmount || 0,
-      customerName: b.customerName || '',
+      customerName: b.name || b.customerName || '',
       bookedAt: b.createdAt || b.bookedAt || '',
       downPayment: b.downPayment || 0,
     };
