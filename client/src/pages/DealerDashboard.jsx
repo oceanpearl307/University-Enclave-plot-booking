@@ -442,7 +442,6 @@ export default function DealerDashboard({ dealer, authToken, onLogout, navigate 
               <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>My Recent Bookings</h3>
               <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Bookings you have personally made</p>
             </div>
-            <button className="btn btn-outline btn-sm" onClick={() => navigate('plots')}>Browse Plots</button>
           </div>
 
           {recentBookings.length === 0 ? (
