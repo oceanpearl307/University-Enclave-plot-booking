@@ -2875,6 +2875,14 @@
       "loginHistory": [
         {
           "ip": "59.103.113.218",
+          "at": "2026-06-08T10:12:37.987Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Pakistan Telecommunication Company Limited",
+          "country": "Pakistan"
+        },
+        {
+          "ip": "59.103.113.218",
           "at": "2026-06-08T09:20:23.086Z",
           "blocked": false,
           "vpnDetected": false,
@@ -2907,7 +2915,7 @@
         }
       ],
       "lastLoginIP": "59.103.113.218",
-      "lastLoginAt": "2026-06-08T09:20:23.086Z"
+      "lastLoginAt": "2026-06-08T10:12:37.987Z"
     },
     {
       "id": 2,
@@ -2923,7 +2931,7 @@
       "officePhone": "042-35111111",
       "proprietorName": "Ahmed Raza",
       "proprietorPhone": "0321-1234567",
-      "securityDepositRequired": 200000,
+      "securityDepositRequired": 2500000,
       "securityDepositPaid": true,
       "rewardGiven": false,
       "commissionPaidAmount": 0,
@@ -2931,6 +2939,14 @@
       "ipLocked": false,
       "trustedIPs": [],
       "loginHistory": [
+        {
+          "ip": "59.103.113.218",
+          "at": "2026-06-08T10:12:05.184Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Pakistan Telecommunication Company Limited",
+          "country": "Pakistan"
+        },
         {
           "ip": "59.103.113.218",
           "at": "2026-06-08T09:15:17.396Z",
@@ -2949,7 +2965,8 @@
         }
       ],
       "lastLoginIP": "59.103.113.218",
-      "lastLoginAt": "2026-06-08T09:15:17.396Z"
+      "lastLoginAt": "2026-06-08T10:12:05.184Z",
+      "commissionPct": 15
     },
     {
       "id": 3,
@@ -3007,22 +3024,28 @@
       "sizes": [
         {
           "size": "5 Marla",
-          "target": 3
+          "target": 10
         },
         {
           "size": "7 Marla",
-          "target": 2
+          "target": 8
         },
         {
           "size": "10 Marla",
-          "target": 1
+          "target": 5
         },
         {
           "size": "1 Kanal",
-          "target": 1
+          "target": 2
         }
       ],
-      "assignedAt": "2026-04-01T00:00:00.000Z",
+      "assignedPlots": {
+        "5 Marla": [],
+        "7 Marla": [],
+        "10 Marla": [],
+        "1 Kanal": []
+      },
+      "assignedAt": "2026-06-08T10:13:59.940Z",
       "notes": "Q2 2026 Sales Target"
     },
     "3": {

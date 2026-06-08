@@ -87,6 +87,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   // ── Inventory tab ──
   const [plots, setPlots] = useState([]);
   const [plotsLoading, setPlotsLoading] = useState(false);
+  const [invFilter, setInvFilter] = useState({ search: '', status: '', size: '', area: '', category: '' });
   const [plotEdit, setPlotEdit] = useState(null);
   const [plotForm, setPlotForm] = useState({ number: '', size: '5 Marla', price: '', status: 'available', category: 'residential', description: '', area: '', tags: [] });
   const [plotSaving, setPlotSaving] = useState(false);
@@ -2412,8 +2413,51 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     <button className="btn btn-primary btn-sm" onClick={() => { openPlotForm(null); setBulkMode(null); }}>+ Add Plot</button>
                   </div>
                 </div>
+                {/* ── Filters ── */}
+                {(() => {
+                  const sizes   = [...new Set(plots.map(p => p.size).filter(Boolean))].sort();
+                  const areas   = [...new Set(plots.map(p => p.area).filter(Boolean))].sort();
+                  const hasFilter = Object.values(invFilter).some(v => v !== '');
+                  return (
+                    <div style={{ display: 'flex', gap: '0.625rem', flexWrap: 'wrap', marginBottom: '1.25rem', alignItems: 'center' }}>
+                      <input
+                        placeholder="Search plot number…"
+                        value={invFilter.search}
+                        onChange={e => setInvFilter(f => ({ ...f, search: e.target.value }))}
+                        style={{ flex: '1 1 160px', padding: '0.45rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontSize: '0.82rem', fontFamily: 'inherit', outline: 'none' }}
+                      />
+                      <select value={invFilter.status} onChange={e => setInvFilter(f => ({ ...f, status: e.target.value }))} style={{ padding: '0.45rem 0.65rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontSize: '0.82rem', fontFamily: 'inherit', cursor: 'pointer' }}>
+                        <option value="">All Status</option>
+                        <option value="available">Available</option>
+                        <option value="booked">Booked</option>
+                        <option value="sold">Sold</option>
+                      </select>
+                      <select value={invFilter.size} onChange={e => setInvFilter(f => ({ ...f, size: e.target.value }))} style={{ padding: '0.45rem 0.65rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontSize: '0.82rem', fontFamily: 'inherit', cursor: 'pointer' }}>
+                        <option value="">All Sizes</option>
+                        {sizes.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      <select value={invFilter.area} onChange={e => setInvFilter(f => ({ ...f, area: e.target.value }))} style={{ padding: '0.45rem 0.65rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontSize: '0.82rem', fontFamily: 'inherit', cursor: 'pointer' }}>
+                        <option value="">All Blocks</option>
+                        {areas.map(a => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                      <select value={invFilter.category} onChange={e => setInvFilter(f => ({ ...f, category: e.target.value }))} style={{ padding: '0.45rem 0.65rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontSize: '0.82rem', fontFamily: 'inherit', cursor: 'pointer' }}>
+                        <option value="">All Categories</option>
+                        <option value="residential">Residential</option>
+                        <option value="commercial">Commercial</option>
+                      </select>
+                      {hasFilter && (
+                        <button onClick={() => setInvFilter({ search: '', status: '', size: '', area: '', category: '' })} style={{ padding: '0.45rem 0.75rem', background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: 9, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700, color: '#dc2626', whiteSpace: 'nowrap' }}>
+                          ✕ Clear
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
                 {plotsLoading ? <div className="loading"><div className="spinner"></div>Loading...</div> : (
                   <div style={{ overflowX: 'auto' }}>
+                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '0.625rem', fontWeight: 600 }}>
+                      {(() => { const q = invFilter.search.toLowerCase(); return plots.filter(p => (!q || p.number.toLowerCase().includes(q)) && (!invFilter.status || p.status === invFilter.status) && (!invFilter.size || p.size === invFilter.size) && (!invFilter.area || p.area === invFilter.area) && (!invFilter.category || p.category === invFilter.category)).length; })()} of {plots.length} plots
+                    </div>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                       <thead>
                         <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
@@ -2423,7 +2467,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                         </tr>
                       </thead>
                       <tbody>
-                        {plots.map(p => {
+                        {plots.filter(p => { const q = invFilter.search.toLowerCase(); return (!q || p.number.toLowerCase().includes(q)) && (!invFilter.status || p.status === invFilter.status) && (!invFilter.size || p.size === invFilter.size) && (!invFilter.area || p.area === invFilter.area) && (!invFilter.category || p.category === invFilter.category); }).map(p => {
                           const ep = p.effectivePrice || effectivePrice(p.price, p.tags);
                           const hasPremium = p.tags && p.tags.length > 0;
                           return (
