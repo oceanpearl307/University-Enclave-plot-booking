@@ -14,9 +14,23 @@
       "type": "residential",
       "description": "Residential area",
       "createdAt": "2026-06-08T09:21:08.096Z"
+    },
+    {
+      "id": 3,
+      "name": "Olive",
+      "type": "residential",
+      "description": "Residential area",
+      "createdAt": "2026-06-08T09:42:17.314Z"
+    },
+    {
+      "id": 4,
+      "name": "Jesmine",
+      "type": "residential",
+      "description": "residential area",
+      "createdAt": "2026-06-08T09:42:38.864Z"
     }
   ],
-  "sectorCounter": 2,
+  "sectorCounter": 4,
   "plots": [
     {
       "id": 1,

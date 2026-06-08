@@ -7,9 +7,30 @@
       "description": "Rose residential area — University Enclave Phase 1",
       "totalPlots": 0,
       "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": 2,
+      "name": "Tulip",
+      "type": "residential",
+      "description": "Residential area",
+      "createdAt": "2026-06-08T09:21:08.096Z"
+    },
+    {
+      "id": 3,
+      "name": "Olive",
+      "type": "residential",
+      "description": "Residential area",
+      "createdAt": "2026-06-08T09:42:17.314Z"
+    },
+    {
+      "id": 4,
+      "name": "Jesmine",
+      "type": "residential",
+      "description": "residential area",
+      "createdAt": "2026-06-08T09:42:38.864Z"
     }
   ],
-  "sectorCounter": 1,
+  "sectorCounter": 4,
   "plots": [
     {
       "id": 1,
@@ -2854,6 +2875,14 @@
       "loginHistory": [
         {
           "ip": "59.103.113.218",
+          "at": "2026-06-08T09:20:23.086Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Pakistan Telecommunication Company Limited",
+          "country": "Pakistan"
+        },
+        {
+          "ip": "59.103.113.218",
           "at": "2026-06-06T13:42:49.041Z",
           "blocked": false,
           "vpnDetected": false,
@@ -2878,7 +2907,7 @@
         }
       ],
       "lastLoginIP": "59.103.113.218",
-      "lastLoginAt": "2026-06-06T13:42:49.041Z"
+      "lastLoginAt": "2026-06-08T09:20:23.086Z"
     },
     {
       "id": 2,
