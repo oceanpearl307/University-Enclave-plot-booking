@@ -894,6 +894,9 @@ app.get('/api/dealer/dashboard/:dealerId', (req, res) => {
 
 // ─── Admin: List All Dealers ──────────────────────────────────────────────────
 app.get('/api/admin/dealers', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (session.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
   const result = dealers.filter(d => d.role !== 'admin').map(d => {
     const target = dealerTargets[d.id];
     const pkg = target?.packageId ? packages.find(p => p.id === target.packageId) : null;
@@ -1148,6 +1151,9 @@ app.get('/api/admin/dealers/:id/login-history', (req, res) => {
 
 // ─── Admin: Registrations ─────────────────────────────────────────────────────
 app.get('/api/admin/registrations', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (session.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
   res.json([...dealerRegistrations].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
 });
 
@@ -1180,7 +1186,12 @@ app.post('/api/admin/registrations/:id/approve', (req, res) => {
 });
 
 // ─── Admin: Packages ──────────────────────────────────────────────────────────
-app.get('/api/admin/packages', (req, res) => res.json(packages));
+app.get('/api/admin/packages', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (session.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
+  res.json(packages);
+});
 
 app.post('/api/admin/packages', (req, res) => {
   const { name, sizes, rewardDescription, rewardAmount, commissionPct } = req.body;
@@ -1306,7 +1317,12 @@ app.delete('/api/admin/plots/:id', (req, res) => {
 });
 
 // ─── Admin: Deals CRUD ────────────────────────────────────────────────────────
-app.get('/api/admin/deals', (req, res) => res.json([...deals].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))));
+app.get('/api/admin/deals', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (session.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
+  res.json([...deals].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
+});
 
 app.post('/api/admin/deals', (req, res) => {
   const { name, description, plotIds, specialPrice, paymentPlanInfo, validFrom, validUntil, highlighted } = req.body;

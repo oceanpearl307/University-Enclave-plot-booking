@@ -54,6 +54,8 @@ const ROLE_PRESETS = {
 };
 
 export default function AdminDashboard({ dealer: admin, authToken, onLogout, navigate }) {
+  const aFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { Authorization: `Bearer ${authToken}`, ...(opts.headers || {}) } });
+
   const [tab, setTab] = useState('Dealers');
 
   // ── Dealers tab ──
@@ -221,16 +223,16 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   const loadDealers = () => {
     setDealersLoading(true);
-    fetch('/api/admin/dealers').then(r => r.json()).then(d => { setDealers(Array.isArray(d) ? d : []); setDealersLoading(false); }).catch(() => setDealersLoading(false));
+    aFetch('/api/admin/dealers').then(r => { if (r.status === 401) { onLogout(); return []; } return r.json(); }).then(d => { setDealers(Array.isArray(d) ? d : []); setDealersLoading(false); }).catch(() => setDealersLoading(false));
   };
-  const loadPackages = () => fetch('/api/admin/packages').then(r => r.json()).then(d => { if (Array.isArray(d)) setPackages(d); }).catch(() => {});
-  const loadRegs = () => { setRegsLoading(true); fetch('/api/admin/registrations').then(r => r.json()).then(d => { setRegs(Array.isArray(d) ? d : []); setRegsLoading(false); }).catch(() => setRegsLoading(false)); };
+  const loadPackages = () => aFetch('/api/admin/packages').then(r => r.json()).then(d => { if (Array.isArray(d)) setPackages(d); }).catch(() => {});
+  const loadRegs = () => { setRegsLoading(true); aFetch('/api/admin/registrations').then(r => r.json()).then(d => { setRegs(Array.isArray(d) ? d : []); setRegsLoading(false); }).catch(() => setRegsLoading(false)); };
   const loadPlots = () => { setPlotsLoading(true); fetch('/api/plots').then(r => r.json()).then(d => { setPlots(Array.isArray(d) ? d : []); setPlotsLoading(false); }).catch(() => setPlotsLoading(false)); };
-  const loadSectors = () => fetch('/api/admin/sectors').then(r => r.json()).then(d => { if (Array.isArray(d)) setSectors(d); }).catch(() => {});
-  const loadDeals = () => { setDealsLoading(true); fetch('/api/admin/deals').then(r => r.json()).then(d => { setDeals(Array.isArray(d) ? d : []); setDealsLoading(false); }).catch(() => setDealsLoading(false)); };
-  const loadStaff = () => { setStaffLoading(true); fetch('/api/admin/staff').then(r => r.json()).then(d => { setStaff(Array.isArray(d) ? d : []); setStaffLoading(false); }).catch(() => setStaffLoading(false)); };
+  const loadSectors = () => aFetch('/api/admin/sectors').then(r => r.json()).then(d => { if (Array.isArray(d)) setSectors(d); }).catch(() => {});
+  const loadDeals = () => { setDealsLoading(true); aFetch('/api/admin/deals').then(r => r.json()).then(d => { setDeals(Array.isArray(d) ? d : []); setDealsLoading(false); }).catch(() => setDealsLoading(false)); };
+  const loadStaff = () => { setStaffLoading(true); aFetch('/api/admin/staff').then(r => r.json()).then(d => { setStaff(Array.isArray(d) ? d : []); setStaffLoading(false); }).catch(() => setStaffLoading(false)); };
   const loadAnns = () => { setAnnsLoading(true); fetch('/api/announcements').then(r => r.json()).then(d => { setAnns(Array.isArray(d) ? d : []); setAnnsLoading(false); }).catch(() => setAnnsLoading(false)); };
-  const loadBackups = () => { setBackupsLoading(true); setBackupsMsg(''); fetch('/api/admin/backups', { headers: { Authorization: `Bearer ${authToken}` } }).then(r => { if (r.status === 401) { onLogout(); return []; } return r.json(); }).then(d => { setBackups(Array.isArray(d) ? d : []); setBackupsLoading(false); }).catch(() => { setBackupsLoading(false); setBackupsMsg('❌ Failed to load backups'); }); };
+  const loadBackups = () => { setBackupsLoading(true); setBackupsMsg(''); aFetch('/api/admin/backups').then(r => { if (r.status === 401) { onLogout(); return []; } return r.json(); }).then(d => { setBackups(Array.isArray(d) ? d : []); setBackupsLoading(false); }).catch(() => { setBackupsLoading(false); setBackupsMsg('❌ Failed to load backups'); }); };
 
   const handleCreateBackup = async () => {
     setCreatingBackup(true);

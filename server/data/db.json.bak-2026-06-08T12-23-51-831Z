@@ -8875,14 +8875,6 @@
       "loginHistory": [
         {
           "ip": "127.0.0.1",
-          "at": "2026-06-08T12:23:51.019Z",
-          "blocked": false,
-          "vpnDetected": false,
-          "isp": "Local/Private",
-          "country": "Local"
-        },
-        {
-          "ip": "127.0.0.1",
           "at": "2026-06-08T12:21:41.976Z",
           "blocked": false,
           "vpnDetected": false,
@@ -8947,7 +8939,7 @@
         }
       ],
       "lastLoginIP": "127.0.0.1",
-      "lastLoginAt": "2026-06-08T12:23:51.019Z"
+      "lastLoginAt": "2026-06-08T12:21:41.976Z"
     },
     {
       "id": 2,
