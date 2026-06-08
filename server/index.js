@@ -637,6 +637,65 @@ function getDealerStats(dealerId) {
 // ─── Load persisted data before serving routes ────────────────────────────────
 loadDb();
 
+// ─── Seed demo confirmed bookings for dealer1 (id=2) if none exist ────────────
+(function seedDemoBookings() {
+  const DEALER_ID = 2;
+  const hasConfirmed = bookings.some(b => b.dealerId === DEALER_ID && b.status === 'confirmed');
+  if (hasConfirmed) return;
+
+  const seeds = [
+    { plotId: 248, plotNumber: 'UE-T02', plotSize: '5 Marla', plotPrice: 4000000, area: 'Tulip',
+      name: 'Sana Tariq', fatherName: 'Tariq Mehmood', cnic: '35202-1234567-1',
+      phone: '03001234567', email: 'sana.tariq@gmail.com',
+      residentialAddress: 'House 45, Block B, Lahore', postalAddress: 'House 45, Block B, Lahore',
+      downPayment: 800000, createdAt: '2026-03-15T10:30:00.000Z', approvedAt: '2026-03-16T09:00:00.000Z',
+      nominee: { name: 'Ali Tariq', fatherName: 'Tariq Mehmood', cnic: '35202-7654321-1', relation: 'Brother', phone: '03001234568', address: 'House 45, Block B, Lahore' } },
+    { plotId: 449, plotNumber: 'UE-J03', plotSize: '7 Marla', plotPrice: 5460000, area: 'Jasmine',
+      name: 'Kamran Iqbal', fatherName: 'Iqbal Ahmad', cnic: '35201-9876543-3',
+      phone: '03451234567', email: 'kamran.iqbal@yahoo.com',
+      residentialAddress: 'Flat 12, DHA Phase 6, Karachi', postalAddress: 'Flat 12, DHA Phase 6, Karachi',
+      downPayment: 1365000, createdAt: '2026-04-02T14:20:00.000Z', approvedAt: '2026-04-03T10:00:00.000Z',
+      nominee: { name: 'Fatima Iqbal', fatherName: 'Iqbal Ahmad', cnic: '35201-1234567-9', relation: 'Sister', phone: '03451234568', address: 'Flat 12, DHA Phase 6, Karachi' } },
+    { plotId: 648, plotNumber: 'UE-O02', plotSize: '10 Marla', plotPrice: 7600000, area: 'Orchid',
+      name: 'Rabia Hussain', fatherName: 'Hussain Bakhsh', cnic: '37405-5678901-5',
+      phone: '03211234567', email: 'rabia.h@hotmail.com',
+      residentialAddress: 'Street 9, G-11, Islamabad', postalAddress: 'Street 9, G-11, Islamabad',
+      downPayment: 1900000, createdAt: '2026-05-10T11:45:00.000Z', approvedAt: '2026-05-11T08:30:00.000Z',
+      nominee: { name: 'Zaid Hussain', fatherName: 'Hussain Bakhsh', cnic: '37405-9012345-7', relation: 'Spouse', phone: '03211234568', address: 'Street 9, G-11, Islamabad' } },
+  ];
+
+  seeds.forEach(s => {
+    bookingCounter++;
+    const booking = {
+      id: bookingCounter,
+      bookingRef: `UE-${bookingCounter}`,
+      plotId: s.plotId, plotNumber: s.plotNumber, plotSize: s.plotSize,
+      plotPrice: s.plotPrice, area: s.area,
+      name: s.name, fatherName: s.fatherName, cnic: s.cnic,
+      phone: s.phone, email: s.email,
+      residentialAddress: s.residentialAddress, postalAddress: s.postalAddress,
+      photo: '', cnicImage: '',
+      nominee: s.nominee,
+      dealerId: DEALER_ID,
+      downPayment: s.downPayment,
+      commissionPct: 3,
+      commissionAmount: Math.round(s.plotPrice * 0.03),
+      status: 'confirmed',
+      createdAt: s.createdAt,
+      approvedAt: s.approvedAt,
+      approvedBy: 'Admin',
+      receiptNumber: `UE-RCPT-${bookingCounter}`,
+      ledger: [],
+    };
+    bookings.push(booking);
+    const plot = plots.find(p => p.id === s.plotId);
+    if (plot) plot.status = 'booked';
+  });
+
+  saveDb();
+  console.log('[Seed] Added 3 demo confirmed bookings for dealer1 (Sana, Kamran, Rabia)');
+})();
+
 // ─── Sectors (public) ────────────────────────────────────────────────────────
 app.get('/api/sectors', (req, res) => {
   const result = sectors.map(s => ({

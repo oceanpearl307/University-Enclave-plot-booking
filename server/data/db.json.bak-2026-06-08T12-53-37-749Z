@@ -8874,6 +8874,22 @@
       "role": "admin",
       "loginHistory": [
         {
+          "ip": "127.0.0.1",
+          "at": "2026-06-08T12:48:58.949Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-08T12:43:43.569Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
           "ip": "59.103.113.218",
           "at": "2026-06-08T12:27:24.453Z",
           "blocked": false,
@@ -8954,8 +8970,8 @@
           "country": "Pakistan"
         }
       ],
-      "lastLoginIP": "59.103.113.218",
-      "lastLoginAt": "2026-06-08T12:27:24.453Z"
+      "lastLoginIP": "127.0.0.1",
+      "lastLoginAt": "2026-06-08T12:48:58.949Z"
     },
     {
       "id": 2,
@@ -8979,6 +8995,54 @@
       "ipLocked": false,
       "trustedIPs": [],
       "loginHistory": [
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-08T12:51:27.067Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-08T12:48:43.204Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-08T12:48:08.755Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-08T12:48:08.621Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-08T12:47:59.889Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "59.103.113.218",
+          "at": "2026-06-08T12:45:44.986Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Pakistan Telecommunication Company Limited",
+          "country": "Pakistan"
+        },
         {
           "ip": "59.103.113.218",
           "at": "2026-06-08T12:26:51.481Z",
@@ -9028,8 +9092,8 @@
           "country": "Pakistan"
         }
       ],
-      "lastLoginIP": "59.103.113.218",
-      "lastLoginAt": "2026-06-08T12:26:51.481Z",
+      "lastLoginIP": "127.0.0.1",
+      "lastLoginAt": "2026-06-08T12:51:27.067Z",
       "commissionPct": 15,
       "commissionPayouts": [
         {
