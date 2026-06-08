@@ -1031,9 +1031,21 @@ app.get('/api/admin/dealers/:id/account', (req, res) => {
   const commissionEarned = myBookings.reduce((s, b) => s + (b.commissionAmount || 0), 0);
   const commissionPaid = dealer.commissionPaidAmount || 0;
   const commissionOutstanding = Math.max(0, commissionEarned - commissionPaid);
-  const paymentsCollected = myBookings.reduce((s, b) => s + (b.plotPrice || 0), 0);
-  const paymentTarget = target?.paymentTarget || 0;
-  const targetPct = paymentTarget > 0 ? Math.min(100, Math.round((paymentsCollected / paymentTarget) * 100)) : 0;
+
+  // Payment target: compute from assigned plots' effective prices × 20%
+  const assignedPlotIds = target?.assignedPlots
+    ? Object.values(target.assignedPlots).flat()
+    : [];
+  const assignedPlotsData = assignedPlotIds.map(id => plots.find(p => p.id === id)).filter(Boolean);
+  const computedPaymentTarget = assignedPlotsData.length > 0
+    ? Math.round(assignedPlotsData.reduce((s, p) => s + computeEffectivePrice(p.price, p.tags || []), 0) * 0.20)
+    : (target?.paymentTarget || 0);
+
+  // Collected: down-payments from confirmed bookings only
+  const confirmedBookings = myBookings.filter(b => b.status === 'confirmed');
+  const paymentsCollected = confirmedBookings.reduce((s, b) => s + (b.downPayment || 0), 0);
+  const targetPct = computedPaymentTarget > 0 ? Math.min(100, Math.round((paymentsCollected / computedPaymentTarget) * 100)) : 0;
+  const remainingPct = Math.max(0, 100 - targetPct);
 
   res.json({
     bookings: bookingList,
@@ -1045,9 +1057,11 @@ app.get('/api/admin/dealers/:id/account', (req, res) => {
       outstanding: commissionOutstanding,
     },
     paymentTarget: {
-      target: paymentTarget,
+      target: computedPaymentTarget,
       collected: paymentsCollected,
       pct: targetPct,
+      remainingPct,
+      remaining: Math.max(0, computedPaymentTarget - paymentsCollected),
     },
     payoutHistory: [...(dealer.commissionPayouts || [])].reverse(),
   });

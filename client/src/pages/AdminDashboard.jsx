@@ -1342,15 +1342,18 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                                         {ledger.paymentTarget.target > 0 && (
                                           <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '0.875rem 1.25rem', marginBottom: '1.25rem' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151' }}>💰 Payment Target Progress</div>
+                                              <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151' }}>💰 Payment Target Progress <span style={{ fontWeight: 400, fontSize: '0.72rem', color: '#94a3b8' }}>(confirmed bookings · down-payments only)</span></div>
                                               <div style={{ fontSize: '0.78rem', color: '#64748b' }}>
-                                                {fmtFull(ledger.paymentTarget.collected)} of {fmtFull(ledger.paymentTarget.target)}
+                                                {fmtFull(ledger.paymentTarget.collected)} collected of {fmtFull(ledger.paymentTarget.target)}
                                               </div>
                                             </div>
                                             <div style={{ height: 8, background: '#f1f5f9', borderRadius: 9999, overflow: 'hidden', marginBottom: '0.35rem' }}>
                                               <div style={{ height: '100%', width: `${ledger.paymentTarget.pct}%`, background: ledger.paymentTarget.pct >= 80 ? '#059669' : ledger.paymentTarget.pct >= 50 ? '#d97706' : '#3b82f6', borderRadius: 9999, transition: 'width 0.4s ease' }} />
                                             </div>
-                                            <div style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>{ledger.paymentTarget.pct}% collected</div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', fontWeight: 600 }}>
+                                              <span style={{ color: ledger.paymentTarget.pct >= 80 ? '#059669' : ledger.paymentTarget.pct >= 50 ? '#d97706' : '#3b82f6' }}>{ledger.paymentTarget.pct}% collected</span>
+                                              <span style={{ color: '#94a3b8' }}>{ledger.paymentTarget.remainingPct}% remaining · {fmtFull(ledger.paymentTarget.remaining)} to go</span>
+                                            </div>
                                           </div>
                                         )}
 
@@ -1367,7 +1370,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                                               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                                                 <thead>
                                                   <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                                                    {['#', 'Booking Ref', 'Customer', 'Plot', 'Size', 'Effective Price', 'Comm %', 'Commission Amt', 'Date', 'Status'].map(h => (
+                                                    {['#', 'Booking Ref', 'Customer', 'Plot', 'Size', 'Effective Price', 'Down Pmt Collected', 'Comm %', 'Commission Amt', 'Date', 'Status'].map(h => (
                                                       <th key={h} style={{ padding: '0.6rem 0.875rem', textAlign: 'left', fontSize: '0.68rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                                                     ))}
                                                   </tr>
@@ -1385,6 +1388,9 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                                                         <td style={{ padding: '0.6rem 0.875rem', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{b.plotNumber || '—'}</td>
                                                         <td style={{ padding: '0.6rem 0.875rem', color: '#64748b', whiteSpace: 'nowrap' }}>{b.plotSize}</td>
                                                         <td style={{ padding: '0.6rem 0.875rem', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{fmtFull(b.effectivePrice)}</td>
+                                                        <td style={{ padding: '0.6rem 0.875rem', fontWeight: b.downPayment > 0 ? 700 : 400, color: b.downPayment > 0 ? '#059669' : '#94a3b8', whiteSpace: 'nowrap' }}>
+                                                          {b.downPayment > 0 ? fmtFull(b.downPayment) : (b.bookingStatus === 'confirmed' ? <span style={{ color: '#dc2626', fontSize: '0.75rem' }}>—</span> : '—')}
+                                                        </td>
                                                         <td style={{ padding: '0.6rem 0.875rem', whiteSpace: 'nowrap' }}>
                                                           <span style={{ background: '#f0fdf4', color: '#065f46', borderRadius: 6, padding: '0.15rem 0.45rem', fontWeight: 800, fontSize: '0.78rem' }}>{b.commissionPct}%</span>
                                                         </td>
@@ -1401,6 +1407,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                                                   <tr style={{ background: '#f8fafc', borderTop: '2px solid #e2e8f0' }}>
                                                     <td colSpan={5} style={{ padding: '0.6rem 0.875rem', fontWeight: 700, fontSize: '0.78rem', color: '#374151' }}>Totals ({ledger.bookings.length} bookings)</td>
                                                     <td style={{ padding: '0.6rem 0.875rem', fontWeight: 800, color: '#0f172a', whiteSpace: 'nowrap' }}>{fmtFull(ledger.bookings.reduce((s, b) => s + b.effectivePrice, 0))}</td>
+                                                    <td style={{ padding: '0.6rem 0.875rem', fontWeight: 800, color: '#059669', whiteSpace: 'nowrap' }}>{fmtFull(ledger.bookings.reduce((s, b) => s + (b.downPayment || 0), 0))}</td>
                                                     <td style={{ padding: '0.6rem 0.875rem' }}></td>
                                                     <td style={{ padding: '0.6rem 0.875rem', fontWeight: 800, color: '#059669', whiteSpace: 'nowrap' }}>{fmtFull(ledger.commission.earned)}</td>
                                                     <td colSpan={2}></td>
