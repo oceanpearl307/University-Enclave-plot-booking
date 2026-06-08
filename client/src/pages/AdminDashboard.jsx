@@ -135,6 +135,12 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [adminPayNotes, setAdminPayNotes] = useState('');
   const [adminPaySaving, setAdminPaySaving] = useState(false);
   const [adminPayError, setAdminPayError] = useState('');
+  const [bkgEditMode, setBkgEditMode] = useState(false);
+  const [bkgEditForm, setBkgEditForm] = useState({});
+  const [bkgEditSaving, setBkgEditSaving] = useState(false);
+  const [bkgEditMsg, setBkgEditMsg] = useState('');
+  const [bkgNotifs, setBkgNotifs] = useState([]);
+  const lastPendingCountRef = React.useRef(null);
   const loadBookings = () => { setBkgsLoading(true); fetch('/api/admin/bookings').then(r => r.json()).then(d => { setBkgs(Array.isArray(d) ? d : []); setBkgsLoading(false); }).catch(() => setBkgsLoading(false)); };
 
   const loadAdminLedger = (bookingId) => {
@@ -306,11 +312,32 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   useEffect(() => {
     loadDealers();
     loadPackages();
-    fetch('/api/admin/notifications').then(r => r.json()).then(d => { if (d.pendingBookings > 0) setBkgs(prev => prev.length === 0 ? [{ _placeholder: true }] : prev); }).catch(() => {});
+    fetch('/api/admin/notifications').then(r => r.json()).then(d => {
+      const count = d.pendingBookings || 0;
+      lastPendingCountRef.current = count;
+      if (count > 0) setBkgs(prev => prev.length === 0 ? [{ _placeholder: true }] : prev);
+    }).catch(() => {});
     fetch('/api/admin/restore-alert', { headers: { Authorization: `Bearer ${authToken}` } })
       .then(r => r.json())
       .then(d => { if (d.alert) setRestoreAlert(d.alert); })
       .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const poll = setInterval(() => {
+      fetch('/api/admin/notifications').then(r => r.json()).then(d => {
+        const count = d.pendingBookings || 0;
+        const prev = lastPendingCountRef.current;
+        if (prev !== null && count > prev) {
+          const newCount = count - prev;
+          const notif = { id: Date.now(), message: `${newCount} new booking${newCount > 1 ? 's' : ''} submitted — pending approval`, time: new Date().toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' }) };
+          setBkgNotifs(n => [...n, notif]);
+          setTimeout(() => setBkgNotifs(n => n.filter(x => x.id !== notif.id)), 8000);
+        }
+        lastPendingCountRef.current = count;
+      }).catch(() => {});
+    }, 20000);
+    return () => clearInterval(poll);
   }, []);
   useEffect(() => {
     if (tab === 'Registrations') loadRegs();
@@ -1099,8 +1126,39 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const statusColor = { available: '#059669', booked: '#d97706', sold: '#dc2626' };
   const today = new Date().toISOString().slice(0, 10);
 
+  const handleSaveBookingEdit = async () => {
+    setBkgEditSaving(true); setBkgEditMsg('');
+    const res = await aFetch(`/api/admin/bookings/${selectedBkg.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bkgEditForm) });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setBkgEditMsg('✅ Saved');
+      setBkgEditMode(false);
+      const updated = { ...selectedBkg, ...data.booking };
+      setSelectedBkg(updated);
+      setBkgs(prev => prev.map(b => b.id === updated.id ? { ...b, ...data.booking } : b));
+    } else {
+      setBkgEditMsg('❌ ' + (data.error || 'Save failed'));
+    }
+    setBkgEditSaving(false);
+  };
+
   return (
     <div style={{ background: '#f8fafc', minHeight: '100vh' }}>
+      {bkgNotifs.length > 0 && (
+        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '0.5rem', maxWidth: 340 }}>
+          {bkgNotifs.map(n => (
+            <div key={n.id} style={{ background: '#0f172a', color: '#fff', borderRadius: 12, padding: '0.875rem 1.125rem', boxShadow: '0 8px 32px rgba(0,0,0,0.35)', display: 'flex', alignItems: 'flex-start', gap: '0.75rem', animation: 'slideInRight 0.3s ease' }}>
+              <div style={{ fontSize: '1.25rem', flexShrink: 0 }}>🔔</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: '0.875rem', marginBottom: '0.15rem' }}>{n.message}</div>
+                <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{n.time}</div>
+                <button onClick={() => { setTab('Bookings'); if (tab !== 'Bookings') loadBookings(); setBkgNotifs(prev => prev.filter(x => x.id !== n.id)); }} style={{ marginTop: '0.4rem', background: '#1a6b3c', border: 'none', color: '#fff', borderRadius: 7, padding: '0.25rem 0.625rem', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer' }}>View Bookings</button>
+              </div>
+              <button onClick={() => setBkgNotifs(prev => prev.filter(x => x.id !== n.id))} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem', padding: 0, flexShrink: 0 }}>✕</button>
+            </div>
+          ))}
+        </div>
+      )}
       <div style={{ maxWidth: 1300, margin: '0 auto', padding: '2rem 1.5rem' }}>
 
         {/* Header */}
@@ -2326,7 +2384,14 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                       <div style={{ fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', opacity: 0.75, marginBottom: '0.2rem' }}>Booking Details</div>
                       <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>{selectedBkg.bookingRef}</div>
                     </div>
-                    <button onClick={() => setSelectedBkg(null)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      {!bkgEditMode ? (
+                        <button onClick={() => { setBkgEditMode(true); setBkgEditMsg(''); setBkgEditForm({ name: selectedBkg.name || '', fatherName: selectedBkg.fatherName || '', cnic: selectedBkg.cnic || '', phone: selectedBkg.phone || '', email: selectedBkg.email || '', residentialAddress: selectedBkg.residentialAddress || selectedBkg.address || '', postalAddress: selectedBkg.postalAddress || '', nominee: selectedBkg.nominee ? { ...selectedBkg.nominee } : { name: '', fatherName: '', cnic: '', relation: '', phone: '', address: '' } }); }} style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', borderRadius: 8, padding: '0.3rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>✏️ Edit</button>
+                      ) : (
+                        <button onClick={() => { setBkgEditMode(false); setBkgEditMsg(''); }} style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: '#fff', borderRadius: 8, padding: '0.3rem 0.7rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                      )}
+                      <button onClick={() => { setSelectedBkg(null); setBkgEditMode(false); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                    </div>
                   </div>
                   <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     {/* ── Buyer Photo + CNIC Image thumbnails ── */}
@@ -2394,6 +2459,30 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                       <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#0f172a' }}>{selectedBkg.plotNumber}</div>
                       <div style={{ fontSize: '0.8rem', color: '#374151' }}>{selectedBkg.plotSize} · {selectedBkg.area} · {fmt(selectedBkg.plotPrice)}</div>
                     </div>
+                    {bkgEditMode ? (
+                      <div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.75rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.4rem' }}>Edit Buyer Information</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                          {[['Name', 'name'], ['Father Name', 'fatherName'], ['CNIC', 'cnic'], ['Phone', 'phone'], ['Email', 'email'], ['Residential Address', 'residentialAddress'], ['Postal Address', 'postalAddress']].map(([label, key]) => (
+                            <div key={key}>
+                              <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>{label}</div>
+                              <input value={bkgEditForm[key] || ''} onChange={e => setBkgEditForm(f => ({ ...f, [key]: e.target.value }))} style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#1a6b3c'} onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '1rem 0 0.75rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.4rem' }}>Edit Nominee Information</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                          {[['Name', 'name'], ['Father Name', 'fatherName'], ['CNIC', 'cnic'], ['Relation', 'relation'], ['Phone', 'phone'], ['Address', 'address']].map(([label, key]) => (
+                            <div key={key}>
+                              <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>{label}</div>
+                              <input value={(bkgEditForm.nominee || {})[key] || ''} onChange={e => setBkgEditForm(f => ({ ...f, nominee: { ...(f.nominee || {}), [key]: e.target.value } }))} style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#1a6b3c'} onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+                            </div>
+                          ))}
+                        </div>
+                        {bkgEditMsg && <div style={{ marginTop: '0.5rem', fontSize: '0.82rem', fontWeight: 600, color: bkgEditMsg.startsWith('✅') ? '#059669' : '#dc2626' }}>{bkgEditMsg}</div>}
+                        <button onClick={handleSaveBookingEdit} disabled={bkgEditSaving} style={{ marginTop: '0.875rem', width: '100%', background: bkgEditSaving ? '#94a3b8' : '#1a6b3c', color: '#fff', border: 'none', borderRadius: 10, padding: '0.7rem 1rem', fontWeight: 700, cursor: bkgEditSaving ? 'not-allowed' : 'pointer', fontSize: '0.875rem' }}>{bkgEditSaving ? 'Saving...' : '💾 Save Changes'}</button>
+                      </div>
+                    ) : (
                     <div>
                       <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.625rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.4rem' }}>Buyer Information</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
@@ -2413,7 +2502,8 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                         ))}
                       </div>
                     </div>
-                    {selectedBkg.nominee && (
+                    )}
+                    {!bkgEditMode && selectedBkg.nominee && (
                       <div>
                         <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.625rem', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.4rem' }}>Nominee Information</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>

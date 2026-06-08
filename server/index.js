@@ -1684,6 +1684,20 @@ app.post('/api/admin/bookings/:id/reject', (req, res) => {
   res.json({ success: true, booking });
 });
 
+app.patch('/api/admin/bookings/:id', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (session.role !== 'admin' && session.role !== 'operations') return res.status(403).json({ error: 'Access denied' });
+  const booking = bookings.find(b => b.id === parseInt(req.params.id));
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  const allowed = ['name', 'fatherName', 'cnic', 'phone', 'email', 'residentialAddress', 'postalAddress', 'address', 'plotPrice', 'downPayment', 'notes', 'nominee'];
+  allowed.forEach(k => { if (req.body[k] !== undefined) booking[k] = req.body[k]; });
+  booking.updatedAt = new Date().toISOString();
+  booking.updatedBy = session.username || ('user-' + session.dealerId);
+  saveDb();
+  res.json({ success: true, booking });
+});
+
 app.delete('/api/admin/bookings/:id', (req, res) => {
   const rawId = req.params.id;
   const numId = parseInt(rawId);

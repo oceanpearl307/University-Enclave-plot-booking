@@ -8875,6 +8875,30 @@
       "loginHistory": [
         {
           "ip": "59.103.113.218",
+          "at": "2026-06-08T12:27:24.453Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Pakistan Telecommunication Company Limited",
+          "country": "Pakistan"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-08T12:23:51.019Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-08T12:21:41.976Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
+          "ip": "59.103.113.218",
           "at": "2026-06-08T10:21:59.060Z",
           "blocked": false,
           "vpnDetected": false,
@@ -8931,7 +8955,7 @@
         }
       ],
       "lastLoginIP": "59.103.113.218",
-      "lastLoginAt": "2026-06-08T10:21:59.060Z"
+      "lastLoginAt": "2026-06-08T12:27:24.453Z"
     },
     {
       "id": 2,
@@ -8955,6 +8979,22 @@
       "ipLocked": false,
       "trustedIPs": [],
       "loginHistory": [
+        {
+          "ip": "59.103.113.218",
+          "at": "2026-06-08T12:26:51.481Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Pakistan Telecommunication Company Limited",
+          "country": "Pakistan"
+        },
+        {
+          "ip": "127.0.0.1",
+          "at": "2026-06-08T12:21:08.216Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
         {
           "ip": "59.103.113.218",
           "at": "2026-06-08T11:14:15.635Z",
@@ -8989,7 +9029,7 @@
         }
       ],
       "lastLoginIP": "59.103.113.218",
-      "lastLoginAt": "2026-06-08T11:14:15.635Z",
+      "lastLoginAt": "2026-06-08T12:26:51.481Z",
       "commissionPct": 15,
       "commissionPayouts": [
         {
@@ -9053,7 +9093,7 @@
     "2": {
       "dealerId": 2,
       "packageId": 1,
-      "paymentTarget": 18000000,
+      "paymentTarget": 0,
       "sizes": [
         {
           "size": "5 Marla",
@@ -9073,12 +9113,41 @@
         }
       ],
       "assignedPlots": {
-        "5 Marla": [],
-        "7 Marla": [],
-        "10 Marla": [],
-        "1 Kanal": []
+        "5 Marla": [
+          247,
+          248,
+          249,
+          250,
+          251,
+          252,
+          253,
+          254,
+          255,
+          256
+        ],
+        "7 Marla": [
+          447,
+          448,
+          449,
+          450,
+          451,
+          452,
+          453,
+          454
+        ],
+        "10 Marla": [
+          647,
+          648,
+          649,
+          650,
+          651
+        ],
+        "1 Kanal": [
+          1,
+          2
+        ]
       },
-      "assignedAt": "2026-06-08T10:13:59.940Z",
+      "assignedAt": "2026-06-08T12:29:17.515Z",
       "notes": "Q2 2026 Sales Target"
     },
     "3": {
