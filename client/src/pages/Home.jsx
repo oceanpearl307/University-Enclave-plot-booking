@@ -173,7 +173,6 @@ export default function Home({ navigate, dealer, customer, onDealerLogin, onCust
             <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               {[
                 { label: 'Total Plots', value: stats.total, icon: '📍', color: '#94a3b8' },
-                { label: 'Available', value: stats.available, icon: '✅', color: '#4ade80' },
                 { label: 'Booked', value: stats.booked, icon: '📋', color: '#fbbf24' },
                 { label: 'Sold', value: stats.sold, icon: '🏠', color: '#f87171' },
               ].map(s => (
@@ -258,7 +257,6 @@ export default function Home({ navigate, dealer, customer, onDealerLogin, onCust
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
               {[
                 { label: 'Total Plots', value: stats.total, icon: '📍', bg: 'linear-gradient(135deg, #1a1a2e, #2d3748)', pct: 100 },
-                { label: 'Available Plots', value: stats.available, icon: '✅', bg: 'linear-gradient(135deg, #059669, #047857)', pct: Math.round((stats.available / stats.total) * 100) },
                 { label: 'Booked Plots', value: stats.booked, icon: '📋', bg: 'linear-gradient(135deg, #d97706, #b45309)', pct: Math.round((stats.booked / stats.total) * 100) },
                 { label: 'Sold Plots', value: stats.sold, icon: '🏠', bg: 'linear-gradient(135deg, #dc2626, #b91c1c)', pct: Math.round((stats.sold / stats.total) * 100) },
               ].map(s => (
