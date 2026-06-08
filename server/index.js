@@ -522,6 +522,8 @@ function getBackupFiles() {
   } catch { return []; }
 }
 
+let ledgerIdCounter = 0;
+
 function applyDb(db) {
   if (db.sectors)              { sectors = db.sectors;                        }
   if (db.sectorCounter)        { sectorCounter = db.sectorCounter;            }
@@ -624,7 +626,7 @@ const PLOT_SIZES = ['5 Marla', '7 Marla', '10 Marla', '1 Kanal'];
 function getDealerStats(dealerId) {
   const myBookings = bookings.filter(b => b.dealerId === dealerId);
   const achieved = myBookings.length;
-  const paymentsCollected = myBookings.reduce((sum, b) => sum + b.plotPrice, 0);
+  const paymentsCollected = myBookings.reduce((sum, b) => sum + (b.downPayment || Math.round(b.plotPrice * 0.1)), 0);
   const achievedBySize = {};
   PLOT_SIZES.forEach(s => { achievedBySize[s] = 0; });
   myBookings.forEach(b => {
@@ -648,19 +650,19 @@ loadDb();
       name: 'Sana Tariq', fatherName: 'Tariq Mehmood', cnic: '35202-1234567-1',
       phone: '03001234567', email: 'sana.tariq@gmail.com',
       residentialAddress: 'House 45, Block B, Lahore', postalAddress: 'House 45, Block B, Lahore',
-      downPayment: 800000, createdAt: '2026-03-15T10:30:00.000Z', approvedAt: '2026-03-16T09:00:00.000Z',
+      downPayment: 400000, createdAt: '2026-03-15T10:30:00.000Z', approvedAt: '2026-03-16T09:00:00.000Z',
       nominee: { name: 'Ali Tariq', fatherName: 'Tariq Mehmood', cnic: '35202-7654321-1', relation: 'Brother', phone: '03001234568', address: 'House 45, Block B, Lahore' } },
     { plotId: 449, plotNumber: 'UE-J03', plotSize: '7 Marla', plotPrice: 5460000, area: 'Jasmine',
       name: 'Kamran Iqbal', fatherName: 'Iqbal Ahmad', cnic: '35201-9876543-3',
       phone: '03451234567', email: 'kamran.iqbal@yahoo.com',
       residentialAddress: 'Flat 12, DHA Phase 6, Karachi', postalAddress: 'Flat 12, DHA Phase 6, Karachi',
-      downPayment: 1365000, createdAt: '2026-04-02T14:20:00.000Z', approvedAt: '2026-04-03T10:00:00.000Z',
+      downPayment: 546000, createdAt: '2026-04-02T14:20:00.000Z', approvedAt: '2026-04-03T10:00:00.000Z',
       nominee: { name: 'Fatima Iqbal', fatherName: 'Iqbal Ahmad', cnic: '35201-1234567-9', relation: 'Sister', phone: '03451234568', address: 'Flat 12, DHA Phase 6, Karachi' } },
     { plotId: 648, plotNumber: 'UE-O02', plotSize: '10 Marla', plotPrice: 7600000, area: 'Orchid',
       name: 'Rabia Hussain', fatherName: 'Hussain Bakhsh', cnic: '37405-5678901-5',
       phone: '03211234567', email: 'rabia.h@hotmail.com',
       residentialAddress: 'Street 9, G-11, Islamabad', postalAddress: 'Street 9, G-11, Islamabad',
-      downPayment: 1900000, createdAt: '2026-05-10T11:45:00.000Z', approvedAt: '2026-05-11T08:30:00.000Z',
+      downPayment: 760000, createdAt: '2026-05-10T11:45:00.000Z', approvedAt: '2026-05-11T08:30:00.000Z',
       nominee: { name: 'Zaid Hussain', fatherName: 'Hussain Bakhsh', cnic: '37405-9012345-7', relation: 'Spouse', phone: '03211234568', address: 'Street 9, G-11, Islamabad' } },
   ];
 
@@ -887,7 +889,7 @@ app.get('/api/dealer/dashboard/:dealerId', (req, res) => {
     const ym = d.toISOString().slice(0, 7);
     const month = d.toLocaleString('en-US', { month: 'short' });
     const mb = myBookings.filter(b => b.createdAt.startsWith(ym));
-    return { month, bookings: mb.length, payments: mb.reduce((s, b) => s + b.plotPrice, 0) };
+    return { month, bookings: mb.length, payments: mb.reduce((s, b) => s + (b.downPayment || Math.round(b.plotPrice * 0.1)), 0) };
   });
 
   const plotDistribution = [
@@ -1473,8 +1475,6 @@ function addDaysToDate(isoStr, days) {
   d.setDate(d.getDate() + days);
   return d.toISOString().split('T')[0];
 }
-
-let ledgerIdCounter = 0;
 
 function generateLedger(booking) {
   const plan = PAYMENT_PLANS_SRV[booking.plotSize];
