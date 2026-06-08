@@ -367,7 +367,13 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       const sizes = PLOT_SIZES.map(s => ({ size: s, target: parseInt(tForm.sizes[s]) || 0 }));
       const assignedPlots = {};
       PLOT_SIZES.forEach(s => { assignedPlots[s] = (tForm.assignedPlots?.[s] || []).slice(0, parseInt(tForm.sizes[s]) || 0); });
-      const body = { sizes, paymentTarget: parseInt(tForm.paymentTarget) || 0, notes: tForm.notes, assignedPlots };
+      const allAssignedIds = Object.values(assignedPlots).flat();
+      const totalPlotValue = allAssignedIds.reduce((sum, id) => {
+        const p = plots.find(pl => pl.id === id);
+        return sum + (p ? effectivePrice(p.price, p.tags) : 0);
+      }, 0);
+      const autoPaymentTarget = Math.round(totalPlotValue * 0.20);
+      const body = { sizes, paymentTarget: autoPaymentTarget, notes: tForm.notes, assignedPlots };
       if (tForm.packageId) body.packageId = parseInt(tForm.packageId);
       await fetch(`/api/admin/targets/${selected.id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       await fetch(`/api/admin/dealers/${selected.id}/deposit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paid: tForm.depositPaid, amount: parseInt(tForm.depositAmount) || 0 }) });
@@ -1328,10 +1334,36 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                       </div>
                     )}
 
-                    <div className="form-group">
-                      <label>💰 Payment Target (PKR)</label>
-                      <input type="number" value={tForm.paymentTarget} onChange={e => setTForm(f => ({ ...f, paymentTarget: e.target.value }))} placeholder="e.g. 20000000" />
-                    </div>
+                    {/* ── Payment Target (auto-calculated) ── */}
+                    {(() => {
+                      const allIds = Object.values(tForm.assignedPlots || {}).flat();
+                      const totalVal = allIds.reduce((sum, id) => {
+                        const p = plots.find(pl => pl.id === id);
+                        return sum + (p ? effectivePrice(p.price, p.tags) : 0);
+                      }, 0);
+                      const target = Math.round(totalVal * 0.20);
+                      return (
+                        <div className="form-group">
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            💰 Payment Target (PKR)
+                            <span style={{ fontSize: '0.7rem', fontWeight: 500, color: '#059669', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 9999, padding: '0.1rem 0.45rem' }}>auto-calculated</span>
+                          </label>
+                          <div style={{ background: allIds.length ? '#f0fdf4' : '#f8fafc', border: `1.5px solid ${allIds.length ? '#86efac' : '#e2e8f0'}`, borderRadius: 9, padding: '0.65rem 0.875rem' }}>
+                            <div style={{ fontWeight: 800, fontSize: '1.15rem', color: allIds.length ? '#065f46' : '#94a3b8', fontFamily: 'monospace', letterSpacing: '0.02em' }}>
+                              {allIds.length ? `PKR ${target.toLocaleString('en-PK')}` : '—'}
+                            </div>
+                            {allIds.length > 0 && (
+                              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '0.25rem' }}>
+                                {allIds.length} plot{allIds.length > 1 ? 's' : ''} · total value {fmt(totalVal)} × <strong>20%</strong>
+                              </div>
+                            )}
+                            {allIds.length === 0 && (
+                              <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '0.2rem' }}>Assign plots above to calculate</div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     <div>
                       <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151', marginBottom: '0.625rem' }}>🔐 Security Deposit</div>
