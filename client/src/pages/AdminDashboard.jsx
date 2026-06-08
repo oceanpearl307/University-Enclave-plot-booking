@@ -398,6 +398,50 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     setLedgerLoadingMap(p => ({ ...p, [dealerId]: false }));
   };
 
+  const exportLedgerToExcel = (ledger, dealerName) => {
+    const wb = XLSX.utils.book_new();
+    const today = new Date().toISOString().split('T')[0];
+
+    const bookingHeaders = ['#', 'Booking Ref', 'Customer', 'Plot Number', 'Size', 'Effective Price (PKR)', 'Down Payment Collected (PKR)', 'Commission %', 'Commission Amount (PKR)', 'Date', 'Status'];
+    const bookingRows = ledger.bookings.map((b, i) => [
+      i + 1,
+      b.bookingRef,
+      b.customerName || '',
+      b.plotNumber || '',
+      b.plotSize || '',
+      b.effectivePrice,
+      b.downPayment || 0,
+      b.commissionPct,
+      b.commissionAmount,
+      b.bookedAt ? new Date(b.bookedAt).toLocaleDateString() : '',
+      b.bookingStatus === 'confirmed' ? 'Confirmed' : b.bookingStatus === 'rejected' ? 'Rejected' : 'Pending',
+    ]);
+    const totalsRow = [
+      `Totals (${ledger.bookings.length})`, '', '', '', '',
+      ledger.bookings.reduce((s, b) => s + b.effectivePrice, 0),
+      ledger.bookings.reduce((s, b) => s + (b.downPayment || 0), 0),
+      '', ledger.commission.earned, '', '',
+    ];
+    const wsBookings = XLSX.utils.aoa_to_sheet([bookingHeaders, ...bookingRows, totalsRow]);
+    wsBookings['!cols'] = [4, 16, 22, 14, 10, 24, 28, 14, 24, 14, 12].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, wsBookings, 'Bookings & Commissions');
+
+    const payoutHeaders = ['#', 'Date', 'Amount (PKR)', 'Notes', 'By'];
+    const payoutRows = (ledger.payoutHistory || []).map((p, i) => [
+      i + 1,
+      p.date ? new Date(p.date).toLocaleDateString() : '',
+      p.amount,
+      p.notes || '',
+      p.adminName || 'Admin',
+    ]);
+    const wsPayouts = XLSX.utils.aoa_to_sheet([payoutHeaders, ...payoutRows]);
+    wsPayouts['!cols'] = [4, 14, 16, 36, 16].map(w => ({ wch: w }));
+    XLSX.utils.book_append_sheet(wb, wsPayouts, 'Payout History');
+
+    const safeName = dealerName.replace(/[^a-zA-Z0-9 ]/g, '').trim().replace(/\s+/g, '_');
+    XLSX.writeFile(wb, `Ledger_${safeName}_${today}.xlsx`);
+  };
+
   const handleLedgerPayout = async (dealerId) => {
     const form = ledgerPayoutForm;
     const amount = parseInt(form?.amount);
@@ -1300,6 +1344,9 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                                       </div>
                                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                                         <button onClick={() => refreshLedger(d.id)} style={{ background: '#dbeafe', border: 'none', color: '#1d4ed8', borderRadius: 8, padding: '0.35rem 0.75rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer' }}>↻ Refresh</button>
+                                        {ledger && !ledger.error && (
+                                          <button onClick={() => exportLedgerToExcel(ledger, d.name)} style={{ background: '#d1fae5', border: 'none', color: '#065f46', borderRadius: 8, padding: '0.35rem 0.75rem', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>⬇ Export Excel</button>
+                                        )}
                                         <button onClick={() => { setExpandedLedger(null); setLedgerPayoutForm(null); setLedgerPayoutMsg(''); }} style={{ background: '#f1f5f9', border: 'none', borderRadius: 8, width: 28, height: 28, cursor: 'pointer', fontSize: '0.875rem', fontWeight: 700, color: '#64748b' }}>✕</button>
                                       </div>
                                     </div>
