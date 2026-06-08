@@ -367,9 +367,16 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       setLedgerLoadingMap(p => ({ ...p, [next]: true }));
       try {
         const r = await fetch(`/api/admin/dealers/${next}/account`, { headers: { Authorization: `Bearer ${authToken}` } });
-        const data = await r.json();
-        setLedgerDataMap(p => ({ ...p, [next]: data }));
-      } catch {}
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          setLedgerDataMap(p => ({ ...p, [next]: { error: err.error || `Error ${r.status}` } }));
+        } else {
+          const data = await r.json();
+          setLedgerDataMap(p => ({ ...p, [next]: data }));
+        }
+      } catch (e) {
+        setLedgerDataMap(p => ({ ...p, [next]: { error: 'Network error — could not load ledger' } }));
+      }
       setLedgerLoadingMap(p => ({ ...p, [next]: false }));
     }
   };
@@ -378,9 +385,16 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     setLedgerLoadingMap(p => ({ ...p, [dealerId]: true }));
     try {
       const r = await fetch(`/api/admin/dealers/${dealerId}/account`, { headers: { Authorization: `Bearer ${authToken}` } });
-      const data = await r.json();
-      setLedgerDataMap(p => ({ ...p, [dealerId]: data }));
-    } catch {}
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        setLedgerDataMap(p => ({ ...p, [dealerId]: { error: err.error || `Error ${r.status}` } }));
+      } else {
+        const data = await r.json();
+        setLedgerDataMap(p => ({ ...p, [dealerId]: data }));
+      }
+    } catch {
+      setLedgerDataMap(p => ({ ...p, [dealerId]: { error: 'Network error — could not load ledger' } }));
+    }
     setLedgerLoadingMap(p => ({ ...p, [dealerId]: false }));
   };
 
@@ -1447,6 +1461,10 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                                           </div>
                                         )}
                                       </>
+                                    ) : ledger?.error ? (
+                                      <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 10, padding: '1rem 1.25rem', color: '#dc2626', fontSize: '0.875rem', fontWeight: 600 }}>
+                                        ⚠️ {ledger.error}
+                                      </div>
                                     ) : (
                                       <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>Failed to load ledger data</div>
                                     )}

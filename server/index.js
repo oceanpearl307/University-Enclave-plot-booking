@@ -1001,6 +1001,9 @@ app.get('/api/admin/dealers/:id/commission-payouts', (req, res) => {
 
 // ─── Admin: Dealer Account Ledger ─────────────────────────────────────────────
 app.get('/api/admin/dealers/:id/account', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (session.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
   const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
   if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
 
