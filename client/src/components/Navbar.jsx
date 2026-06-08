@@ -11,7 +11,7 @@ export default function Navbar({ currentPage, navigate, dealer, customer, onLogo
         ]
       : [
         { id: dashboardPage, label: dealer.role === 'admin' ? '👑 Admin Dashboard' : '📊 My Dashboard' },
-        { id: 'plots', label: 'Browse Plots' },
+        ...(dealer.role !== 'dealer' ? [{ id: 'plots', label: 'Browse Plots' }] : []),
         { id: 'status', label: 'Booking Status' },
         { id: 'home', label: 'Home' },
       ]
