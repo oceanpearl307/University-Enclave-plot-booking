@@ -1395,6 +1395,13 @@ app.post('/api/bookings', (req, res) => {
   const plot = plots.find(p => p.id === plotId);
   if (!plot) return res.status(404).json({ error: 'Plot not found' });
   if (plot.status !== 'available') return res.status(409).json({ error: 'Plot is not available for booking' });
+  if (dealerId) {
+    const dealerTargetCheck = dealerTargets[dealerId];
+    const assignedForSize = (dealerTargetCheck?.assignedPlots || {})[plot.size] || [];
+    if (!assignedForSize.includes(plotId)) {
+      return res.status(403).json({ error: 'Plot not assigned to this dealer' });
+    }
+  }
   const resolvedDealerId = dealerId ? (dealers.find(d => d.id === dealerId && d.role !== 'admin') ? dealerId : null) : null;
   const dealerForCommission = resolvedDealerId ? dealers.find(d => d.id === resolvedDealerId) : null;
   const dealerTargetObj = resolvedDealerId ? dealerTargets[resolvedDealerId] : null;
