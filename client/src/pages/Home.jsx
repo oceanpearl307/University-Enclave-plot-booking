@@ -246,46 +246,6 @@ export default function Home({ navigate, dealer, customer, onDealerLogin, onCust
 
       <PaymentPlanTable />
 
-      <section style={{ padding: '3.5rem 1.5rem' }}>
-        <div className="container">
-          <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-            <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.5rem' }}>Society Plot Availability</h2>
-            <p style={{ color: '#6b7280' }}>Current availability of plots across all blocks in University Enclave</p>
-          </div>
-
-          {stats && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.25rem', marginBottom: '2rem' }}>
-              {[
-                { label: 'Total Plots', value: stats.total, icon: '📍', bg: 'linear-gradient(135deg, #1a1a2e, #2d3748)', pct: 100 },
-                { label: 'Booked Plots', value: stats.booked, icon: '📋', bg: 'linear-gradient(135deg, #d97706, #b45309)', pct: Math.round((stats.booked / stats.total) * 100) },
-                { label: 'Sold Plots', value: stats.sold, icon: '🏠', bg: 'linear-gradient(135deg, #dc2626, #b91c1c)', pct: Math.round((stats.sold / stats.total) * 100) },
-              ].map(s => (
-                <div key={s.label} style={{
-                  background: s.bg, color: '#fff', borderRadius: 14,
-                  padding: '1.5rem', position: 'relative', overflow: 'hidden',
-                }}>
-                  <div style={{ position: 'absolute', top: -10, right: -10, fontSize: '5rem', opacity: 0.08 }}>{s.icon}</div>
-                  <div style={{ fontSize: '2.5rem', fontWeight: 900, lineHeight: 1 }}>{s.value}</div>
-                  <div style={{ fontSize: '0.85rem', opacity: 0.85, marginTop: '0.4rem', marginBottom: '1rem' }}>{s.label}</div>
-                  <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 4, height: 5 }}>
-                    <div style={{ background: '#fff', width: `${s.pct}%`, height: '100%', borderRadius: 4, transition: 'width 1s ease' }} />
-                  </div>
-                  <div style={{ fontSize: '0.75rem', opacity: 0.7, marginTop: '0.4rem' }}>{s.pct}% of total</div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {(dealer || customer) && (
-            <div style={{ textAlign: 'center' }}>
-              <button className="btn btn-primary" onClick={() => navigate('plots')} style={{ fontSize: '1rem', padding: '0.875rem 2.5rem' }}>
-                View All Plots →
-              </button>
-            </div>
-          )}
-        </div>
-      </section>
-
       <section style={{ background: 'linear-gradient(135deg, #1a6b3c, #145530)', color: '#fff', padding: '3.5rem 1.5rem', textAlign: 'center' }}>
         <h2 style={{ fontSize: '1.875rem', fontWeight: 800, marginBottom: '1rem' }}>Ready to Invest?</h2>
         <p style={{ color: '#d1fae5', marginBottom: '2rem', maxWidth: 500, margin: '0 auto 2rem', lineHeight: 1.7 }}>
