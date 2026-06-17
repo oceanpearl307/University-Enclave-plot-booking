@@ -4,7 +4,7 @@
   "description": "Booking app for University Enclave Housing Society",
   "private": true,
   "scripts": {
-    "dev": "NODE_ENV=development ./node_modules/.bin/concurrently \"npm run server\" \"npm run client\"",
+    "dev": "node scripts/dev.js",
     "server": "node server/index.js",
     "client": "vite --host 0.0.0.0 --port 5000",
     "build": "vite build",
@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.0.1",
-    "concurrently": "^9.2.1",
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "html5-qrcode": "^2.3.8",
