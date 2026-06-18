@@ -12,6 +12,17 @@ const GOLD = '#b8860b';
 const GOLD_LIGHT = '#d4a017';
 const GOLD_BG = '#fdf8ee';
 
+const DEFAULT_SETTINGS = {
+  societyName: 'UNIVERSITY ENCLAVE HOUSING SOCIETY',
+  tagline: 'WHERE COMFORT MEETS ELEGANCE',
+  contactEmail: 'info@universityenclave.pk',
+  contactPhone: '111-002 001',
+  address: 'Nathiyaglai Bypass, Havelian, Abbottabad',
+  showNomineeSection: true,
+  showInstallmentSchedule: true,
+  footerNote: '',
+};
+
 export default function BookingReceipt({ booking, onClose }) {
   if (!booking) return null;
   const dp = booking.downPayment || 0;
@@ -20,6 +31,14 @@ export default function BookingReceipt({ booking, onClose }) {
 
   const [shareOpen, setShareOpen] = useState(false);
   const shareRef = useRef(null);
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+
+  useEffect(() => {
+    fetch('/api/receipt-settings')
+      .then(r => r.json())
+      .then(d => setSettings(s => ({ ...s, ...d })))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!shareOpen) return;
@@ -45,9 +64,10 @@ export default function BookingReceipt({ booking, onClose }) {
       `Down Payment:      ${pkr(dp)}\n` +
       `Remaining Balance: ${pkr(remaining)}\n` +
       `Booking Date:      ${fmtDate(booking.approvedAt || booking.createdAt)}\n\n` +
-      `For queries, contact us at info@universityenclave.pk or call 111-002 001.\n\n` +
-      `University Enclave Housing Society\n` +
-      `Nathiyaglai Bypass, Havelian, Abbottabad`
+      `For queries, contact us at ${settings.contactEmail} or call ${settings.contactPhone}.\n\n` +
+      `${settings.societyName}\n` +
+      `${settings.address}` +
+      (settings.footerNote ? `\n\n${settings.footerNote}` : '')
     );
     const recipient = booking.email ? encodeURIComponent(booking.email) : '';
     window.open(`mailto:${recipient}?subject=${subject}&body=${body}`, '_blank');
@@ -56,7 +76,7 @@ export default function BookingReceipt({ booking, onClose }) {
 
   const handleWhatsApp = () => {
     const text = encodeURIComponent(
-      `*University Enclave Housing Society*\n` +
+      `*${settings.societyName}*\n` +
       `*Booking Confirmation*\n\n` +
       `Dear ${booking.name},\n` +
       `Your plot booking has been confirmed. Details below:\n\n` +
@@ -66,7 +86,8 @@ export default function BookingReceipt({ booking, onClose }) {
       `✅ *Down Payment:* ${pkr(dp)}\n` +
       `⏳ *Remaining:* ${pkr(remaining)}\n` +
       `📅 *Date:* ${fmtDate(booking.approvedAt || booking.createdAt)}\n\n` +
-      `For queries: 111-002 001 | info@universityenclave.pk`
+      `For queries: ${settings.contactPhone} | ${settings.contactEmail}` +
+      (settings.footerNote ? `\n\n${settings.footerNote}` : '')
     );
     const phone = booking.phone ? booking.phone.replace(/[^0-9]/g, '') : '';
     const waPhone = phone.startsWith('92') ? phone : phone.startsWith('0') ? '92' + phone.slice(1) : phone ? '92' + phone : '';
@@ -246,9 +267,9 @@ export default function BookingReceipt({ booking, onClose }) {
             {/* Centre: Logo + name + tagline + title */}
             <div style={{ textAlign: 'center', padding: '0 0.5rem' }}>
               <img src={ueLogo} alt="UECHS Logo" style={{ width: 60, height: 60, objectFit: 'contain', display: 'block', margin: '0 auto 0.2rem' }} />
-              <div style={{ fontSize: '0.75rem', fontWeight: 900, color: GOLD, letterSpacing: '0.06em', lineHeight: 1.2 }}>UNIVERSITY ENCLAVE HOUSING SOCIETY</div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 900, color: GOLD, letterSpacing: '0.06em', lineHeight: 1.2 }}>{settings.societyName}</div>
               <div style={{ fontSize: '0.62rem', fontStyle: 'italic', color: GOLD, letterSpacing: '0.06em', marginBottom: '0.3rem' }}>
-                WHERE COMFORT MEETS ELEGANCE
+                {settings.tagline}
               </div>
               <div style={{
                 display: 'inline-block',
@@ -343,18 +364,20 @@ export default function BookingReceipt({ booking, onClose }) {
               <div style={{ borderBottom: '1px solid #bbb', margin: '0.1rem 0' }} />
             </GoldSection>
 
-            {/* Nominee Information */}
-            <GoldSection title="Nominee Information:">
-              <FieldRow>
-                <LabelField label="Name:" value={booking.nominee?.name} flex={2} />
-                <LabelField label="S,D, W/O:" value={booking.nominee?.fatherName} flex={2} />
-              </FieldRow>
-              <FieldRow>
-                <LabelField label="CNIC No:" value={booking.nominee?.cnic} flex={1.2} />
-                <LabelField label="Phone No:" value={booking.nominee?.phone} flex={1} />
-                <LabelField label="Relation.:" value={booking.nominee?.relation} flex={1} />
-              </FieldRow>
-            </GoldSection>
+            {/* Nominee Information — toggleable */}
+            {settings.showNomineeSection && (
+              <GoldSection title="Nominee Information:">
+                <FieldRow>
+                  <LabelField label="Name:" value={booking.nominee?.name} flex={2} />
+                  <LabelField label="S,D, W/O:" value={booking.nominee?.fatherName} flex={2} />
+                </FieldRow>
+                <FieldRow>
+                  <LabelField label="CNIC No:" value={booking.nominee?.cnic} flex={1.2} />
+                  <LabelField label="Phone No:" value={booking.nominee?.phone} flex={1} />
+                  <LabelField label="Relation.:" value={booking.nominee?.relation} flex={1} />
+                </FieldRow>
+              </GoldSection>
+            )}
 
             {/* Currency Note Watermark Strip */}
             <div style={{
@@ -404,9 +427,50 @@ export default function BookingReceipt({ booking, onClose }) {
               </FieldRow>
             </GoldSection>
 
-            {/* Blank space for signatures */}
-            <div style={{ flex: 1, minHeight: '1.5rem' }} />
+            {/* Installment Schedule — toggleable */}
+            {settings.showInstallmentSchedule && (
+              <GoldSection title="Installment Schedule:">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' }}>
+                  {[
+                    { label: 'Down Payment (10%)', value: pkr(Math.round(total * 0.10)) },
+                    { label: 'Confirmation (10%)', value: pkr(Math.round(total * 0.10)) },
+                    { label: 'Monthly (48 installments)', value: pkr(Math.round(total * 0.60 / 48)) + '/mo' },
+                    { label: 'Possession (20%)', value: pkr(Math.round(total * 0.20)) },
+                  ].map(({ label, value }) => (
+                    <div key={label} style={{ border: `1px solid ${GOLD}`, borderRadius: 2, padding: '0.3rem 0.4rem', fontSize: '0.68rem' }}>
+                      <div style={{ color: GOLD, fontWeight: 700, fontSize: '0.6rem', marginBottom: '0.1rem' }}>{label}</div>
+                      <div style={{ fontWeight: 700, color: '#1a1a1a' }}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+              </GoldSection>
+            )}
 
+            {/* Blank space for signatures */}
+            <div style={{ flex: 1, minHeight: '1rem' }} />
+
+            {/* Footer note */}
+            {settings.footerNote && (
+              <div style={{
+                borderTop: `1px dashed ${GOLD}`, paddingTop: '0.4rem', marginTop: '0.2rem',
+                fontSize: '0.72rem', color: '#555', fontStyle: 'italic', lineHeight: 1.5,
+              }}>
+                {settings.footerNote}
+              </div>
+            )}
+
+          </div>
+
+          {/* ── CONTACT BAR ── */}
+          <div style={{
+            background: GOLD_BG, borderTop: `1px solid ${GOLD}`,
+            padding: '0.3rem 0.75rem',
+            display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '1.5rem',
+            fontSize: '0.65rem', color: '#555',
+          }}>
+            <span>✉ {settings.contactEmail}</span>
+            <span>📞 {settings.contactPhone}</span>
+            <span>📍 {settings.address}</span>
           </div>
 
           {/* ── SIGNATURE FOOTER ── */}

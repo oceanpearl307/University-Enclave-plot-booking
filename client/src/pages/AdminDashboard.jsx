@@ -23,8 +23,8 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-const TABS = ['Dealers', 'Registrations', 'Bookings', 'Packages', 'Inventory', 'Deals', 'Staff', 'Backups', 'Announcements'];
-const tabIcons = { Dealers: '👥', Registrations: '📋', Bookings: '📩', Packages: '📦', Inventory: '🏘️', Deals: '🏷️', Staff: '⚙️', Backups: '🗄️', Announcements: '📢' };
+const TABS = ['Dealers', 'Registrations', 'Bookings', 'Packages', 'Inventory', 'Deals', 'Staff', 'Backups', 'Announcements', 'Receipt'];
+const tabIcons = { Dealers: '👥', Registrations: '📋', Bookings: '📩', Packages: '📦', Inventory: '🏘️', Deals: '🏷️', Staff: '⚙️', Backups: '🗄️', Announcements: '📢', Receipt: '🧾' };
 const PRIV_OPTIONS = [
   { key: 'approveBookings',     label: 'Approve Bookings',          icon: '📋', group: 'Bookings'   },
   { key: 'viewPlots',           label: 'View Plot Inventory',        icon: '🏘️', group: 'Inventory'  },
@@ -208,6 +208,56 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [editLabelValue, setEditLabelValue] = useState('');
   const [savingLabel, setSavingLabel] = useState(null);
 
+  // ── Receipt Settings tab ──
+  const DEFAULT_RECEIPT_SETTINGS = {
+    societyName: 'UNIVERSITY ENCLAVE HOUSING SOCIETY',
+    tagline: 'WHERE COMFORT MEETS ELEGANCE',
+    contactEmail: 'info@universityenclave.pk',
+    contactPhone: '111-002 001',
+    address: 'Nathiyaglai Bypass, Havelian, Abbottabad',
+    showNomineeSection: true,
+    showInstallmentSchedule: true,
+    footerNote: '',
+  };
+  const [receiptSettings, setReceiptSettings] = useState(DEFAULT_RECEIPT_SETTINGS);
+  const [receiptSettingsLoading, setReceiptSettingsLoading] = useState(false);
+  const [receiptSettingsForm, setReceiptSettingsForm] = useState(DEFAULT_RECEIPT_SETTINGS);
+  const [receiptSettingsSaving, setReceiptSettingsSaving] = useState(false);
+  const [receiptSettingsMsg, setReceiptSettingsMsg] = useState('');
+
+  const loadReceiptSettings = () => {
+    setReceiptSettingsLoading(true);
+    fetch('/api/receipt-settings')
+      .then(r => r.json())
+      .then(d => { setReceiptSettings(d); setReceiptSettingsForm(d); setReceiptSettingsLoading(false); })
+      .catch(() => setReceiptSettingsLoading(false));
+  };
+
+  const handleSaveReceiptSettings = async (e) => {
+    e.preventDefault();
+    setReceiptSettingsSaving(true);
+    setReceiptSettingsMsg('');
+    try {
+      const res = await aFetch('/api/admin/receipt-settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(receiptSettingsForm),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        setReceiptSettings(d.receiptSettings);
+        setReceiptSettingsForm(d.receiptSettings);
+        setReceiptSettingsMsg('✅ Receipt settings saved.');
+      } else {
+        setReceiptSettingsMsg(`❌ ${d.error || 'Save failed'}`);
+      }
+    } catch {
+      setReceiptSettingsMsg('❌ Failed to save');
+    }
+    setReceiptSettingsSaving(false);
+    setTimeout(() => setReceiptSettingsMsg(''), 4000);
+  };
+
   // ── Announcements tab ──
   const [anns, setAnns] = useState([]);
   const [annsLoading, setAnnsLoading] = useState(false);
@@ -347,6 +397,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     if (tab === 'Staff') loadStaff();
     if (tab === 'Backups') loadBackups();
     if (tab === 'Announcements') loadAnns();
+    if (tab === 'Receipt') loadReceiptSettings();
   }, [tab]);
 
   useEffect(() => {
@@ -3802,6 +3853,156 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                   </button>
                 </form>
               </div>
+            )}
+          </div>
+        )}
+
+        {tab === 'Receipt' && (
+          <div style={{ maxWidth: 720 }}>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>🧾 Receipt Settings</h3>
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Customise what appears on every booking receipt — changes apply immediately to the next receipt generated.</p>
+            </div>
+
+            {receiptSettingsLoading ? (
+              <div className="loading"><div className="spinner"></div>Loading...</div>
+            ) : (
+              <form onSubmit={handleSaveReceiptSettings} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+                {/* Society Identity */}
+                <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0f172a', marginBottom: '1rem', paddingBottom: '0.6rem', borderBottom: '1px solid #f1f5f9' }}>
+                    🏛️ Society Identity
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+                    <div className="form-group">
+                      <label>Society Name</label>
+                      <input
+                        value={receiptSettingsForm.societyName}
+                        onChange={e => setReceiptSettingsForm(f => ({ ...f, societyName: e.target.value }))}
+                        placeholder="UNIVERSITY ENCLAVE HOUSING SOCIETY"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Tagline</label>
+                      <input
+                        value={receiptSettingsForm.tagline}
+                        onChange={e => setReceiptSettingsForm(f => ({ ...f, tagline: e.target.value }))}
+                        placeholder="WHERE COMFORT MEETS ELEGANCE"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact Info */}
+                <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0f172a', marginBottom: '1rem', paddingBottom: '0.6rem', borderBottom: '1px solid #f1f5f9' }}>
+                    📞 Contact Information
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.875rem' }}>
+                    <div className="form-group">
+                      <label>Contact Email</label>
+                      <input
+                        type="email"
+                        value={receiptSettingsForm.contactEmail}
+                        onChange={e => setReceiptSettingsForm(f => ({ ...f, contactEmail: e.target.value }))}
+                        placeholder="info@universityenclave.pk"
+                      />
+                    </div>
+                    <div className="form-group">
+                      <label>Contact Phone</label>
+                      <input
+                        value={receiptSettingsForm.contactPhone}
+                        onChange={e => setReceiptSettingsForm(f => ({ ...f, contactPhone: e.target.value }))}
+                        placeholder="111-002 001"
+                      />
+                    </div>
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                      <label>Office Address</label>
+                      <input
+                        value={receiptSettingsForm.address}
+                        onChange={e => setReceiptSettingsForm(f => ({ ...f, address: e.target.value }))}
+                        placeholder="Nathiyaglai Bypass, Havelian, Abbottabad"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section Visibility */}
+                <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0f172a', marginBottom: '1rem', paddingBottom: '0.6rem', borderBottom: '1px solid #f1f5f9' }}>
+                    👁️ Section Visibility
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', cursor: 'pointer', padding: '0.875rem 1rem', background: '#f8fafc', borderRadius: 10, border: `1.5px solid ${receiptSettingsForm.showNomineeSection ? '#bbf7d0' : '#e2e8f0'}` }}>
+                      <input
+                        type="checkbox"
+                        checked={receiptSettingsForm.showNomineeSection}
+                        onChange={e => setReceiptSettingsForm(f => ({ ...f, showNomineeSection: e.target.checked }))}
+                        style={{ width: 16, height: 16, accentColor: '#1a6b3c' }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a' }}>Show Nominee Section</div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Displays the nominee's name, CNIC, and relation on the receipt</div>
+                      </div>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', cursor: 'pointer', padding: '0.875rem 1rem', background: '#f8fafc', borderRadius: 10, border: `1.5px solid ${receiptSettingsForm.showInstallmentSchedule ? '#bbf7d0' : '#e2e8f0'}` }}>
+                      <input
+                        type="checkbox"
+                        checked={receiptSettingsForm.showInstallmentSchedule}
+                        onChange={e => setReceiptSettingsForm(f => ({ ...f, showInstallmentSchedule: e.target.checked }))}
+                        style={{ width: 16, height: 16, accentColor: '#1a6b3c' }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a' }}>Show Installment Schedule</div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Shows the breakdown of down payment, monthly, and possession amounts</div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Footer Note */}
+                <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.9rem', color: '#0f172a', marginBottom: '1rem', paddingBottom: '0.6rem', borderBottom: '1px solid #f1f5f9' }}>
+                    📝 Custom Footer Note
+                  </div>
+                  <div className="form-group">
+                    <label>Footer Note <span style={{ fontWeight: 400, color: '#94a3b8' }}>(optional)</span></label>
+                    <textarea
+                      value={receiptSettingsForm.footerNote}
+                      onChange={e => setReceiptSettingsForm(f => ({ ...f, footerNote: e.target.value }))}
+                      placeholder="e.g. This booking is subject to Society bylaws and the signed agreement. All disputes are subject to local jurisdiction."
+                      rows={3}
+                      style={{ width: '100%', padding: '0.6rem 0.75rem', border: '1.5px solid #e2e8f0', borderRadius: 9, fontFamily: 'inherit', fontSize: '0.9rem', resize: 'vertical' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={receiptSettingsSaving}
+                    style={{ padding: '0.75rem 2rem', background: '#1a6b3c', justifyContent: 'center' }}
+                  >
+                    {receiptSettingsSaving ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> Saving...</> : '✓ Save Receipt Settings'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => setReceiptSettingsForm(receiptSettings)}
+                    style={{ padding: '0.75rem 1.5rem' }}
+                  >
+                    ↺ Reset
+                  </button>
+                  {receiptSettingsMsg && (
+                    <span style={{ fontSize: '0.875rem', fontWeight: 600, color: receiptSettingsMsg.startsWith('✅') ? '#059669' : '#dc2626' }}>
+                      {receiptSettingsMsg}
+                    </span>
+                  )}
+                </div>
+              </form>
             )}
           </div>
         )}

@@ -507,6 +507,18 @@ let announcements = [
 ];
 let annCounter = 4;
 
+// ─── Receipt Settings ─────────────────────────────────────────────────────────
+let receiptSettings = {
+  societyName: 'UNIVERSITY ENCLAVE HOUSING SOCIETY',
+  tagline: 'WHERE COMFORT MEETS ELEGANCE',
+  contactEmail: 'info@universityenclave.pk',
+  contactPhone: '111-002 001',
+  address: 'Nathiyaglai Bypass, Havelian, Abbottabad',
+  showNomineeSection: true,
+  showInstallmentSchedule: true,
+  footerNote: '',
+};
+
 // ─── File-based Persistence ───────────────────────────────────────────────────
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
 const DB_DIR = path.dirname(DB_PATH);
@@ -547,6 +559,7 @@ function applyDb(db) {
   if (db.announcements)        { announcements = db.announcements; annCounter = announcements.reduce((m, a) => Math.max(m, a.id || 0), annCounter); }
   if (db.annCounter)           { annCounter = db.annCounter;                  }
   if (db.ledgerIdCounter)      { ledgerIdCounter = db.ledgerIdCounter;        }
+  if (db.receiptSettings)      { receiptSettings = { ...receiptSettings, ...db.receiptSettings }; }
 }
 
 function loadDb() {
@@ -613,6 +626,7 @@ function saveDb() {
         operationsStaff, opsCounter,
         announcements, annCounter,
         ledgerIdCounter,
+        receiptSettings,
       };
       fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
     } catch (e) {
@@ -801,6 +815,20 @@ app.post('/api/dealer/register', (req, res) => {
   };
   dealerRegistrations.push(reg);
   res.status(201).json({ success: true, regRef: reg.regRef });
+});
+
+// ─── Receipt Settings ─────────────────────────────────────────────────────────
+app.get('/api/receipt-settings', (req, res) => {
+  res.json(receiptSettings);
+});
+
+app.put('/api/admin/receipt-settings', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const allowed = ['societyName', 'tagline', 'contactEmail', 'contactPhone', 'address', 'showNomineeSection', 'showInstallmentSchedule', 'footerNote'];
+  allowed.forEach(k => {
+    if (req.body[k] !== undefined) receiptSettings[k] = req.body[k];
+  });
+  res.json({ success: true, receiptSettings });
 });
 
 // ─── Announcements ────────────────────────────────────────────────────────────
