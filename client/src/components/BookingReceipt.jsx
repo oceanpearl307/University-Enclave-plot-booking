@@ -8,81 +8,9 @@ const fmtDate = iso => {
   return d.toLocaleDateString('en-PK', { day: '2-digit', month: 'long', year: 'numeric' });
 };
 
-const PAYMENT_PLANS = {
-  '5 Marla':  { total: 4000000,  downPayment: 400000,  confirmation: 400000,  monthlyInstallment: 20000, monthlyCount: 40, semiAnnualInstallment: 130000, semiAnnualCount: 8, possession: 1360000 },
-  '7 Marla':  { total: 5460000,  downPayment: 546000,  confirmation: 546000,  monthlyInstallment: 25000, monthlyCount: 40, semiAnnualInstallment: 150000, semiAnnualCount: 8, possession: 2168000 },
-  '10 Marla': { total: 7600000,  downPayment: 760000,  confirmation: 760000,  monthlyInstallment: 38000, monthlyCount: 40, semiAnnualInstallment: 200000, semiAnnualCount: 8, possession: 2960000 },
-  '1 Kanal':  { total: 14400000, downPayment: 1440000, confirmation: 1440000, monthlyInstallment: 70000, monthlyCount: 40, semiAnnualInstallment: 300000, semiAnnualCount: 8, possession: 6320000 },
-};
-
-function addMonths(isoDate, n) {
-  const d = new Date(isoDate);
-  d.setMonth(d.getMonth() + n);
-  return d.toLocaleDateString('en-PK', { month: 'short', year: 'numeric' });
-}
-
-function getInstallmentSchedule(booking) {
-  const plan = PAYMENT_PLANS[booking.plotSize];
-  const totalPrice = booking.plotPrice || 0;
-  const scale = plan ? totalPrice / plan.total : 1;
-  const start = booking.createdAt || new Date().toISOString();
-  const dp = booking.downPayment > 0 ? booking.downPayment : (plan ? Math.round(plan.downPayment * scale) : 0);
-
-  const rows = [];
-
-  rows.push({
-    type: 'Down Payment',
-    count: 1,
-    each: dp,
-    total: dp,
-    period: fmtDate(start),
-    status: 'paid',
-  });
-
-  if (plan) {
-    const conf = Math.round(plan.confirmation * scale);
-    rows.push({
-      type: 'Confirmation',
-      count: 1,
-      each: conf,
-      total: conf,
-      period: addMonths(start, 1),
-      status: 'pending',
-    });
-
-    const monthly = Math.round(plan.monthlyInstallment * scale);
-    rows.push({
-      type: 'Monthly',
-      count: plan.monthlyCount,
-      each: monthly,
-      total: monthly * plan.monthlyCount,
-      period: `${addMonths(start, 1)} – ${addMonths(start, plan.monthlyCount)}`,
-      status: 'pending',
-    });
-
-    const semi = Math.round(plan.semiAnnualInstallment * scale);
-    rows.push({
-      type: 'Semi-Annual',
-      count: plan.semiAnnualCount,
-      each: semi,
-      total: semi * plan.semiAnnualCount,
-      period: `Every 6 months`,
-      status: 'pending',
-    });
-
-    const poss = Math.round(plan.possession * scale);
-    rows.push({
-      type: 'Possession',
-      count: 1,
-      each: poss,
-      total: poss,
-      period: addMonths(start, 48),
-      status: 'pending',
-    });
-  }
-
-  return rows;
-}
+const GOLD = '#b8860b';
+const GOLD_LIGHT = '#d4a017';
+const GOLD_BG = '#fdf8ee';
 
 export default function BookingReceipt({ booking, onClose }) {
   if (!booking) return null;
@@ -129,7 +57,7 @@ export default function BookingReceipt({ booking, onClose }) {
   const handleWhatsApp = () => {
     const text = encodeURIComponent(
       `*University Enclave Housing Society*\n` +
-      `*Booking Confirmation Receipt*\n\n` +
+      `*Booking Confirmation*\n\n` +
       `Dear ${booking.name},\n` +
       `Your plot booking has been confirmed. Details below:\n\n` +
       `📋 *Booking Ref:* ${booking.bookingRef}\n` +
@@ -145,6 +73,16 @@ export default function BookingReceipt({ booking, onClose }) {
     window.open(`https://wa.me/${waPhone}?text=${text}`, '_blank');
     setShareOpen(false);
   };
+
+  const tags = booking.plotTags || booking.tags || [];
+  const prefs = [
+    { label: 'Normal', checked: tags.length === 0 || tags.includes('Normal') },
+    { label: 'Corner', checked: tags.includes('Corner Plot') || tags.includes('Corner') },
+    { label: 'Facing Park', checked: tags.includes('Park Facing') || tags.includes('Facing Park') },
+    { label: 'Wide Road', checked: tags.includes('Wide Road') },
+  ];
+
+  const plotLabel = `${booking.plotSize || ''} ${booking.category ? (booking.category.charAt(0).toUpperCase() + booking.category.slice(1)) : 'Residential'}`.trim();
 
   return (
     <>
@@ -162,12 +100,35 @@ export default function BookingReceipt({ booking, onClose }) {
             box-shadow: none !important;
             border-radius: 0 !important;
             overflow: visible !important;
-            margin-top: 0 !important;
           }
           .no-print { display: none !important; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
-        @page { size: A4 portrait; margin: 8mm; }
+        @page { size: A4 portrait; margin: 6mm; }
+
+        .ue-underline-field {
+          border: none;
+          border-bottom: 1px solid #999;
+          flex: 1;
+          min-width: 0;
+          font-size: 0.82rem;
+          color: #1a1a1a;
+          padding: 0 2px 1px 2px;
+          background: transparent;
+          font-family: inherit;
+        }
+
+        .ue-currency-watermark {
+          font-size: 0.55rem;
+          color: rgba(180,134,11,0.18);
+          letter-spacing: 0.04em;
+          user-select: none;
+          line-height: 1.55;
+          word-break: break-all;
+          white-space: pre-wrap;
+          font-weight: 700;
+          text-transform: uppercase;
+        }
       `}</style>
 
       {/* Overlay */}
@@ -176,6 +137,7 @@ export default function BookingReceipt({ booking, onClose }) {
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
         padding: '1.5rem', overflowY: 'auto',
       }}>
+
         {/* Action bar */}
         <div className="no-print" style={{
           position: 'fixed', top: '1rem', right: '1.5rem', display: 'flex', gap: '0.75rem', zIndex: 9100,
@@ -184,18 +146,16 @@ export default function BookingReceipt({ booking, onClose }) {
             background: 'linear-gradient(135deg, #1a6b3c, #059669)', color: '#fff',
             border: 'none', borderRadius: 10, padding: '0.65rem 1.5rem',
             fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 16px rgba(26,107,60,0.3)',
+            display: 'flex', alignItems: 'center', gap: '0.5rem',
           }}>🖨️ Print / Save PDF</button>
 
-          {/* Share button + popover */}
           <div ref={shareRef} style={{ position: 'relative' }}>
             <button onClick={() => setShareOpen(o => !o)} style={{
               background: 'linear-gradient(135deg, #1d4ed8, #2563eb)', color: '#fff',
               border: 'none', borderRadius: 10, padding: '0.65rem 1.5rem',
               fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 16px rgba(29,78,216,0.3)',
+              display: 'flex', alignItems: 'center', gap: '0.5rem',
             }}>📤 Share</button>
-
             {shareOpen && (
               <div style={{
                 position: 'absolute', top: 'calc(100% + 0.5rem)', right: 0,
@@ -219,9 +179,7 @@ export default function BookingReceipt({ booking, onClose }) {
                   <span style={{ fontSize: '1.1rem' }}>✉️</span>
                   <div>
                     <div>Email Receipt</div>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 500, color: '#64748b' }}>
-                      {booking.email || 'Opens email client'}
-                    </div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 500, color: '#64748b' }}>{booking.email || 'Opens email client'}</div>
                   </div>
                 </button>
                 <button onClick={handleWhatsApp} style={{
@@ -235,9 +193,7 @@ export default function BookingReceipt({ booking, onClose }) {
                   <span style={{ fontSize: '1.1rem' }}>💬</span>
                   <div>
                     <div>WhatsApp</div>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 500, color: '#64748b' }}>
-                      {booking.phone || 'Opens WhatsApp'}
-                    </div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 500, color: '#64748b' }}>{booking.phone || 'Opens WhatsApp'}</div>
                   </div>
                 </button>
               </div>
@@ -250,286 +206,280 @@ export default function BookingReceipt({ booking, onClose }) {
           }}>✕ Close</button>
         </div>
 
-        {/* A4 Receipt */}
+        {/* ── A4 FORM ── */}
         <div id="ue-receipt" style={{
           width: '210mm', minHeight: '297mm', background: '#fff',
-          borderRadius: 4, boxShadow: '0 8px 40px rgba(0,0,0,0.25)',
-          display: 'flex', flexDirection: 'column', fontFamily: '"Segoe UI", Arial, sans-serif',
+          border: `3px solid ${GOLD}`,
+          borderRadius: 2,
+          boxShadow: '0 8px 40px rgba(0,0,0,0.25)',
+          display: 'flex', flexDirection: 'column',
+          fontFamily: '"Times New Roman", Times, serif',
           overflow: 'hidden', marginTop: '3.5rem',
+          fontSize: '0.82rem', color: '#1a1a1a',
         }}>
 
-          {/* ── HEADER ── */}
+          {/* ── TOP GOLD BAR ── */}
+          <div style={{ background: `linear-gradient(90deg, ${GOLD}, ${GOLD_LIGHT}, ${GOLD})`, height: 6 }} />
+
+          {/* ── HEADER: three-column ── */}
           <div style={{
-            background: 'linear-gradient(135deg, #0d2d1a 0%, #1a4a28 50%, #1a6b3c 100%)',
-            color: '#fff', padding: '0',
+            display: 'grid', gridTemplateColumns: '130px 1fr 130px',
+            gap: 0, borderBottom: `1.5px solid ${GOLD}`, padding: '0.6rem 0.75rem 0.5rem',
           }}>
-            {/* Top gold bar */}
-            <div style={{ background: 'linear-gradient(90deg, #c9a227, #f0c040, #c9a227)', height: 5 }} />
-
-            <div style={{ padding: '1.5rem 2rem', display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-              {/* Crest */}
-              <div style={{
-                width: 70, height: 70, borderRadius: '5px',
-                border: '3px solid transparent',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: 'transparent', flexShrink: 0, overflow: 'hidden',
-              }}><img src={ueLogo} alt="UE Logo" style={{ width: 66, height: 66, objectFit: 'contain' }} /></div>
-
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.25em', color: '#f0c040', textTransform: 'uppercase', marginBottom: '0.2rem' }}>
-                  Official Document
-                </div>
-                <div style={{ fontSize: '1.55rem', fontWeight: 900, color: '#fff', letterSpacing: '0.02em', lineHeight: 1.1 }}>
-                  University Enclave Housing Society
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#a3e4b8', marginTop: '0.25rem', lineHeight: 1.6 }}>
-                  Nathiyaglai Bypass, Havelian, Abbottabad &nbsp;|&nbsp; Tel: 111-002 001 &nbsp;|&nbsp; info@universityenclave.pk
-                </div>
-              </div>
-
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#86efac', textTransform: 'uppercase', letterSpacing: '0.15em' }}>Receipt No.</div>
-                <div style={{ fontWeight: 900, fontSize: '1rem', color: '#f0c040', fontFamily: 'monospace' }}>
-                  {booking.receiptNumber || `UE-RCPT-${booking.id}`}
-                </div>
-              </div>
-            </div>
-
-            {/* Title bar */}
-            <div style={{
-              background: 'rgba(0,0,0,0.25)', padding: '0.65rem 2rem',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            }}>
-              <div style={{ fontWeight: 900, fontSize: '1.05rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: '#fff' }}>
-                Booking Confirmation Receipt
-              </div>
-              <div style={{ display: 'flex', gap: '1.5rem', fontSize: '0.75rem', color: '#a3e4b8' }}>
-                <span><strong style={{ color: '#fff' }}>Booking Ref:</strong> {booking.bookingRef}</span>
-                <span><strong style={{ color: '#fff' }}>Date:</strong> {fmtDate(booking.approvedAt || booking.createdAt)}</span>
-                <span style={{ background: '#22c55e', color: '#fff', borderRadius: 4, padding: '0.1rem 0.6rem', fontWeight: 800, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Confirmed</span>
-              </div>
-            </div>
-
-            {/* Bottom gold bar */}
-            <div style={{ background: 'linear-gradient(90deg, #c9a227, #f0c040, #c9a227)', height: 3 }} />
-          </div>
-
-          {/* ── BODY ── */}
-          <div style={{ flex: 1, padding: '1.5rem 2rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-
-            {/* Plot Details */}
-            <Section title="Plot Details" icon="🏘️" color="#1a6b3c">
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.875rem' }}>
-                <Field label="Plot Number" value={booking.plotNumber} bold green />
-                <Field label="Plot Size" value={booking.plotSize} />
-                <Field label="Block / Area" value={booking.area} />
-                <Field label="Category" value={booking.category || 'Residential'} capitalize />
-                <Field label="Total Price" value={pkr(booking.plotPrice)} bold />
-                <Field label="Down Payment Paid" value={pkr(dp)} />
-              </div>
-            </Section>
-
-            {/* Buyer Information + Photo */}
-            <Section title="Buyer Information" icon="👤" color="#1d4ed8">
-              <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
-                    <Field label="Full Name" value={booking.name} bold />
-                    <Field label="Father's Name" value={booking.fatherName || '—'} />
-                    <Field label="CNIC Number" value={booking.cnic} mono />
-                    <Field label="Phone Number" value={booking.phone} mono />
-                    <Field label="Email Address" value={booking.email || '—'} />
-                    <Field label="Dealer / Agent" value={booking.dealerName || 'Walk-in'} />
-                  </div>
-                  <div style={{ marginTop: '0.625rem', display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
-                    <Field label="Residential Address" value={booking.residentialAddress || booking.address || '—'} fullWidth />
-                    <Field label="Postal Address" value={booking.postalAddress || '—'} fullWidth />
-                  </div>
-                </div>
-                <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
-                  {booking.photo && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
-                      <img src={booking.photo} alt="Buyer" style={{ width: 72, height: 88, objectFit: 'cover', border: '2px solid #e2e8f0', borderRadius: 4 }} />
-                      <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 600 }}>BUYER PHOTO</div>
-                    </div>
-                  )}
-                  {booking.cnicImage && (
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem' }}>
-                      <img src={booking.cnicImage} alt="CNIC" style={{ width: 100, height: 65, objectFit: 'cover', border: '2px solid #fde68a', borderRadius: 4 }} />
-                      <div style={{ fontSize: '0.6rem', color: '#92400e', fontWeight: 600 }}>CNIC / PASSPORT</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </Section>
-
-            {/* Nominee Information */}
-            {booking.nominee && (
-              <Section title="Nominee Information" icon="👥" color="#7c3aed">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.625rem' }}>
-                  <Field label="Nominee Name" value={booking.nominee.name || '—'} bold />
-                  <Field label="Father's Name" value={booking.nominee.fatherName || '—'} />
-                  <Field label="Relation to Buyer" value={booking.nominee.relation || '—'} />
-                  <Field label="CNIC Number" value={booking.nominee.cnic || '—'} mono />
-                  <Field label="Phone Number" value={booking.nominee.phone || '—'} mono />
-                  <Field label="Nominee Address" value={booking.nominee.address || '—'} />
-                </div>
-              </Section>
-            )}
-
-            {/* Payment Summary */}
-            <Section title="Payment Summary" icon="💰" color="#b45309">
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
-                <tbody>
-                  {[
-                    ['Total Plot Price', pkr(total), '#0f172a', false],
-                    ['Down Payment Collected', pkr(dp), '#059669', false],
-                    ['Remaining Balance', pkr(remaining), '#b45309', true],
-                  ].map(([label, value, color, bold]) => (
-                    <tr key={label} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '0.55rem 0.5rem', color: '#64748b', fontWeight: 600 }}>{label}</td>
-                      <td style={{ padding: '0.55rem 0.5rem', textAlign: 'right', fontWeight: bold ? 800 : 700, color, fontSize: bold ? '0.95rem' : '0.82rem' }}>{value}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </Section>
-
-            {/* Installment Schedule */}
-            <InstallmentScheduleSection booking={booking} />
-
-            {/* Signatures */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1.5rem', marginTop: '0.5rem' }}>
+            {/* Left: Info boxes */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
               {[
-                { role: 'Buyer / Purchaser', name: booking.name },
-                { role: 'Dealer / Agent', name: booking.dealerName || 'Walk-in' },
-                { role: 'Authorized by Management', name: booking.approvedBy || 'Management' },
-              ].map(sig => (
-                <div key={sig.role} style={{ textAlign: 'center' }}>
-                  <div style={{ borderTop: '1.5px solid #1a6b3c', paddingTop: '0.5rem', marginTop: '2rem' }}>
-                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151' }}>{sig.name}</div>
-                    <div style={{ fontSize: '0.65rem', color: '#64748b' }}>{sig.role}</div>
-                  </div>
+                { label: 'Booking Form No.', value: booking.bookingRef },
+                { label: 'Registration No.', value: booking.plotNumber },
+                { label: 'Booking Date', value: fmtDate(booking.approvedAt || booking.createdAt) },
+              ].map(({ label, value }) => (
+                <div key={label} style={{
+                  border: `1px solid ${GOLD}`, padding: '0.2rem 0.4rem', borderRadius: 1,
+                  fontSize: '0.68rem',
+                }}>
+                  <div style={{ color: GOLD, fontWeight: 700, fontSize: '0.6rem', marginBottom: '0.1rem' }}>{label}</div>
+                  <div style={{ fontWeight: 700, fontSize: '0.72rem', color: '#1a1a1a' }}>{value || '—'}</div>
                 </div>
               ))}
             </div>
 
-            {/* Terms */}
-            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '0.75rem 1rem', marginTop: '0.25rem' }}>
-              <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>Terms & Conditions</div>
-              <div style={{ fontSize: '0.65rem', color: '#64748b', lineHeight: 1.7 }}>
-                1. This receipt confirms the booking of the above mentioned plot. Plot ownership is subject to full payment of the agreed amount.
-                &nbsp; 2. Down payment collected is non-refundable in case of cancellation by the buyer.
-                &nbsp; 3. The remaining balance is payable as per the installment schedule agreed upon at the time of booking.
-                &nbsp; 4. Any dispute shall be subject to the jurisdiction of courts in , Pakistan.
+            {/* Centre: Logo + name + tagline + title */}
+            <div style={{ textAlign: 'center', padding: '0 0.5rem' }}>
+              <img src={ueLogo} alt="UECHS Logo" style={{ width: 60, height: 60, objectFit: 'contain', display: 'block', margin: '0 auto 0.2rem' }} />
+              <div style={{ fontSize: '1.1rem', fontWeight: 900, color: GOLD, letterSpacing: '0.08em', lineHeight: 1.1 }}>UECHS</div>
+              <div style={{ fontSize: '0.62rem', fontStyle: 'italic', color: GOLD, letterSpacing: '0.06em', marginBottom: '0.3rem' }}>
+                WHERE COMFORT MEETS ELEGANCE
               </div>
+              <div style={{
+                display: 'inline-block',
+                border: `1.5px solid ${GOLD}`,
+                padding: '0.15rem 1.2rem',
+                fontSize: '0.95rem', fontWeight: 900, letterSpacing: '0.18em',
+                color: GOLD, textTransform: 'uppercase',
+              }}>
+                ❖ ❖ ❖
+              </div>
+              <div style={{
+                fontSize: '1rem', fontWeight: 900, letterSpacing: '0.2em',
+                color: GOLD, textTransform: 'uppercase', marginTop: '0.15rem',
+              }}>
+                BOOKING FORM
+              </div>
+            </div>
+
+            {/* Right: Photo box */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              {booking.photo ? (
+                <img src={booking.photo} alt="Buyer" style={{
+                  width: 110, height: 110, objectFit: 'cover',
+                  border: `2px solid ${GOLD}`,
+                }} />
+              ) : (
+                <div style={{
+                  width: 110, height: 110,
+                  border: `2px solid ${GOLD}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  flexDirection: 'column', gap: 4,
+                }}>
+                  <div style={{ fontSize: '0.62rem', color: GOLD, fontWeight: 700, textAlign: 'center', lineHeight: 1.4 }}>
+                    3 x Photographs
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* ── FOOTER ── */}
-          <div style={{ background: 'linear-gradient(135deg, #0d2d1a, #1a4a28)', color: '#a3e4b8', padding: '0.875rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.68rem' }}>
-            <div>
-              <div style={{ color: '#f0c040', fontWeight: 800, marginBottom: '0.1rem' }}>University Enclave Housing Society</div>
-              <div>Nathiyaglai Bypass, Havelian, Abbottabad</div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ color: '#fff', fontWeight: 700 }}>Booking Ref: {booking.bookingRef}</div>
-              <div>Confirmed on {fmtDate(booking.approvedAt)}</div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div>Tel:111-002 001</div>
-              <div>info@universityenclave.pk</div>
-            </div>
+          {/* ── PLOT TYPE ── */}
+          <div style={{
+            textAlign: 'center', padding: '0.35rem 0.75rem',
+            borderBottom: `1px solid ${GOLD}`, background: GOLD_BG,
+          }}>
+            <span style={{ fontSize: '0.95rem', fontWeight: 900, color: '#1a1a1a', letterSpacing: '0.05em' }}>
+              {plotLabel}
+            </span>
           </div>
-          <div style={{ background: 'linear-gradient(90deg, #c9a227, #f0c040, #c9a227)', height: 4 }} />
+
+          {/* ── PREFERENCES ── */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '1.5rem',
+            padding: '0.35rem 0.75rem', borderBottom: `1px solid ${GOLD}`,
+          }}>
+            <span style={{ fontWeight: 900, color: '#1a1a1a', fontSize: '0.82rem', flexShrink: 0 }}>Preferences:</span>
+            {prefs.map(p => (
+              <label key={p.label} style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.82rem', cursor: 'default' }}>
+                <span style={{
+                  width: 14, height: 14, border: `1.5px solid #555`,
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '0.7rem', flexShrink: 0, background: p.checked ? '#eee' : '#fff',
+                }}>
+                  {p.checked ? '✓' : ''}
+                </span>
+                {p.label}.
+              </label>
+            ))}
+          </div>
+
+          {/* ── BODY ── */}
+          <div style={{ flex: 1, padding: '0.5rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+
+            {/* Client Information */}
+            <GoldSection title="Client Information:">
+              <FieldRow>
+                <LabelField label="Name:" value={booking.name} flex={2} />
+                <LabelField label="S,D, W/O:" value={booking.fatherName} flex={2} />
+              </FieldRow>
+              <FieldRow>
+                <LabelField label="CNIC No:" value={booking.cnic} flex={1.2} />
+                <LabelField label="Phone No:" value={booking.phone} flex={1} />
+                <LabelField label="Cell No:" value={booking.phone} flex={1} />
+              </FieldRow>
+              <FieldRow>
+                <LabelField label="Postal Address:" value={booking.postalAddress} flex={1} fullWidth />
+              </FieldRow>
+              <div style={{ borderBottom: '1px solid #bbb', margin: '0.1rem 0' }} />
+              <FieldRow>
+                <LabelField label="Permanent Address:" value={booking.residentialAddress || booking.address} flex={1} fullWidth />
+              </FieldRow>
+              <div style={{ borderBottom: '1px solid #bbb', margin: '0.1rem 0' }} />
+            </GoldSection>
+
+            {/* Nominee Information */}
+            <GoldSection title="Nominee Information:">
+              <FieldRow>
+                <LabelField label="Name:" value={booking.nominee?.name} flex={2} />
+                <LabelField label="S,D, W/O:" value={booking.nominee?.fatherName} flex={2} />
+              </FieldRow>
+              <FieldRow>
+                <LabelField label="CNIC No:" value={booking.nominee?.cnic} flex={1.2} />
+                <LabelField label="Phone No:" value={booking.nominee?.phone} flex={1} />
+                <LabelField label="Relation.:" value={booking.nominee?.relation} flex={1} />
+              </FieldRow>
+            </GoldSection>
+
+            {/* Currency Note Watermark Strip */}
+            <div style={{
+              position: 'relative', margin: '0.25rem 0',
+              border: `1px solid ${GOLD}`,
+              overflow: 'hidden', minHeight: 80,
+              background: '#fffef8',
+            }}>
+              {/* Left logo watermark */}
+              <div style={{
+                position: 'absolute', left: 8, top: '50%', transform: 'translateY(-50%)',
+                opacity: 0.12, zIndex: 1,
+              }}>
+                <img src={ueLogo} alt="" style={{ width: 50, height: 50, objectFit: 'contain' }} />
+              </div>
+              {/* Right logo watermark */}
+              <div style={{
+                position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                opacity: 0.12, zIndex: 1,
+              }}>
+                <img src={ueLogo} alt="" style={{ width: 50, height: 50, objectFit: 'contain' }} />
+              </div>
+              {/* Repeating text */}
+              <div className="ue-currency-watermark" style={{ padding: '0.4rem 70px' }}>
+                {Array(18).fill('Currency Note ').join('')}
+                {'\n'}
+                {Array(18).fill('Currency Note ').join('')}
+                {'\n'}
+                {Array(18).fill('Currency Note ').join('')}
+                {'\n'}
+                {Array(18).fill('Currency Note ').join('')}
+                {'\n'}
+                {Array(18).fill('Currency Note ').join('')}
+              </div>
+            </div>
+
+            {/* Payment Information */}
+            <GoldSection title="Payment Information:">
+              <FieldRow>
+                <LabelField label="Plot Value:" value={pkr(total)} flex={2} />
+                <LabelField label="Payment Amount:" value={pkr(dp)} flex={2} />
+              </FieldRow>
+              <FieldRow>
+                <LabelField label="Payment Mode:" value={booking.paymentMode || 'Cash'} flex={1} />
+                <LabelField label="Paid On:" value={fmtDate(booking.approvedAt || booking.createdAt)} flex={1} />
+                <LabelField label="Outstanding Amount:" value={pkr(remaining)} flex={1.2} />
+              </FieldRow>
+            </GoldSection>
+
+            {/* Blank space for signatures */}
+            <div style={{ flex: 1, minHeight: '1.5rem' }} />
+
+          </div>
+
+          {/* ── SIGNATURE FOOTER ── */}
+          <div style={{
+            borderTop: `2px solid ${GOLD}`,
+            display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr',
+            background: GOLD_BG,
+          }}>
+            {[
+              'Cleint Signatue and Thumb',
+              'Sales Department',
+              'Accounts Department',
+              'President UECHS',
+            ].map((label, i) => (
+              <div key={label} style={{
+                textAlign: 'center', padding: '0.5rem 0.25rem',
+                borderRight: i < 3 ? `1px solid ${GOLD}` : 'none',
+              }}>
+                <div style={{ height: 28 }} />
+                <div style={{
+                  borderTop: `1px solid #555`, paddingTop: '0.2rem',
+                  fontSize: '0.68rem', fontWeight: 700, color: GOLD,
+                  margin: '0 0.5rem',
+                }}>
+                  {label}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* ── BOTTOM GOLD BAR ── */}
+          <div style={{ background: `linear-gradient(90deg, ${GOLD}, ${GOLD_LIGHT}, ${GOLD})`, height: 6 }} />
         </div>
       </div>
     </>
   );
 }
 
-function InstallmentScheduleSection({ booking }) {
-  const rows = getInstallmentSchedule(booking);
-  const grandTotal = rows.reduce((s, r) => s + r.total, 0);
-
+function GoldSection({ title, children }) {
   return (
-    <Section title="Installment Payment Schedule" icon="📅" color="#1d4ed8">
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
-        <thead>
-          <tr style={{ background: '#eff6ff' }}>
-            {['Payment Type', 'No.', 'Amount Each', 'Due / Period', 'Sub-Total', 'Status'].map(h => (
-              <th key={h} style={{
-                padding: '0.45rem 0.5rem', textAlign: h === 'No.' || h === 'Amount Each' || h === 'Sub-Total' ? 'right' : 'left',
-                fontWeight: 800, fontSize: '0.65rem', color: '#1d4ed8',
-                textTransform: 'uppercase', letterSpacing: '0.06em',
-                borderBottom: '2px solid #bfdbfe',
-              }}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={row.type} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-              <td style={{ padding: '0.45rem 0.5rem', fontWeight: 700, color: '#0f172a' }}>{row.type}</td>
-              <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', color: '#475569', fontWeight: 600 }}>{row.count}</td>
-              <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', color: '#0f172a', fontWeight: 700 }}>{pkr(row.each)}</td>
-              <td style={{ padding: '0.45rem 0.5rem', color: '#64748b', fontSize: '0.72rem' }}>{row.period}</td>
-              <td style={{ padding: '0.45rem 0.5rem', textAlign: 'right', fontWeight: 700, color: row.type === 'Down Payment' ? '#059669' : '#0f172a' }}>{pkr(row.total)}</td>
-              <td style={{ padding: '0.45rem 0.5rem' }}>
-                <span style={{
-                  display: 'inline-block',
-                  padding: '0.1rem 0.45rem',
-                  borderRadius: 4,
-                  fontSize: '0.62rem',
-                  fontWeight: 800,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                  background: row.status === 'paid' ? '#dcfce7' : '#fef3c7',
-                  color: row.status === 'paid' ? '#065f46' : '#92400e',
-                }}>{row.status === 'paid' ? 'Paid' : 'Pending'}</span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr style={{ background: '#eff6ff', borderTop: '2px solid #bfdbfe' }}>
-            <td colSpan={4} style={{ padding: '0.5rem 0.5rem', fontWeight: 800, fontSize: '0.78rem', color: '#1d4ed8' }}>Grand Total</td>
-            <td style={{ padding: '0.5rem 0.5rem', textAlign: 'right', fontWeight: 900, fontSize: '0.85rem', color: '#1d4ed8' }}>{pkr(grandTotal)}</td>
-            <td />
-          </tr>
-        </tfoot>
-      </table>
-      <div style={{ marginTop: '0.5rem', fontSize: '0.66rem', color: '#64748b', fontStyle: 'italic', lineHeight: 1.6 }}>
-        * Schedule is based on the standard 4-year (48-month) payment plan. Monthly and semi-annual installments run concurrently. Possession amount is due upon allotment of plot. All amounts are in PKR.
+    <div style={{ marginBottom: '0.25rem' }}>
+      <div style={{ fontWeight: 900, color: GOLD, fontSize: '0.88rem', marginBottom: '0.3rem' }}>
+        {title}
       </div>
-    </Section>
-  );
-}
-
-function Section({ title, icon, color, children }) {
-  return (
-    <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ background: color + '12', borderBottom: `2px solid ${color}30`, padding: '0.5rem 0.875rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-        <span style={{ fontSize: '0.85rem' }}>{icon}</span>
-        <span style={{ fontWeight: 800, fontSize: '0.75rem', color, textTransform: 'uppercase', letterSpacing: '0.08em' }}>{title}</span>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+        {children}
       </div>
-      <div style={{ padding: '0.875rem' }}>{children}</div>
     </div>
   );
 }
 
-function Field({ label, value, bold, green, mono, capitalize, fullWidth }) {
+function FieldRow({ children }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.1rem', ...(fullWidth ? { gridColumn: '1 / -1' } : {}) }}>
-      <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
-      <div style={{
-        fontSize: '0.8rem',
-        fontWeight: bold ? 800 : 600,
-        color: green ? '#065f46' : '#0f172a',
-        fontFamily: mono ? 'monospace' : 'inherit',
-        textTransform: capitalize ? 'capitalize' : 'none',
-        wordBreak: 'break-word',
-      }}>{value || '—'}</div>
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.75rem' }}>
+      {children}
+    </div>
+  );
+}
+
+function LabelField({ label, value, flex = 1, fullWidth = false }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.25rem', flex }}>
+      <span style={{ fontWeight: 700, fontSize: '0.78rem', whiteSpace: 'nowrap', color: '#1a1a1a', flexShrink: 0 }}>
+        {label}
+      </span>
+      <span style={{
+        flex: 1, borderBottom: '1px solid #999',
+        fontSize: '0.78rem', color: '#1a1a1a', paddingBottom: 1,
+        minWidth: 0, wordBreak: 'break-word',
+        display: 'block',
+      }}>
+        {value || ''}
+      </span>
     </div>
   );
 }

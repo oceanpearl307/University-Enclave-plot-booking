@@ -8874,6 +8874,14 @@
       "role": "admin",
       "loginHistory": [
         {
+          "ip": "127.0.0.1",
+          "at": "2026-06-18T19:28:44.808Z",
+          "blocked": false,
+          "vpnDetected": false,
+          "isp": "Local/Private",
+          "country": "Local"
+        },
+        {
           "ip": "103.57.224.178",
           "at": "2026-06-18T19:01:55.051Z",
           "blocked": false,
@@ -9002,8 +9010,8 @@
           "country": "Pakistan"
         }
       ],
-      "lastLoginIP": "103.57.224.178",
-      "lastLoginAt": "2026-06-18T19:01:55.051Z"
+      "lastLoginIP": "127.0.0.1",
+      "lastLoginAt": "2026-06-18T19:28:44.808Z"
     },
     {
       "id": 2,
