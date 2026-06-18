@@ -9,9 +9,15 @@ import Announcements from './pages/Announcements.jsx';
 import DealerDashboard from './pages/DealerDashboard.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import OperationsDashboard from './pages/OperationsDashboard.jsx';
+import ReceiptPreview from './pages/ReceiptPreview.jsx';
 
 function loadSession() {
   try {
+    const hash = window.location.hash.replace('#', '');
+    const publicHashPages = ['receipt-preview'];
+    if (publicHashPages.includes(hash)) {
+      return { dealer: null, customer: null, page: hash, token: null };
+    }
     const d = localStorage.getItem('ue_dealer');
     const c = localStorage.getItem('ue_customer');
     const p = localStorage.getItem('ue_page');
@@ -139,6 +145,7 @@ export default function App() {
         {page === 'booking' && (dealer || customer ? <BookingForm plot={selectedPlot} navigate={navigate} dealer={dealer} /> : <Home navigate={navigate} {...authProps} />)}
         {page === 'status' && (dealer || customer ? <BookingStatus navigate={navigate} /> : <Home navigate={navigate} {...authProps} />)}
         {page === 'about' && <About navigate={navigate} />}
+        {page === 'receipt-preview' && <ReceiptPreview navigate={navigate} />}
         {page === 'announcements' && <Announcements navigate={navigate} />}
         {page === 'dashboard' && dealer && dealer.role === 'dealer' && (
           <DealerDashboard dealer={dealer} authToken={authToken} onLogout={handleLogout} navigate={navigate} />
