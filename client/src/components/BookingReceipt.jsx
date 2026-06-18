@@ -402,15 +402,15 @@ export default function BookingReceipt({ booking, onClose }) {
               </div>
               {/* Repeating text */}
               <div className="ue-currency-watermark" style={{ padding: '0.4rem 70px' }}>
-                {Array(18).fill('Currency Note ').join('')}
+                {Array(10).fill('University Enclave Housing Society ').join('')}
                 {'\n'}
-                {Array(18).fill('Currency Note ').join('')}
+                {Array(10).fill('University Enclave Housing Society ').join('')}
                 {'\n'}
-                {Array(18).fill('Currency Note ').join('')}
+                {Array(10).fill('University Enclave Housing Society ').join('')}
                 {'\n'}
-                {Array(18).fill('Currency Note ').join('')}
+                {Array(10).fill('University Enclave Housing Society ').join('')}
                 {'\n'}
-                {Array(18).fill('Currency Note ').join('')}
+                {Array(10).fill('University Enclave Housing Society ').join('')}
               </div>
             </div>
 
