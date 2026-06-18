@@ -108,27 +108,6 @@ export default function Home({ navigate, dealer, customer, onDealerLogin, onCust
                   🔑 Dealer Login
                 </button>
                 <button
-                  onClick={() => setModal('signup')}
-                  style={{
-                    background: 'rgba(255,255,255,0.1)',
-                    border: '2px solid rgba(255,255,255,0.4)',
-                    color: '#fff',
-                    borderRadius: 10,
-                    padding: '0.875rem 2rem',
-                    fontSize: '0.95rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    transition: 'all 0.2s',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
-                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-                >
-                  📝 Sign Up
-                </button>
-                <button
                   onClick={() => setModal('dealer-register')}
                   style={{
                     background: 'rgba(212,160,23,0.15)',
