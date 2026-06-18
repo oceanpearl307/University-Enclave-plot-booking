@@ -323,7 +323,7 @@ export default function BookingReceipt({ booking, onClose }) {
 
           {/* ── PREFERENCES ── */}
           <div style={{
-            display: 'flex', alignItems: 'center', gap: '1.5rem',
+            display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: '80px',
             padding: '0.35rem 0.75rem', borderBottom: `1px solid ${GOLD}`,
           }}>
             <span style={{ fontWeight: 900, color: '#1a1a1a', fontSize: '0.82rem', flexShrink: 0 }}>Preferences:</span>
