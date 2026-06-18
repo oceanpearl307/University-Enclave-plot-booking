@@ -107,7 +107,7 @@ export default function BookingStatus({ navigate }) {
           If you can't find your booking or have any questions, please contact our office:
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.875rem' }}>
-          <div>📞 <strong>111-002 001</strong></div>
+          <div>📞 <strong>03100001235</strong></div>
           <div>✉️ <strong>info@universityenclave.pk</strong></div>
           <div>🕒 Office Hours: Mon-Sat, 9 AM - 6 PM</div>
         </div>

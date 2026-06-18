@@ -63,7 +63,7 @@ export default function About({ navigate }) {
             <h2 style={{ fontSize: '1.875rem', fontWeight: 800, marginBottom: '2rem', textAlign: 'center' }}>Contact Us</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1.5rem' }}>
               {[
-                { icon: '📞', title: 'Phone', value: '111-002 001' },
+                { icon: '📞', title: 'Phone', value: '03100001235' },
                 { icon: '✉️', title: 'Email', value: 'info@universityenclave.pk\nsales@universityenclave.pk' },
                 { icon: '📍', title: 'Office Address', value: 'Nathiyaglai Bypass, Havelian\nAbbottabad, Pakistan' },
                 { icon: '🕒', title: 'Office Hours', value: 'Mon – Sat: 9:00 AM – 6:00 PM\nSunday: Closed' },

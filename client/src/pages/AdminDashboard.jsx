@@ -213,7 +213,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     societyName: 'UNIVERSITY ENCLAVE HOUSING SOCIETY',
     tagline: 'WHERE COMFORT MEETS ELEGANCE',
     contactEmail: 'info@universityenclave.pk',
-    contactPhone: '111-002 001',
+    contactPhone: '03100001235',
     address: 'Nathiyaglai Bypass, Havelian, Abbottabad',
     showNomineeSection: true,
     showInstallmentSchedule: true,

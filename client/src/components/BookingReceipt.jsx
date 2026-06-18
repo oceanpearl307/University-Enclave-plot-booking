@@ -16,7 +16,7 @@ const DEFAULT_SETTINGS = {
   societyName: 'UNIVERSITY ENCLAVE HOUSING SOCIETY',
   tagline: 'WHERE COMFORT MEETS ELEGANCE',
   contactEmail: 'info@universityenclave.pk',
-  contactPhone: '111-002 001',
+  contactPhone: '03100001235',
   address: 'Nathiyaglai Bypass, Havelian, Abbottabad',
   showNomineeSection: true,
   showInstallmentSchedule: true,
@@ -149,6 +149,7 @@ export default function BookingReceipt({ booking, onClose }) {
           white-space: pre-wrap;
           font-weight: 700;
           text-transform: uppercase;
+          text-align: center;
         }
       `}</style>
 
@@ -533,12 +534,12 @@ function FieldRow({ children }) {
 function LabelField({ label, value, flex = 1, fullWidth = false }) {
   return (
     <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.25rem', flex }}>
-      <span style={{ fontWeight: 700, fontSize: '0.78rem', whiteSpace: 'nowrap', color: '#1a1a1a', flexShrink: 0 }}>
+      <span style={{ fontWeight: 700, fontSize: '0.78rem', whiteSpace: 'nowrap', color: '#1a1a1a', flexShrink: 0, paddingBottom: 0, paddingTop: 1 }}>
         {label}
       </span>
       <span style={{
         flex: 1, borderBottom: '1px solid #999',
-        fontSize: '0.78rem', color: '#1a1a1a', paddingBottom: 1,
+        fontSize: '0.78rem', color: '#1a1a1a', paddingBottom: 0,
         minWidth: 0, wordBreak: 'break-word',
         display: 'block',
       }}>
