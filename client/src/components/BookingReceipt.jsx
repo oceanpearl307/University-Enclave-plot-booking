@@ -246,7 +246,7 @@ export default function BookingReceipt({ booking, onClose }) {
             {/* Centre: Logo + name + tagline + title */}
             <div style={{ textAlign: 'center', padding: '0 0.5rem' }}>
               <img src={ueLogo} alt="UECHS Logo" style={{ width: 60, height: 60, objectFit: 'contain', display: 'block', margin: '0 auto 0.2rem' }} />
-              <div style={{ fontSize: '1.1rem', fontWeight: 900, color: GOLD, letterSpacing: '0.08em', lineHeight: 1.1 }}>UECHS</div>
+              <div style={{ fontSize: '0.75rem', fontWeight: 900, color: GOLD, letterSpacing: '0.06em', lineHeight: 1.2 }}>UNIVERSITY ENCLAVE HOUSING SOCIETY</div>
               <div style={{ fontSize: '0.62rem', fontStyle: 'italic', color: GOLD, letterSpacing: '0.06em', marginBottom: '0.3rem' }}>
                 WHERE COMFORT MEETS ELEGANCE
               </div>
@@ -416,7 +416,7 @@ export default function BookingReceipt({ booking, onClose }) {
             background: GOLD_BG,
           }}>
             {[
-              'Cleint Signatue and Thumb',
+              'Client Signature and Thumb',
               'Sales Department',
               'Accounts Department',
               'President UECHS',
