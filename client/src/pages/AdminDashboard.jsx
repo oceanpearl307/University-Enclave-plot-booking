@@ -2701,24 +2701,24 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                           <div>
-                            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Negotiated Total Price (PKR) <span style={{ color: '#dc2626' }}>*</span></div>
+                            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Negotiated Total Price (PKR) <span style={{ color: '#dc2626' }}>*</span> <span style={{ fontWeight: 400, color: '#94a3b8' }}>(max: PKR {(selectedBkg.originalPlotPrice || selectedBkg.plotPrice).toLocaleString('en-US')} — downward only)</span></div>
                             <input type="number" value={ppEditForm.negotiatedPrice || ''} onChange={e => setPpEditForm(f => ({ ...f, negotiatedPrice: e.target.value }))} placeholder="e.g. 3800000" style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#d97706'} onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
                             {ppEditForm.negotiatedPrice && Number(ppEditForm.negotiatedPrice) > 0 && (
                               <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 600, marginTop: '0.25rem' }}>
-                                → Down Payment (10%): PKR {Math.round(Number(ppEditForm.negotiatedPrice) * 0.10).toLocaleString('en-US')} &nbsp;·&nbsp; Default monthly: PKR {Math.round(Number(ppEditForm.negotiatedPrice) * 0.60 / 48).toLocaleString('en-US')}
+                                → Down Payment (10%): PKR {Math.round(Number(ppEditForm.negotiatedPrice) * 0.10).toLocaleString('en-US')} &nbsp;·&nbsp; Monthly installment: PKR {Math.round(Number(ppEditForm.negotiatedPrice) * 0.60 / 48).toLocaleString('en-US')}
                               </div>
                             )}
                           </div>
                           {(() => {
                             const customAmt = ppEditForm.installmentAmount && Number(ppEditForm.installmentAmount) > 0;
                             const price = Number(ppEditForm.negotiatedPrice) || 0;
-                            const expected60 = price * 0.60;
-                            const instErr = customAmt && price > 0 && Math.abs(Number(ppEditForm.installmentAmount) * 48 - expected60) > 48;
+                            const defaultAmt = price > 0 ? Math.round(price * 0.60 / 48) : 0;
+                            const instErr = customAmt && price > 0 && Math.abs(Number(ppEditForm.installmentAmount) - defaultAmt) > 1;
                             return (
                               <div>
                                 <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Monthly Installment (PKR) — leave blank for auto</div>
-                                <input type="number" value={ppEditForm.installmentAmount || ''} onChange={e => setPpEditForm(f => ({ ...f, installmentAmount: e.target.value }))} placeholder={price > 0 ? `Auto: PKR ${Math.round(price * 0.60 / 48).toLocaleString('en-US')}` : 'Auto-calculated from 60% / 48 months'} style={{ width: '100%', padding: '0.45rem 0.625rem', border: `1.5px solid ${instErr ? '#dc2626' : '#e2e8f0'}`, borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = instErr ? '#dc2626' : '#d97706'} onBlur={e => e.target.style.borderColor = instErr ? '#dc2626' : '#e2e8f0'} />
-                                {instErr && <div style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '0.2rem', fontWeight: 600 }}>⚠️ Must equal PKR {Math.round(expected60 / 48).toLocaleString('en-US')}/month so that × 48 ≈ 60% of negotiated price (within ±48 PKR)</div>}
+                                <input type="number" value={ppEditForm.installmentAmount || ''} onChange={e => setPpEditForm(f => ({ ...f, installmentAmount: e.target.value }))} placeholder={price > 0 ? `Auto: PKR ${defaultAmt.toLocaleString('en-US')}` : 'Auto-calculated from 60% / 48 months'} style={{ width: '100%', padding: '0.45rem 0.625rem', border: `1.5px solid ${instErr ? '#dc2626' : '#e2e8f0'}`, borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = instErr ? '#dc2626' : '#d97706'} onBlur={e => e.target.style.borderColor = instErr ? '#dc2626' : '#e2e8f0'} />
+                                {instErr && <div style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '0.2rem', fontWeight: 600 }}>⚠️ Must be PKR {defaultAmt.toLocaleString('en-US')}/month (auto-calculated as 60% ÷ 48, within ±1)</div>}
                               </div>
                             );
                           })()}

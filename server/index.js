@@ -1623,7 +1623,8 @@ app.post('/api/bookings', (req, res) => {
   const booking = {
     id: ++bookingCounter, bookingRef: `UE-${bookingCounter}`,
     plotId, plotNumber: plot.number, plotSize: plot.size,
-    plotPrice: computeEffectivePrice(plot.price, plot.tags || []), area: plot.area,
+    plotPrice: computeEffectivePrice(plot.price, plot.tags || []),
+    originalPlotPrice: computeEffectivePrice(plot.price, plot.tags || []), area: plot.area,
     name, fatherName, cnic, phone, email: email || '',
     residentialAddress, postalAddress, photo, cnicImage: cnicImage || null,
     nominee: { name: nomineeName, fatherName: nomineeFatherName, cnic: nomineeCnic, relation: nomineeRelation, phone: nomineePhone, address: nomineeAddress },
@@ -1821,6 +1822,16 @@ function handlePaymentPlanPatch(req, res) {
     return res.status(400).json({ error: 'Negotiated price is required and must be greater than 0' });
 
   const price = Number(negotiatedPrice);
+
+  const originalPrice = booking.originalPlotPrice || booking.plotPrice;
+  if (price > originalPrice) {
+    return res.status(400).json({
+      error: `Negotiated price (PKR ${price.toLocaleString('en-US')}) cannot exceed the original listed price (PKR ${originalPrice.toLocaleString('en-US')}). Negotiation is downward only.`,
+    });
+  }
+
+  if (!booking.originalPlotPrice) booking.originalPlotPrice = booking.plotPrice;
+
   const downPayment = Math.round(price * 0.10);
   const dueDays = Number(confirmationDueDays) > 0 ? Number(confirmationDueDays) : 30;
   const startMonths = Number(installmentStartMonths) > 0 ? Number(installmentStartMonths) : 1;
@@ -1829,14 +1840,10 @@ function handlePaymentPlanPatch(req, res) {
     ? Number(installmentAmount)
     : defaultInstAmt;
 
-  if (installmentAmount && Number(installmentAmount) > 0) {
-    const actualTotal = instAmt * 48;
-    const expectedTotal = price * 0.60;
-    if (Math.abs(actualTotal - expectedTotal) > 1) {
-      return res.status(400).json({
-        error: `Monthly installment × 48 (PKR ${actualTotal.toLocaleString('en-US')}) must equal 60% of negotiated price within ±1. Use PKR ${defaultInstAmt.toLocaleString('en-US')}/month`,
-      });
-    }
+  if (Math.abs(instAmt - defaultInstAmt) > 1) {
+    return res.status(400).json({
+      error: `Monthly installment must match the calculated amount within ±1. Use PKR ${defaultInstAmt.toLocaleString('en-US')}/month (= 60% ÷ 48 installments)`,
+    });
   }
 
   const updatedFields = { negotiatedPrice: price, downPayment, installmentAmount: instAmt, confirmationDueDays: dueDays, installmentStartMonths: startMonths };
