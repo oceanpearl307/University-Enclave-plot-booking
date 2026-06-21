@@ -142,6 +142,10 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [ppEditMode, setPpEditMode] = useState(false);
   const [ppEditForm, setPpEditForm] = useState({});
   const [ppEditSaving, setPpEditSaving] = useState(false);
+  const [exEditMode, setExEditMode] = useState(false);
+  const [exEditForm, setExEditForm] = useState({});
+  const [exEditSaving, setExEditSaving] = useState(false);
+  const [exEditMsg, setExEditMsg] = useState('');
   const [ppEditMsg, setPpEditMsg] = useState('');
   const [bkgNotifs, setBkgNotifs] = useState([]);
   const lastPendingCountRef = React.useRef(null);
@@ -1208,6 +1212,28 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     });
     setPpEditMsg('');
     setPpEditMode(true);
+  };
+
+  const handleSaveExchangeAsset = async () => {
+    if (!exEditForm.description || exEditForm.description.trim().length < 5) { setExEditMsg('❌ Asset description required (min 5 characters)'); return; }
+    if (!exEditForm.agreedValue || Number(exEditForm.agreedValue) <= 0) { setExEditMsg('❌ Agreed value must be greater than 0'); return; }
+    setExEditSaving(true); setExEditMsg('');
+    const res = await aFetch(`/api/admin/bookings/${selectedBkg.id}/exchange-asset`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(exEditForm),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setExEditMsg('✅ Exchange asset recorded');
+      setExEditMode(false);
+      const updated = { ...selectedBkg, ...data.booking };
+      setSelectedBkg(updated);
+      setBkgs(prev => prev.map(b => b.id === updated.id ? { ...b, ...data.booking } : b));
+      if (updated.status === 'confirmed') loadAdminLedger(updated.id);
+    } else {
+      setExEditMsg('❌ ' + (data.error || 'Save failed'));
+    }
+    setExEditSaving(false);
   };
 
   const handleSavePaymentPlan = async () => {
@@ -2756,6 +2782,70 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                         </div>
                       )}
                     </div>
+                    {/* Exchange Asset */}
+                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          🔄 Exchange / Commodity
+                          {selectedBkg.exchangeAsset && <span style={{ fontWeight: 600, fontSize: '0.68rem', color: '#059669', textTransform: 'none', background: '#d1fae5', borderRadius: 6, padding: '0.1rem 0.4rem', marginLeft: '0.4rem' }}>✓ Recorded</span>}
+                        </div>
+                        <button onClick={() => { setExEditMode(m => !m); setExEditForm(selectedBkg.exchangeAsset ? { ...selectedBkg.exchangeAsset } : { assetType: 'property', description: '', agreedValue: '', notes: '' }); setExEditMsg(''); }} style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.25rem 0.6rem', fontSize: '0.72rem', cursor: 'pointer', color: '#64748b', fontWeight: 600 }}>
+                          {exEditMode ? '✕ Cancel' : selectedBkg.exchangeAsset ? '✏️ Edit' : '+ Record'}
+                        </button>
+                      </div>
+                      {!exEditMode && selectedBkg.exchangeAsset ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.82rem' }}>
+                          {[
+                            ['Type', selectedBkg.exchangeAsset.assetType?.charAt(0).toUpperCase() + selectedBkg.exchangeAsset.assetType?.slice(1)],
+                            ['Description', selectedBkg.exchangeAsset.description],
+                            ['Agreed Value', 'PKR ' + Number(selectedBkg.exchangeAsset.agreedValue).toLocaleString('en-US')],
+                            ['Remarks', selectedBkg.exchangeAsset.notes || '—'],
+                            ['Recorded by', selectedBkg.exchangeAsset.recordedBy + ' · ' + new Date(selectedBkg.exchangeAsset.recordedAt).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' })],
+                          ].map(([k, v]) => (
+                            <div key={k} style={{ display: 'flex', gap: '0.5rem' }}>
+                              <span style={{ color: '#64748b', minWidth: 90, flexShrink: 0, fontWeight: 600 }}>{k}:</span>
+                              <span style={{ color: '#0f172a', fontWeight: 600 }}>{v}</span>
+                            </div>
+                          ))}
+                          <div style={{ marginTop: '0.3rem', background: '#eff6ff', borderRadius: 8, padding: '0.4rem 0.65rem', fontSize: '0.75rem', color: '#1d4ed8' }}>
+                            Remaining to settle in installments: PKR {Math.max(0, (selectedBkg.originalPlotPrice || selectedBkg.plotPrice) - selectedBkg.exchangeAsset.agreedValue).toLocaleString('en-US')}
+                          </div>
+                        </div>
+                      ) : !exEditMode ? (
+                        <div style={{ fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic' }}>No exchange asset recorded. Use "+ Record" to enter a commodity/property exchange agreement.</div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                          <div>
+                            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Asset Type</div>
+                            <select value={exEditForm.assetType || 'other'} onChange={e => setExEditForm(f => ({ ...f, assetType: e.target.value }))} style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', background: '#fff' }}>
+                              {[['property', 'Property / Land'], ['vehicle', 'Vehicle'], ['jewelry', 'Jewelry / Ornaments'], ['gold', 'Gold / Precious Metal'], ['other', 'Other Asset']].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Asset Description <span style={{ color: '#dc2626' }}>*</span></div>
+                            <input type="text" value={exEditForm.description || ''} onChange={e => setExEditForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g. 5 Marla residential plot in Block C, City Housing" style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Agreed / Appraised Value (PKR) <span style={{ color: '#dc2626' }}>*</span></div>
+                            <input type="number" value={exEditForm.agreedValue || ''} onChange={e => setExEditForm(f => ({ ...f, agreedValue: e.target.value }))} placeholder="e.g. 2500000" style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} />
+                            {exEditForm.agreedValue && Number(exEditForm.agreedValue) > 0 && (
+                              <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 600, marginTop: '0.25rem' }}>
+                                → Remaining after exchange: PKR {Math.max(0, (selectedBkg.originalPlotPrice || selectedBkg.plotPrice) - Number(exEditForm.agreedValue)).toLocaleString('en-US')} to settle in installments
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Remarks / Appraisal Notes</div>
+                            <textarea value={exEditForm.notes || ''} onChange={e => setExEditForm(f => ({ ...f, notes: e.target.value }))} placeholder="e.g. Market value assessed by independent assessor. Transfer deed to be submitted within 30 days." rows={3} style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} />
+                          </div>
+                          {exEditMsg && <div style={{ fontSize: '0.82rem', fontWeight: 600, color: exEditMsg.startsWith('✅') ? '#059669' : '#dc2626' }}>{exEditMsg}</div>}
+                          <button onClick={handleSaveExchangeAsset} disabled={exEditSaving} style={{ background: exEditSaving ? '#94a3b8' : '#0284c7', color: '#fff', border: 'none', borderRadius: 10, padding: '0.65rem 1rem', fontWeight: 700, cursor: exEditSaving ? 'not-allowed' : 'pointer', fontSize: '0.875rem' }}>
+                            {exEditSaving ? 'Saving...' : '💾 Save Exchange Record'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
                     {selectedBkg.status === 'rejected' && (
                       <div style={{ background: '#fee2e2', border: '1px solid #fca5a533', borderRadius: 10, padding: '0.75rem 1rem', textAlign: 'center', fontWeight: 700, color: '#dc2626' }}>
                         ❌ Rejected

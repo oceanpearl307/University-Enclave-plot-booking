@@ -528,7 +528,9 @@ function ReceiptCopyBody({ booking, settings, prefs, plotLabel, dp, total, remai
               const effectiveMonthly = ov?.installmentAmount || Math.round(effectiveTotal * 0.60 / 48);
               const confirmDays = ov?.confirmationDueDays ? `(due in ${ov.confirmationDueDays} days)` : '(due in 30 days)';
               const startMonth = ov?.installmentStartMonths ? `from month ${ov.installmentStartMonths}` : 'from month 1';
+              const exAsset = booking.exchangeAsset;
               const scheduleItems = [
+                ...(exAsset ? [{ label: `Exchange: ${exAsset.assetType?.charAt(0).toUpperCase()}${exAsset.assetType?.slice(1)}`, value: pkr(exAsset.agreedValue), exchange: true }] : []),
                 { label: `Down Payment (10%)`, value: pkr(effectiveDP) },
                 { label: `Confirmation (10%) ${confirmDays}`, value: pkr(Math.round(effectiveTotal * 0.10)) },
                 { label: `Monthly × 48 ${startMonth}`, value: pkr(effectiveMonthly) + '/mo' },
@@ -537,13 +539,18 @@ function ReceiptCopyBody({ booking, settings, prefs, plotLabel, dp, total, remai
               return (
                 <>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' }}>
-                    {scheduleItems.map(({ label, value }) => (
-                      <div key={label} style={{ border: `1px solid ${GOLD}`, borderRadius: 2, padding: '0.3rem 0.4rem', fontSize: '0.68rem' }}>
-                        <div style={{ color: GOLD, fontWeight: 700, fontSize: '0.6rem', marginBottom: '0.1rem' }}>{label}</div>
+                    {scheduleItems.map(({ label, value, exchange }) => (
+                      <div key={label} style={{ border: `1px solid ${exchange ? '#0284c7' : GOLD}`, borderRadius: 2, padding: '0.3rem 0.4rem', fontSize: '0.68rem', background: exchange ? '#eff6ff' : 'transparent' }}>
+                        <div style={{ color: exchange ? '#0284c7' : GOLD, fontWeight: 700, fontSize: '0.6rem', marginBottom: '0.1rem' }}>{label}</div>
                         <div style={{ fontWeight: 700, color: '#1a1a1a' }}>{value}</div>
                       </div>
                     ))}
                   </div>
+                  {exAsset && (
+                    <div style={{ marginTop: '0.3rem', fontSize: '0.62rem', color: '#1d4ed8', borderLeft: '2px solid #0284c7', paddingLeft: '0.4rem' }}>
+                      Exchange remarks: {exAsset.description}{exAsset.notes ? ` — ${exAsset.notes}` : ''}
+                    </div>
+                  )}
                   {ov?.notes && (
                     <div style={{ marginTop: '0.3rem', fontSize: '0.62rem', color: '#78350f', fontStyle: 'italic', borderLeft: `2px solid ${GOLD}`, paddingLeft: '0.4rem' }}>
                       Negotiated terms: {ov.notes}

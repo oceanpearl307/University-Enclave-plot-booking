@@ -1906,6 +1906,59 @@ function handlePaymentPlanPatch(req, res) {
 app.patch('/api/admin/bookings/:id/payment-plan', handlePaymentPlanPatch);
 app.patch('/api/ops/bookings/:id/payment-plan', handlePaymentPlanPatch);
 
+function handleExchangeAssetPatch(req, res) {
+  const session = sessions[req.headers['authorization']?.replace('Bearer ', '')];
+  if (!session || (session.role !== 'admin' && session.role !== 'operations'))
+    return res.status(401).json({ error: 'Unauthorized' });
+  if (session.role === 'operations' && !session.privileges?.approveBookings)
+    return res.status(403).json({ error: 'Insufficient privileges — approveBookings required' });
+
+  const booking = bookings.find(b => b.id === parseInt(req.params.id));
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+  const { assetType, description, agreedValue, notes } = req.body;
+  if (!description || String(description).trim().length < 5)
+    return res.status(400).json({ error: 'Asset description is required (minimum 5 characters)' });
+  if (!agreedValue || Number(agreedValue) <= 0)
+    return res.status(400).json({ error: 'Agreed value must be greater than 0' });
+
+  const VALID_TYPES = ['property', 'vehicle', 'jewelry', 'gold', 'other'];
+  const type = VALID_TYPES.includes(assetType) ? assetType : 'other';
+
+  booking.exchangeAsset = {
+    assetType: type,
+    description: String(description).trim(),
+    agreedValue: Number(agreedValue),
+    notes: notes ? String(notes).trim() : '',
+    recordedBy: session.username || session.role,
+    recordedAt: new Date().toISOString(),
+  };
+
+  if (booking.ledger) {
+    booking.ledger = booking.ledger.filter(i => i.type !== 'exchange');
+    const exchangeEntry = {
+      id: `exchange-${booking.id}`,
+      type: 'exchange',
+      label: `Exchange: ${type.charAt(0).toUpperCase() + type.slice(1)} — ${String(description).trim()}`,
+      amount: Number(agreedValue),
+      dueDate: new Date().toISOString().split('T')[0],
+      status: 'paid',
+      paidDate: new Date().toISOString().split('T')[0],
+      paidAmount: Number(agreedValue),
+      paidBy: session.username || session.role,
+      notes: notes ? String(notes).trim() : '',
+    };
+    booking.ledger = [exchangeEntry, ...booking.ledger];
+  }
+
+  booking.updatedAt = new Date().toISOString();
+  saveDb();
+  res.json({ success: true, booking });
+}
+
+app.patch('/api/admin/bookings/:id/exchange-asset', handleExchangeAssetPatch);
+app.patch('/api/ops/bookings/:id/exchange-asset', handleExchangeAssetPatch);
+
 app.delete('/api/admin/bookings/:id', (req, res) => {
   const rawId = req.params.id;
   const numId = parseInt(rawId);
