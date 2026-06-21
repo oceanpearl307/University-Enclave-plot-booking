@@ -521,19 +521,37 @@ function ReceiptCopyBody({ booking, settings, prefs, plotLabel, dp, total, remai
         {/* Installment Schedule */}
         {settings.showInstallmentSchedule && (
           <CSection title="Installment Schedule:" F={F}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' }}>
-              {[
-                { label: 'Down Payment (10%)', value: pkr(Math.round(total * 0.10)) },
-                { label: 'Confirmation (10%)', value: pkr(Math.round(total * 0.10)) },
-                { label: 'Monthly (48 installments)', value: pkr(Math.round(total * 0.60 / 48)) + '/mo' },
-                { label: 'Possession (20%)', value: pkr(Math.round(total * 0.20)) },
-              ].map(({ label, value }) => (
-                <div key={label} style={{ border: `1px solid ${GOLD}`, borderRadius: 2, padding: '0.3rem 0.4rem', fontSize: '0.68rem' }}>
-                  <div style={{ color: GOLD, fontWeight: 700, fontSize: '0.6rem', marginBottom: '0.1rem' }}>{label}</div>
-                  <div style={{ fontWeight: 700, color: '#1a1a1a' }}>{value}</div>
-                </div>
-              ))}
-            </div>
+            {(() => {
+              const ov = booking.paymentPlanOverride;
+              const effectiveTotal = ov?.negotiatedPrice || total;
+              const effectiveDP = ov?.downPayment || Math.round(effectiveTotal * 0.10);
+              const effectiveMonthly = ov?.installmentAmount || Math.round(effectiveTotal * 0.60 / 48);
+              const confirmDays = ov?.confirmationDueDays ? `(due in ${ov.confirmationDueDays} days)` : '(due in 30 days)';
+              const startMonth = ov?.installmentStartMonths ? `from month ${ov.installmentStartMonths}` : 'from month 1';
+              const scheduleItems = [
+                { label: `Down Payment (10%)`, value: pkr(effectiveDP) },
+                { label: `Confirmation (10%) ${confirmDays}`, value: pkr(Math.round(effectiveTotal * 0.10)) },
+                { label: `Monthly × 48 ${startMonth}`, value: pkr(effectiveMonthly) + '/mo' },
+                { label: 'Possession (20%)', value: pkr(Math.round(effectiveTotal * 0.20)) },
+              ];
+              return (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' }}>
+                    {scheduleItems.map(({ label, value }) => (
+                      <div key={label} style={{ border: `1px solid ${GOLD}`, borderRadius: 2, padding: '0.3rem 0.4rem', fontSize: '0.68rem' }}>
+                        <div style={{ color: GOLD, fontWeight: 700, fontSize: '0.6rem', marginBottom: '0.1rem' }}>{label}</div>
+                        <div style={{ fontWeight: 700, color: '#1a1a1a' }}>{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {ov?.notes && (
+                    <div style={{ marginTop: '0.3rem', fontSize: '0.62rem', color: '#78350f', fontStyle: 'italic', borderLeft: `2px solid ${GOLD}`, paddingLeft: '0.4rem' }}>
+                      Negotiated terms: {ov.notes}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </CSection>
         )}
 

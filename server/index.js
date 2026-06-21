@@ -1515,10 +1515,11 @@ function generateLedger(booking) {
   if (!plan) return items;
 
   const dp = ov.downPayment !== undefined ? ov.downPayment : (booking.downPayment > 0 ? booking.downPayment : Math.round(plan.downPayment * scale));
-  const confirmationAmt = ov.confirmationAmount !== undefined ? ov.confirmationAmount : Math.round(plan.confirmation * scale);
-  const monthlyAmt = ov.monthlyAmount !== undefined ? ov.monthlyAmount : Math.round(plan.monthlyInstallment * scale);
-  const monthlyCount = (ov.monthlyCount !== undefined && ov.monthlyCount > 0) ? ov.monthlyCount : plan.monthlyCount;
-  const possessionAmt = ov.possessionAmount !== undefined ? ov.possessionAmount : Math.round(plan.possession * scale);
+  const confirmationDueDays = ov.confirmationDueDays || 30;
+  const installmentStartMonths = ov.installmentStartMonths || 1;
+  const monthlyAmt = ov.installmentAmount !== undefined ? ov.installmentAmount : Math.round(plan.monthlyInstallment * scale);
+  const possessionAmt = Math.round(plan.possession * scale);
+  const confirmationAmt = Math.round(plan.confirmation * scale);
 
   items.push({
     id: ++ledgerIdCounter, type: 'down-payment', label: 'Down Payment',
@@ -1528,14 +1529,14 @@ function generateLedger(booking) {
 
   items.push({
     id: ++ledgerIdCounter, type: 'confirmation', label: 'Confirmation',
-    dueDate: addDaysToDate(start, 30), amount: confirmationAmt,
+    dueDate: addDaysToDate(start, confirmationDueDays), amount: confirmationAmt,
     status: 'pending', paidDate: null, paidAmount: null, paidBy: null, notes: null,
   });
 
-  for (let i = 1; i <= monthlyCount; i++) {
+  for (let i = 1; i <= plan.monthlyCount; i++) {
     items.push({
       id: ++ledgerIdCounter, type: 'monthly', label: `Monthly #${i}`,
-      dueDate: addMonthsToDate(start, i), amount: monthlyAmt,
+      dueDate: addMonthsToDate(start, installmentStartMonths - 1 + i), amount: monthlyAmt,
       status: 'pending', paidDate: null, paidAmount: null, paidBy: null, notes: null,
     });
   }
@@ -1797,21 +1798,40 @@ app.patch('/api/admin/bookings/:id/payment-plan', (req, res) => {
   const booking = bookings.find(b => b.id === parseInt(req.params.id));
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
-  const { downPayment, monthlyAmount, monthlyCount, confirmationAmount, possessionAmount, paymentNotes } = req.body;
+  const { negotiatedPrice, installmentAmount, confirmationDueDays, installmentStartMonths, notes } = req.body;
 
-  const ov = {};
-  if (downPayment !== undefined && downPayment !== '') ov.downPayment = Number(downPayment);
-  if (monthlyAmount !== undefined && monthlyAmount !== '') ov.monthlyAmount = Number(monthlyAmount);
-  if (monthlyCount !== undefined && monthlyCount !== '') ov.monthlyCount = Number(monthlyCount);
-  if (confirmationAmount !== undefined && confirmationAmount !== '') ov.confirmationAmount = Number(confirmationAmount);
-  if (possessionAmount !== undefined && possessionAmount !== '') ov.possessionAmount = Number(possessionAmount);
-  ov.paymentNotes = paymentNotes || '';
-  ov.updatedAt = new Date().toISOString();
-  ov.updatedBy = session.username || 'admin';
+  if (!notes || String(notes).trim().length < 5)
+    return res.status(400).json({ error: 'Negotiation notes are required (minimum 5 characters)' });
+  if (!negotiatedPrice || Number(negotiatedPrice) <= 0)
+    return res.status(400).json({ error: 'Negotiated price is required and must be greater than 0' });
 
-  booking.paymentPlanOverride = ov;
+  const price = Number(negotiatedPrice);
+  const downPayment = Math.round(price * 0.10);
+  const dueDays = Number(confirmationDueDays) > 0 ? Number(confirmationDueDays) : 30;
+  const startMonths = Number(installmentStartMonths) > 0 ? Number(installmentStartMonths) : 1;
+  const instAmt = installmentAmount && Number(installmentAmount) > 0
+    ? Number(installmentAmount)
+    : Math.round(price * 0.60 / 48);
 
-  if (ov.downPayment !== undefined) booking.downPayment = ov.downPayment;
+  const entry = {
+    negotiatedPrice: price,
+    downPayment,
+    installmentAmount: instAmt,
+    confirmationDueDays: dueDays,
+    installmentStartMonths: startMonths,
+    notes: String(notes).trim(),
+    changedBy: session.username || session.role,
+    changedAt: new Date().toISOString(),
+    previousPrice: booking.plotPrice,
+    previousDownPayment: booking.downPayment,
+  };
+
+  if (!booking.paymentPlanHistory) booking.paymentPlanHistory = [];
+  booking.paymentPlanHistory.push(entry);
+
+  booking.plotPrice = price;
+  booking.downPayment = downPayment;
+  booking.paymentPlanOverride = entry;
 
   if (booking.status === 'confirmed') {
     const paidByType = {};

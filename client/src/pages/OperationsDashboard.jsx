@@ -132,20 +132,22 @@ export default function OperationsDashboard({ staff, onLogout }) {
 
   const openPpEdit = (bkg) => {
     const ov = bkg.paymentPlanOverride || {};
-    const plan = { '5 Marla': { monthly: 20000, count: 40, confirmation: 400000, possession: 1360000 }, '7 Marla': { monthly: 25000, count: 40, confirmation: 546000, possession: 2168000 }, '10 Marla': { monthly: 38000, count: 40, confirmation: 760000, possession: 2960000 }, '1 Kanal': { monthly: 70000, count: 40, confirmation: 1440000, possession: 6320000 } }[bkg.plotSize] || {};
     setPpEditForm({
-      downPayment: ov.downPayment !== undefined ? String(ov.downPayment) : String(bkg.downPayment || ''),
-      monthlyAmount: ov.monthlyAmount !== undefined ? String(ov.monthlyAmount) : String(plan.monthly || ''),
-      monthlyCount: ov.monthlyCount !== undefined ? String(ov.monthlyCount) : String(plan.count || ''),
-      confirmationAmount: ov.confirmationAmount !== undefined ? String(ov.confirmationAmount) : String(plan.confirmation || ''),
-      possessionAmount: ov.possessionAmount !== undefined ? String(ov.possessionAmount) : String(plan.possession || ''),
-      paymentNotes: ov.paymentNotes || '',
+      negotiatedPrice: String(ov.negotiatedPrice || bkg.plotPrice || ''),
+      installmentAmount: String(ov.installmentAmount || ''),
+      confirmationDueDays: String(ov.confirmationDueDays || 30),
+      installmentStartMonths: String(ov.installmentStartMonths || 1),
+      notes: '',
     });
     setPpEditMsg('');
     setPpEditMode(true);
   };
 
   const handleSavePaymentPlan = async (bkg) => {
+    if (!ppEditForm.notes || ppEditForm.notes.trim().length < 5) {
+      setPpEditMsg('❌ Negotiation notes are required (min 5 characters)');
+      return;
+    }
     setPpEditSaving(true); setPpEditMsg('');
     const res = await fetch(`/api/admin/bookings/${bkg.id}/payment-plan`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -444,9 +446,14 @@ export default function OperationsDashboard({ staff, onLogout }) {
                   {/* ── Payment Plan Section ── */}
                   <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em' }}>💰 Payment Plan</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em' }}>💰 Payment Plan</div>
+                        {selectedBooking.paymentPlanHistory?.length > 0 && (
+                          <span style={{ background: '#fef3c7', border: '1px solid #fde68a', color: '#92400e', borderRadius: 9999, fontSize: '0.62rem', fontWeight: 800, padding: '0.1rem 0.45rem' }}>✏️ Modified</span>
+                        )}
+                      </div>
                       {!ppEditMode ? (
-                        <button onClick={() => openPpEdit(selectedBooking)} style={{ background: '#fef3c7', border: '1px solid #fde68a', color: '#92400e', borderRadius: 7, padding: '0.25rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>✏️ Edit Terms</button>
+                        <button onClick={() => openPpEdit(selectedBooking)} style={{ background: '#fef3c7', border: '1px solid #fde68a', color: '#92400e', borderRadius: 7, padding: '0.25rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>✏️ Negotiate Terms</button>
                       ) : (
                         <button onClick={() => { setPpEditMode(false); setPpEditMsg(''); }} style={{ background: '#f1f5f9', border: 'none', color: '#64748b', borderRadius: 7, padding: '0.25rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
                       )}
@@ -456,56 +463,85 @@ export default function OperationsDashboard({ staff, onLogout }) {
                         {selectedBooking.paymentPlanOverride ? (
                           <>
                             {[
-                              ['Down Payment', `PKR ${Number(selectedBooking.paymentPlanOverride.downPayment ?? selectedBooking.downPayment ?? 0).toLocaleString('en-US')}`],
-                              ['Monthly Installment', selectedBooking.paymentPlanOverride.monthlyAmount !== undefined ? `PKR ${Number(selectedBooking.paymentPlanOverride.monthlyAmount).toLocaleString('en-US')}` : '—'],
-                              ['Monthly Count', selectedBooking.paymentPlanOverride.monthlyCount !== undefined ? `${selectedBooking.paymentPlanOverride.monthlyCount} months` : '—'],
-                              ['Confirmation', selectedBooking.paymentPlanOverride.confirmationAmount !== undefined ? `PKR ${Number(selectedBooking.paymentPlanOverride.confirmationAmount).toLocaleString('en-US')}` : '—'],
-                              ['Possession', selectedBooking.paymentPlanOverride.possessionAmount !== undefined ? `PKR ${Number(selectedBooking.paymentPlanOverride.possessionAmount).toLocaleString('en-US')}` : '—'],
+                              ['Negotiated Price', `PKR ${Number(selectedBooking.paymentPlanOverride.negotiatedPrice).toLocaleString('en-US')}`],
+                              ['Down Payment (10%)', `PKR ${Number(selectedBooking.paymentPlanOverride.downPayment).toLocaleString('en-US')}`],
+                              ['Monthly Installment', `PKR ${Number(selectedBooking.paymentPlanOverride.installmentAmount).toLocaleString('en-US')}`],
+                              ['Confirmation Due', `${selectedBooking.paymentPlanOverride.confirmationDueDays} days after booking`],
+                              ['Installments Start', `Month ${selectedBooking.paymentPlanOverride.installmentStartMonths}`],
                             ].map(([label, value]) => (
                               <div key={label} style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8rem' }}>
-                                <span style={{ color: '#64748b', minWidth: 115, flexShrink: 0, fontWeight: 600 }}>{label}:</span>
+                                <span style={{ color: '#64748b', minWidth: 130, flexShrink: 0, fontWeight: 600 }}>{label}:</span>
                                 <span style={{ color: '#0f172a', fontWeight: 700 }}>{value}</span>
                               </div>
                             ))}
-                            {selectedBooking.paymentPlanOverride.paymentNotes && (
-                              <div style={{ background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 7, padding: '0.4rem 0.625rem', fontSize: '0.78rem', color: '#78350f', marginTop: '0.25rem' }}>
-                                📝 {selectedBooking.paymentPlanOverride.paymentNotes}
-                              </div>
-                            )}
-                            <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '0.15rem' }}>
-                              Modified by {selectedBooking.paymentPlanOverride.updatedBy} · {new Date(selectedBooking.paymentPlanOverride.updatedAt).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            <div style={{ background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 7, padding: '0.4rem 0.625rem', fontSize: '0.78rem', color: '#78350f', marginTop: '0.25rem' }}>
+                              📝 {selectedBooking.paymentPlanOverride.notes}
+                            </div>
+                            <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>
+                              Last modified by {selectedBooking.paymentPlanOverride.changedBy} · {new Date(selectedBooking.paymentPlanOverride.changedAt).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' })}
                             </div>
                           </>
                         ) : (
-                          <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Using standard plan for {selectedBooking.plotSize}. Click "Edit Terms" to negotiate custom terms.</div>
+                          <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Standard plan for {selectedBooking.plotSize}. Click "Negotiate Terms" to record a custom negotiated price and installment terms.</div>
+                        )}
+                        {selectedBooking.paymentPlanHistory?.length > 1 && (
+                          <details style={{ marginTop: '0.4rem' }}>
+                            <summary style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', cursor: 'pointer', userSelect: 'none' }}>
+                              📋 View change history ({selectedBooking.paymentPlanHistory.length} entries)
+                            </summary>
+                            <div style={{ marginTop: '0.4rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                              {[...selectedBooking.paymentPlanHistory].reverse().map((h, idx) => (
+                                <div key={idx} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.5rem 0.75rem', fontSize: '0.75rem' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
+                                    <span style={{ fontWeight: 700, color: '#374151' }}>PKR {Number(h.negotiatedPrice).toLocaleString('en-US')}</span>
+                                    <span style={{ color: '#94a3b8' }}>{new Date(h.changedAt).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                  </div>
+                                  <div style={{ color: '#64748b' }}>Monthly: PKR {Number(h.installmentAmount).toLocaleString('en-US')} · Start month {h.installmentStartMonths}</div>
+                                  <div style={{ color: '#78350f', fontStyle: 'italic', marginTop: '0.15rem' }}>{h.notes}</div>
+                                  <div style={{ color: '#94a3b8', fontSize: '0.68rem', marginTop: '0.1rem' }}>by {h.changedBy}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </details>
                         )}
                       </div>
                     ) : (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                        {[
-                          ['Down Payment (PKR)', 'downPayment', 'number'],
-                          ['Confirmation Amount (PKR)', 'confirmationAmount', 'number'],
-                          ['Monthly Installment (PKR)', 'monthlyAmount', 'number'],
-                          ['No. of Monthly Installments', 'monthlyCount', 'number'],
-                          ['Possession Amount (PKR)', 'possessionAmount', 'number'],
-                        ].map(([label, key, type]) => (
-                          <div key={key}>
-                            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>{label}</div>
-                            <input type={type} value={ppEditForm[key] || ''} onChange={e => setPpEditForm(f => ({ ...f, [key]: e.target.value }))} placeholder="Leave blank for default" style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#d97706'} onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
-                          </div>
-                        ))}
                         <div>
-                          <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Negotiation Notes</div>
-                          <textarea value={ppEditForm.paymentNotes || ''} onChange={e => setPpEditForm(f => ({ ...f, paymentNotes: e.target.value }))} placeholder="e.g. Client agreed to 30 installments at reduced rate..." rows={2} style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} onFocus={e => e.target.style.borderColor = '#d97706'} onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+                          <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Negotiated Total Price (PKR) <span style={{ color: '#dc2626' }}>*</span></div>
+                          <input type="number" value={ppEditForm.negotiatedPrice || ''} onChange={e => setPpEditForm(f => ({ ...f, negotiatedPrice: e.target.value }))} placeholder="e.g. 3800000" style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#d97706'} onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+                          {ppEditForm.negotiatedPrice && Number(ppEditForm.negotiatedPrice) > 0 && (
+                            <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 600, marginTop: '0.25rem' }}>
+                              → Down Payment (10%): PKR {Math.round(Number(ppEditForm.negotiatedPrice) * 0.10).toLocaleString('en-US')} &nbsp;·&nbsp; Default monthly: PKR {Math.round(Number(ppEditForm.negotiatedPrice) * 0.60 / 48).toLocaleString('en-US')}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Monthly Installment (PKR) — leave blank for auto</div>
+                          <input type="number" value={ppEditForm.installmentAmount || ''} onChange={e => setPpEditForm(f => ({ ...f, installmentAmount: e.target.value }))} placeholder="Auto-calculated from 60% / 48 months" style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#d97706'} onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+                          <div>
+                            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Confirmation Due (days)</div>
+                            <input type="number" value={ppEditForm.confirmationDueDays || ''} onChange={e => setPpEditForm(f => ({ ...f, confirmationDueDays: e.target.value }))} placeholder="30" style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#d97706'} onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Installments Start (month)</div>
+                            <input type="number" value={ppEditForm.installmentStartMonths || ''} onChange={e => setPpEditForm(f => ({ ...f, installmentStartMonths: e.target.value }))} placeholder="1" style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#d97706'} onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Negotiation Notes <span style={{ color: '#dc2626' }}>*</span> <span style={{ fontWeight: 400 }}>(required — describe what was agreed)</span></div>
+                          <textarea value={ppEditForm.notes || ''} onChange={e => setPpEditForm(f => ({ ...f, notes: e.target.value }))} placeholder="e.g. Client requested reduced monthly installments in exchange for higher down payment. Manager approved on 2026-06-21." rows={3} style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} onFocus={e => e.target.style.borderColor = '#d97706'} onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
                         </div>
                         {selectedBooking.status === 'confirmed' && (
                           <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#92400e' }}>
-                            ⚠️ Booking is confirmed. Ledger will be regenerated — paid installments are preserved.
+                            ⚠️ Booking is confirmed. Saving regenerates the payment ledger — already paid installments are preserved.
                           </div>
                         )}
                         {ppEditMsg && <div style={{ fontSize: '0.82rem', fontWeight: 600, color: ppEditMsg.startsWith('✅') ? '#059669' : '#dc2626' }}>{ppEditMsg}</div>}
                         <button onClick={() => handleSavePaymentPlan(selectedBooking)} disabled={ppEditSaving} style={{ background: ppEditSaving ? '#94a3b8' : '#d97706', color: '#fff', border: 'none', borderRadius: 10, padding: '0.65rem 1rem', fontWeight: 700, cursor: ppEditSaving ? 'not-allowed' : 'pointer', fontSize: '0.875rem' }}>
-                          {ppEditSaving ? 'Saving...' : '💾 Save Payment Terms'}
+                          {ppEditSaving ? 'Saving...' : '💾 Save Negotiated Terms'}
                         </button>
                       </div>
                     )}
