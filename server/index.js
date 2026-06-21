@@ -1835,17 +1835,17 @@ function handlePaymentPlanPatch(req, res) {
   const downPayment = Math.round(price * 0.10);
   const dueDays = Number(confirmationDueDays) > 0 ? Number(confirmationDueDays) : 30;
   const startMonths = Number(installmentStartMonths) > 0 ? Number(installmentStartMonths) : 1;
-  const defaultInstAmt = Math.round(price * 0.60 / 48);
+  // 2-decimal rounding guarantees abs(defaultInstAmt * 48 - price * 0.60) <= 0.24 <= 1
+  const defaultInstAmt = Math.round(price * 0.60 / 48 * 100) / 100;
   const instAmt = installmentAmount && Number(installmentAmount) > 0
-    ? Number(installmentAmount)
+    ? Math.round(Number(installmentAmount) * 100) / 100
     : defaultInstAmt;
 
-  if (installmentAmount && Number(installmentAmount) > 0) {
-    if (Math.abs(instAmt * 48 - price * 0.60) > 1) {
-      return res.status(400).json({
-        error: `Monthly installment × 48 (PKR ${(instAmt * 48).toLocaleString('en-US')}) must equal 60% of negotiated price (PKR ${(price * 0.60).toLocaleString('en-US')}) within ±1. Use PKR ${defaultInstAmt.toLocaleString('en-US')}/month`,
-      });
-    }
+  // Enforce unconditionally: total installments must be within ±1 of 60% of negotiated price
+  if (Math.abs(instAmt * 48 - price * 0.60) > 1) {
+    return res.status(400).json({
+      error: `Monthly installment × 48 (${(instAmt * 48).toLocaleString('en-US', { maximumFractionDigits: 2 })}) must equal 60% of negotiated price (${(price * 0.60).toLocaleString('en-US', { maximumFractionDigits: 2 })}) within ±1. Use PKR ${defaultInstAmt.toLocaleString('en-US', { minimumFractionDigits: 2 })}/month`,
+    });
   }
 
   const updatedFields = { negotiatedPrice: price, downPayment, installmentAmount: instAmt, confirmationDueDays: dueDays, installmentStartMonths: startMonths };

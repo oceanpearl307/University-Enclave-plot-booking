@@ -2705,14 +2705,14 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                             <input type="number" value={ppEditForm.negotiatedPrice || ''} onChange={e => setPpEditForm(f => ({ ...f, negotiatedPrice: e.target.value }))} placeholder="e.g. 3800000" style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#d97706'} onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
                             {ppEditForm.negotiatedPrice && Number(ppEditForm.negotiatedPrice) > 0 && (
                               <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: 600, marginTop: '0.25rem' }}>
-                                → Down Payment (10%): PKR {Math.round(Number(ppEditForm.negotiatedPrice) * 0.10).toLocaleString('en-US')} &nbsp;·&nbsp; Monthly installment: PKR {Math.round(Number(ppEditForm.negotiatedPrice) * 0.60 / 48).toLocaleString('en-US')}
+                                → Down Payment (10%): PKR {Math.round(Number(ppEditForm.negotiatedPrice) * 0.10).toLocaleString('en-US')} &nbsp;·&nbsp; Monthly installment: PKR {(Math.round(Number(ppEditForm.negotiatedPrice) * 0.60 / 48 * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                               </div>
                             )}
                           </div>
                           {(() => {
                             const customAmt = ppEditForm.installmentAmount && Number(ppEditForm.installmentAmount) > 0;
                             const price = Number(ppEditForm.negotiatedPrice) || 0;
-                            const defaultAmt = price > 0 ? Math.round(price * 0.60 / 48) : 0;
+                            const defaultAmt = price > 0 ? Math.round(price * 0.60 / 48 * 100) / 100 : 0;
                             const instErr = customAmt && price > 0 && Math.abs(Number(ppEditForm.installmentAmount) * 48 - price * 0.60) > 1;
                             return (
                               <div>
