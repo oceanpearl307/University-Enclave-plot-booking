@@ -1832,9 +1832,9 @@ function handlePaymentPlanPatch(req, res) {
   if (installmentAmount && Number(installmentAmount) > 0) {
     const actualTotal = instAmt * 48;
     const expectedTotal = price * 0.60;
-    if (Math.abs(actualTotal - expectedTotal) > 48) {
+    if (Math.abs(actualTotal - expectedTotal) > 1) {
       return res.status(400).json({
-        error: `Monthly installment × 48 (PKR ${actualTotal.toLocaleString('en-US')}) must equal 60% of negotiated price (PKR ${Math.round(expectedTotal).toLocaleString('en-US')}) within ±48. Suggested: PKR ${defaultInstAmt.toLocaleString('en-US')}/month`,
+        error: `Monthly installment × 48 (PKR ${actualTotal.toLocaleString('en-US')}) must equal 60% of negotiated price within ±1. Use PKR ${defaultInstAmt.toLocaleString('en-US')}/month`,
       });
     }
   }
@@ -1870,7 +1870,7 @@ function handlePaymentPlanPatch(req, res) {
       }
     }
     const newLedger = generateLedger(booking);
-    booking.ledger = newLedger.map(item => {
+    const rebuiltLedger = newLedger.map(item => {
       const queue = paidByType[item.type];
       if (queue && queue.length > 0) {
         const paid = queue.shift();
@@ -1878,6 +1878,15 @@ function handlePaymentPlanPatch(req, res) {
       }
       return item;
     });
+    const orphanedPaid = [];
+    for (const [type, queue] of Object.entries(paidByType)) {
+      for (const paidItem of queue) {
+        if (!rebuiltLedger.find(i => i.id === paidItem.id)) {
+          orphanedPaid.push({ ...paidItem, label: paidItem.label + ' (historical)', orphaned: true });
+        }
+      }
+    }
+    booking.ledger = [...orphanedPaid, ...rebuiltLedger];
   }
 
   booking.updatedAt = new Date().toISOString();

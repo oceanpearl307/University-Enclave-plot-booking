@@ -2686,10 +2686,10 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                                 {[...selectedBkg.paymentPlanHistory].reverse().map((h, idx) => (
                                   <div key={idx} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.5rem 0.75rem', fontSize: '0.75rem' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.2rem' }}>
-                                      <span style={{ fontWeight: 700, color: '#374151' }}>PKR {Number(h.negotiatedPrice).toLocaleString('en-US')}</span>
+                                      <span style={{ fontWeight: 700, color: '#374151' }}>PKR {Number(h.updated?.negotiatedPrice ?? h.negotiatedPrice).toLocaleString('en-US')}</span>
                                       <span style={{ color: '#94a3b8' }}>{new Date(h.changedAt).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                                     </div>
-                                    <div style={{ color: '#64748b' }}>Monthly: PKR {Number(h.installmentAmount).toLocaleString('en-US')} · Start month {h.installmentStartMonths}</div>
+                                    <div style={{ color: '#64748b' }}>Monthly: PKR {Number(h.updated?.installmentAmount ?? h.installmentAmount).toLocaleString('en-US')} · Start month {h.updated?.installmentStartMonths ?? h.installmentStartMonths}</div>
                                     <div style={{ color: '#78350f', fontStyle: 'italic', marginTop: '0.15rem' }}>{h.notes}</div>
                                     <div style={{ color: '#94a3b8', fontSize: '0.68rem', marginTop: '0.1rem' }}>by {h.changedBy}</div>
                                   </div>
@@ -2745,7 +2745,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                           {(() => {
                             const customAmt = ppEditForm.installmentAmount && Number(ppEditForm.installmentAmount) > 0;
                             const price = Number(ppEditForm.negotiatedPrice) || 0;
-                            const instOk = !customAmt || !price || Math.abs(Number(ppEditForm.installmentAmount) * 48 - price * 0.60) <= 48;
+                            const instOk = !customAmt || !price || Math.abs(Number(ppEditForm.installmentAmount) * 48 - price * 0.60) <= 1;
                             const saveDisabled = ppEditSaving || !instOk;
                             return (
                               <button onClick={handleSavePaymentPlan} disabled={saveDisabled} style={{ background: saveDisabled ? '#94a3b8' : '#d97706', color: '#fff', border: 'none', borderRadius: 10, padding: '0.65rem 1rem', fontWeight: 700, cursor: saveDisabled ? 'not-allowed' : 'pointer', fontSize: '0.875rem' }}>
