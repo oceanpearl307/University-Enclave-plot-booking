@@ -292,8 +292,8 @@ function ReceiptCopyBody({ booking, settings, prefs, plotLabel, dp, total, remai
     bodyPad: '0.2rem 0.5rem',
     fieldGap: '0.4rem',
     fieldRowGap: '0.15rem',
-    wmarkH: 50,
-    sigH: 20,
+    wmarkH: 30,
+    sigH: 14,
   } : {
     base: '0.82rem',
     label: '0.78rem',
@@ -325,6 +325,8 @@ function ReceiptCopyBody({ booking, settings, prefs, plotLabel, dp, total, remai
       fontSize: F.base, color: '#1a1a1a',
       overflow: 'hidden',
       position: 'relative',
+      pageBreakInside: 'avoid',
+      breakInside: 'avoid',
     }}>
       {/* TOP GOLD BAR */}
       <div style={{ background: `linear-gradient(90deg, ${GOLD}, ${GOLD_LIGHT}, ${GOLD})`, height: F.barH, flexShrink: 0 }} />
@@ -516,8 +518,8 @@ function ReceiptCopyBody({ booking, settings, prefs, plotLabel, dp, total, remai
           </CRow>
         </CSection>
 
-        {/* Installment Schedule — only in full view */}
-        {!compact && settings.showInstallmentSchedule && (
+        {/* Installment Schedule */}
+        {settings.showInstallmentSchedule && (
           <CSection title="Installment Schedule:" F={F}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.4rem' }}>
               {[
@@ -537,7 +539,7 @@ function ReceiptCopyBody({ booking, settings, prefs, plotLabel, dp, total, remai
 
         <div style={{ flex: 1, minHeight: compact ? '0.2rem' : '1rem' }} />
 
-        {settings.footerNote && !compact && (
+        {settings.footerNote && (
           <div style={{
             borderTop: `1px dashed ${GOLD}`, paddingTop: '0.4rem', marginTop: '0.2rem',
             fontSize: '0.72rem', color: '#555', fontStyle: 'italic', lineHeight: 1.5,
