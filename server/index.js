@@ -1802,15 +1802,16 @@ app.patch('/api/admin/bookings/:id', (req, res) => {
   res.json({ success: true, booking });
 });
 
-app.patch('/api/admin/bookings/:id/payment-plan', (req, res) => {
+function handlePaymentPlanPatch(req, res) {
   const session = validateSession(req);
   if (!session) return res.status(401).json({ error: 'Authentication required' });
   if (session.role !== 'admin' && session.role !== 'operations') return res.status(403).json({ error: 'Access denied' });
-  const booking = bookings.find(b => b.id === parseInt(req.params.id));
-  if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
   if (session.role === 'operations' && !session.privileges?.approveBookings)
     return res.status(403).json({ error: 'Insufficient privileges — approveBookings privilege required to edit payment plans' });
+
+  const booking = bookings.find(b => b.id === parseInt(req.params.id));
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
   const { negotiatedPrice, installmentAmount, confirmationDueDays, installmentStartMonths, notes } = req.body;
 
@@ -1831,25 +1832,26 @@ app.patch('/api/admin/bookings/:id/payment-plan', (req, res) => {
   if (installmentAmount && Number(installmentAmount) > 0) {
     const actualTotal = instAmt * 48;
     const expectedTotal = price * 0.60;
-    const tolerance = Math.max(48, Math.round(expectedTotal * 0.05));
-    if (Math.abs(actualTotal - expectedTotal) > tolerance) {
+    if (Math.abs(actualTotal - expectedTotal) > 48) {
       return res.status(400).json({
-        error: `Monthly installment × 48 (PKR ${actualTotal.toLocaleString('en-US')}) must be within 5% of 60% of negotiated price (PKR ${Math.round(expectedTotal).toLocaleString('en-US')}). Suggested: PKR ${defaultInstAmt.toLocaleString('en-US')}/month`,
+        error: `Monthly installment × 48 (PKR ${actualTotal.toLocaleString('en-US')}) must equal 60% of negotiated price (PKR ${Math.round(expectedTotal).toLocaleString('en-US')}) within ±48. Suggested: PKR ${defaultInstAmt.toLocaleString('en-US')}/month`,
       });
     }
   }
 
+  const updatedFields = { negotiatedPrice: price, downPayment, installmentAmount: instAmt, confirmationDueDays: dueDays, installmentStartMonths: startMonths };
   const entry = {
-    negotiatedPrice: price,
-    downPayment,
-    installmentAmount: instAmt,
-    confirmationDueDays: dueDays,
-    installmentStartMonths: startMonths,
-    notes: String(notes).trim(),
     changedBy: session.username || session.role,
     changedAt: new Date().toISOString(),
-    previousPrice: booking.plotPrice,
-    previousDownPayment: booking.downPayment,
+    notes: String(notes).trim(),
+    previous: {
+      negotiatedPrice: booking.paymentPlanOverride?.negotiatedPrice || booking.plotPrice,
+      downPayment: booking.paymentPlanOverride?.downPayment || booking.downPayment,
+      installmentAmount: booking.paymentPlanOverride?.installmentAmount || null,
+      confirmationDueDays: booking.paymentPlanOverride?.confirmationDueDays || 30,
+      installmentStartMonths: booking.paymentPlanOverride?.installmentStartMonths || 1,
+    },
+    updated: updatedFields,
   };
 
   if (!booking.paymentPlanHistory) booking.paymentPlanHistory = [];
@@ -1857,7 +1859,7 @@ app.patch('/api/admin/bookings/:id/payment-plan', (req, res) => {
 
   booking.plotPrice = price;
   booking.downPayment = downPayment;
-  booking.paymentPlanOverride = entry;
+  booking.paymentPlanOverride = { ...updatedFields, notes: entry.notes, changedBy: entry.changedBy, changedAt: entry.changedAt };
 
   if (booking.status === 'confirmed') {
     const paidByType = {};
@@ -1881,7 +1883,10 @@ app.patch('/api/admin/bookings/:id/payment-plan', (req, res) => {
   booking.updatedAt = new Date().toISOString();
   saveDb();
   res.json({ success: true, booking });
-});
+}
+
+app.patch('/api/admin/bookings/:id/payment-plan', handlePaymentPlanPatch);
+app.patch('/api/ops/bookings/:id/payment-plan', handlePaymentPlanPatch);
 
 app.delete('/api/admin/bookings/:id', (req, res) => {
   const rawId = req.params.id;

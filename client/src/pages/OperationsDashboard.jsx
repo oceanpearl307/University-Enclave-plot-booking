@@ -517,10 +517,19 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
                             </div>
                           )}
                         </div>
-                        <div>
-                          <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Monthly Installment (PKR) — leave blank for auto</div>
-                          <input type="number" value={ppEditForm.installmentAmount || ''} onChange={e => setPpEditForm(f => ({ ...f, installmentAmount: e.target.value }))} placeholder="Auto-calculated from 60% / 48 months" style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#d97706'} onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
-                        </div>
+                        {(() => {
+                          const customAmt = ppEditForm.installmentAmount && Number(ppEditForm.installmentAmount) > 0;
+                          const price = Number(ppEditForm.negotiatedPrice) || 0;
+                          const expected60 = price * 0.60;
+                          const instErr = customAmt && price > 0 && Math.abs(Number(ppEditForm.installmentAmount) * 48 - expected60) > 48;
+                          return (
+                            <div>
+                              <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Monthly Installment (PKR) — leave blank for auto</div>
+                              <input type="number" value={ppEditForm.installmentAmount || ''} onChange={e => setPpEditForm(f => ({ ...f, installmentAmount: e.target.value }))} placeholder={price > 0 ? `Auto: PKR ${Math.round(price * 0.60 / 48).toLocaleString('en-US')}` : 'Auto-calculated from 60% / 48 months'} style={{ width: '100%', padding: '0.45rem 0.625rem', border: `1.5px solid ${instErr ? '#dc2626' : '#e2e8f0'}`, borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = instErr ? '#dc2626' : '#d97706'} onBlur={e => e.target.style.borderColor = instErr ? '#dc2626' : '#e2e8f0'} />
+                              {instErr && <div style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '0.2rem', fontWeight: 600 }}>⚠️ Must equal PKR {Math.round(expected60 / 48).toLocaleString('en-US')}/month so that × 48 ≈ 60% of negotiated price (within ±48 PKR)</div>}
+                            </div>
+                          );
+                        })()}
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
                           <div>
                             <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Confirmation Due (days)</div>
@@ -541,9 +550,17 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
                           </div>
                         )}
                         {ppEditMsg && <div style={{ fontSize: '0.82rem', fontWeight: 600, color: ppEditMsg.startsWith('✅') ? '#059669' : '#dc2626' }}>{ppEditMsg}</div>}
-                        <button onClick={() => handleSavePaymentPlan(selectedBooking)} disabled={ppEditSaving} style={{ background: ppEditSaving ? '#94a3b8' : '#d97706', color: '#fff', border: 'none', borderRadius: 10, padding: '0.65rem 1rem', fontWeight: 700, cursor: ppEditSaving ? 'not-allowed' : 'pointer', fontSize: '0.875rem' }}>
-                          {ppEditSaving ? 'Saving...' : '💾 Save Negotiated Terms'}
-                        </button>
+                        {(() => {
+                          const customAmt = ppEditForm.installmentAmount && Number(ppEditForm.installmentAmount) > 0;
+                          const price = Number(ppEditForm.negotiatedPrice) || 0;
+                          const instOk = !customAmt || !price || Math.abs(Number(ppEditForm.installmentAmount) * 48 - price * 0.60) <= 48;
+                          const saveDisabled = ppEditSaving || !instOk;
+                          return (
+                            <button onClick={() => handleSavePaymentPlan(selectedBooking)} disabled={saveDisabled} style={{ background: saveDisabled ? '#94a3b8' : '#d97706', color: '#fff', border: 'none', borderRadius: 10, padding: '0.65rem 1rem', fontWeight: 700, cursor: saveDisabled ? 'not-allowed' : 'pointer', fontSize: '0.875rem' }}>
+                              {ppEditSaving ? 'Saving...' : '💾 Save Negotiated Terms'}
+                            </button>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
