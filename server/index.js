@@ -1840,10 +1840,12 @@ function handlePaymentPlanPatch(req, res) {
     ? Number(installmentAmount)
     : defaultInstAmt;
 
-  if (Math.abs(instAmt - defaultInstAmt) > 1) {
-    return res.status(400).json({
-      error: `Monthly installment must match the calculated amount within ±1. Use PKR ${defaultInstAmt.toLocaleString('en-US')}/month (= 60% ÷ 48 installments)`,
-    });
+  if (installmentAmount && Number(installmentAmount) > 0) {
+    if (Math.abs(instAmt * 48 - price * 0.60) > 1) {
+      return res.status(400).json({
+        error: `Monthly installment × 48 (PKR ${(instAmt * 48).toLocaleString('en-US')}) must equal 60% of negotiated price (PKR ${(price * 0.60).toLocaleString('en-US')}) within ±1. Use PKR ${defaultInstAmt.toLocaleString('en-US')}/month`,
+      });
+    }
   }
 
   const updatedFields = { negotiatedPrice: price, downPayment, installmentAmount: instAmt, confirmationDueDays: dueDays, installmentStartMonths: startMonths };

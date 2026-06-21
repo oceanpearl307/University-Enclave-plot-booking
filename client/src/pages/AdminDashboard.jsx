@@ -2713,12 +2713,12 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                             const customAmt = ppEditForm.installmentAmount && Number(ppEditForm.installmentAmount) > 0;
                             const price = Number(ppEditForm.negotiatedPrice) || 0;
                             const defaultAmt = price > 0 ? Math.round(price * 0.60 / 48) : 0;
-                            const instErr = customAmt && price > 0 && Math.abs(Number(ppEditForm.installmentAmount) - defaultAmt) > 1;
+                            const instErr = customAmt && price > 0 && Math.abs(Number(ppEditForm.installmentAmount) * 48 - price * 0.60) > 1;
                             return (
                               <div>
                                 <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Monthly Installment (PKR) — leave blank for auto</div>
                                 <input type="number" value={ppEditForm.installmentAmount || ''} onChange={e => setPpEditForm(f => ({ ...f, installmentAmount: e.target.value }))} placeholder={price > 0 ? `Auto: PKR ${defaultAmt.toLocaleString('en-US')}` : 'Auto-calculated from 60% / 48 months'} style={{ width: '100%', padding: '0.45rem 0.625rem', border: `1.5px solid ${instErr ? '#dc2626' : '#e2e8f0'}`, borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = instErr ? '#dc2626' : '#d97706'} onBlur={e => e.target.style.borderColor = instErr ? '#dc2626' : '#e2e8f0'} />
-                                {instErr && <div style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '0.2rem', fontWeight: 600 }}>⚠️ Must be PKR {defaultAmt.toLocaleString('en-US')}/month (auto-calculated as 60% ÷ 48, within ±1)</div>}
+                                {instErr && <div style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '0.2rem', fontWeight: 600 }}>⚠️ Amount × 48 must equal 60% of negotiated price within ±1 PKR. Use PKR {defaultAmt.toLocaleString('en-US')}/month</div>}
                               </div>
                             );
                           })()}
@@ -2745,7 +2745,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                           {(() => {
                             const customAmt = ppEditForm.installmentAmount && Number(ppEditForm.installmentAmount) > 0;
                             const price = Number(ppEditForm.negotiatedPrice) || 0;
-                            const instOk = !customAmt || !price || Math.abs(Number(ppEditForm.installmentAmount) * 48 - price * 0.60) <= 1;
+                            const instOk = !customAmt || !price || Math.abs(Number(ppEditForm.installmentAmount) * 48 - price * 0.60) <= 1; // total-based, matches server
                             const saveDisabled = ppEditSaving || !instOk;
                             return (
                               <button onClick={handleSavePaymentPlan} disabled={saveDisabled} style={{ background: saveDisabled ? '#94a3b8' : '#d97706', color: '#fff', border: 'none', borderRadius: 10, padding: '0.65rem 1rem', fontWeight: 700, cursor: saveDisabled ? 'not-allowed' : 'pointer', fontSize: '0.875rem' }}>
