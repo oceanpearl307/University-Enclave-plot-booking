@@ -1506,6 +1506,7 @@ function addDaysToDate(isoStr, days) {
 
 function generateLedger(booking) {
   const plan = PAYMENT_PLANS_SRV[booking.plotSize];
+  const ov = booking.paymentPlanOverride || {};
   const totalPrice = booking.plotPrice || 0;
   const scale = plan ? totalPrice / plan.total : 1;
   const start = booking.createdAt || new Date().toISOString();
@@ -1513,7 +1514,11 @@ function generateLedger(booking) {
 
   if (!plan) return items;
 
-  const dp = booking.downPayment > 0 ? booking.downPayment : Math.round(plan.downPayment * scale);
+  const dp = ov.downPayment !== undefined ? ov.downPayment : (booking.downPayment > 0 ? booking.downPayment : Math.round(plan.downPayment * scale));
+  const confirmationAmt = ov.confirmationAmount !== undefined ? ov.confirmationAmount : Math.round(plan.confirmation * scale);
+  const monthlyAmt = ov.monthlyAmount !== undefined ? ov.monthlyAmount : Math.round(plan.monthlyInstallment * scale);
+  const monthlyCount = (ov.monthlyCount !== undefined && ov.monthlyCount > 0) ? ov.monthlyCount : plan.monthlyCount;
+  const possessionAmt = ov.possessionAmount !== undefined ? ov.possessionAmount : Math.round(plan.possession * scale);
 
   items.push({
     id: ++ledgerIdCounter, type: 'down-payment', label: 'Down Payment',
@@ -1523,14 +1528,14 @@ function generateLedger(booking) {
 
   items.push({
     id: ++ledgerIdCounter, type: 'confirmation', label: 'Confirmation',
-    dueDate: addDaysToDate(start, 30), amount: Math.round(plan.confirmation * scale),
+    dueDate: addDaysToDate(start, 30), amount: confirmationAmt,
     status: 'pending', paidDate: null, paidAmount: null, paidBy: null, notes: null,
   });
 
-  for (let i = 1; i <= plan.monthlyCount; i++) {
+  for (let i = 1; i <= monthlyCount; i++) {
     items.push({
       id: ++ledgerIdCounter, type: 'monthly', label: `Monthly #${i}`,
-      dueDate: addMonthsToDate(start, i), amount: Math.round(plan.monthlyInstallment * scale),
+      dueDate: addMonthsToDate(start, i), amount: monthlyAmt,
       status: 'pending', paidDate: null, paidAmount: null, paidBy: null, notes: null,
     });
   }
@@ -1545,7 +1550,7 @@ function generateLedger(booking) {
 
   items.push({
     id: ++ledgerIdCounter, type: 'possession', label: 'Possession',
-    dueDate: addMonthsToDate(start, 48), amount: Math.round(plan.possession * scale),
+    dueDate: addMonthsToDate(start, 48), amount: possessionAmt,
     status: 'pending', paidDate: null, paidAmount: null, paidBy: null, notes: null,
   });
 
@@ -1781,6 +1786,53 @@ app.patch('/api/admin/bookings/:id', (req, res) => {
   allowed.forEach(k => { if (req.body[k] !== undefined) booking[k] = req.body[k]; });
   booking.updatedAt = new Date().toISOString();
   booking.updatedBy = session.username || ('user-' + session.dealerId);
+  saveDb();
+  res.json({ success: true, booking });
+});
+
+app.patch('/api/admin/bookings/:id/payment-plan', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (session.role !== 'admin' && session.role !== 'operations') return res.status(403).json({ error: 'Access denied' });
+  const booking = bookings.find(b => b.id === parseInt(req.params.id));
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+  const { downPayment, monthlyAmount, monthlyCount, confirmationAmount, possessionAmount, paymentNotes } = req.body;
+
+  const ov = {};
+  if (downPayment !== undefined && downPayment !== '') ov.downPayment = Number(downPayment);
+  if (monthlyAmount !== undefined && monthlyAmount !== '') ov.monthlyAmount = Number(monthlyAmount);
+  if (monthlyCount !== undefined && monthlyCount !== '') ov.monthlyCount = Number(monthlyCount);
+  if (confirmationAmount !== undefined && confirmationAmount !== '') ov.confirmationAmount = Number(confirmationAmount);
+  if (possessionAmount !== undefined && possessionAmount !== '') ov.possessionAmount = Number(possessionAmount);
+  ov.paymentNotes = paymentNotes || '';
+  ov.updatedAt = new Date().toISOString();
+  ov.updatedBy = session.username || 'admin';
+
+  booking.paymentPlanOverride = ov;
+
+  if (ov.downPayment !== undefined) booking.downPayment = ov.downPayment;
+
+  if (booking.status === 'confirmed') {
+    const paidByType = {};
+    for (const item of (booking.ledger || [])) {
+      if (item.status === 'paid') {
+        if (!paidByType[item.type]) paidByType[item.type] = [];
+        paidByType[item.type].push({ ...item });
+      }
+    }
+    const newLedger = generateLedger(booking);
+    booking.ledger = newLedger.map(item => {
+      const queue = paidByType[item.type];
+      if (queue && queue.length > 0) {
+        const paid = queue.shift();
+        return { ...item, status: 'paid', paidDate: paid.paidDate, paidAmount: paid.paidAmount, paidBy: paid.paidBy, notes: paid.notes };
+      }
+      return item;
+    });
+  }
+
+  booking.updatedAt = new Date().toISOString();
   saveDb();
   res.json({ success: true, booking });
 });

@@ -43,6 +43,10 @@ export default function OperationsDashboard({ staff, onLogout }) {
   const [rejectModal, setRejectModal] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   const [showReceipt, setShowReceipt] = useState(null);
+  const [ppEditMode, setPpEditMode] = useState(false);
+  const [ppEditForm, setPpEditForm] = useState({});
+  const [ppEditSaving, setPpEditSaving] = useState(false);
+  const [ppEditMsg, setPpEditMsg] = useState('');
 
   const [plots, setPlots] = useState([]);
   const [plotsLoading, setPlotsLoading] = useState(false);
@@ -124,6 +128,40 @@ export default function OperationsDashboard({ staff, onLogout }) {
     });
     if (res.ok) { setActionMsg('✅ Booking rejected — plot is now available again.'); setRejectModal(null); setRejectReason(''); setSelectedBooking(null); reloadBookings(); }
     else setActionMsg('❌ Failed to reject booking.');
+  };
+
+  const openPpEdit = (bkg) => {
+    const ov = bkg.paymentPlanOverride || {};
+    const plan = { '5 Marla': { monthly: 20000, count: 40, confirmation: 400000, possession: 1360000 }, '7 Marla': { monthly: 25000, count: 40, confirmation: 546000, possession: 2168000 }, '10 Marla': { monthly: 38000, count: 40, confirmation: 760000, possession: 2960000 }, '1 Kanal': { monthly: 70000, count: 40, confirmation: 1440000, possession: 6320000 } }[bkg.plotSize] || {};
+    setPpEditForm({
+      downPayment: ov.downPayment !== undefined ? String(ov.downPayment) : String(bkg.downPayment || ''),
+      monthlyAmount: ov.monthlyAmount !== undefined ? String(ov.monthlyAmount) : String(plan.monthly || ''),
+      monthlyCount: ov.monthlyCount !== undefined ? String(ov.monthlyCount) : String(plan.count || ''),
+      confirmationAmount: ov.confirmationAmount !== undefined ? String(ov.confirmationAmount) : String(plan.confirmation || ''),
+      possessionAmount: ov.possessionAmount !== undefined ? String(ov.possessionAmount) : String(plan.possession || ''),
+      paymentNotes: ov.paymentNotes || '',
+    });
+    setPpEditMsg('');
+    setPpEditMode(true);
+  };
+
+  const handleSavePaymentPlan = async (bkg) => {
+    setPpEditSaving(true); setPpEditMsg('');
+    const res = await fetch(`/api/admin/bookings/${bkg.id}/payment-plan`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(ppEditForm),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setPpEditMsg('✅ Payment plan updated');
+      setPpEditMode(false);
+      const updated = { ...bkg, ...data.booking };
+      setSelectedBooking(updated);
+      setBookings(prev => prev.map(b => b.id === updated.id ? { ...b, ...data.booking } : b));
+    } else {
+      setPpEditMsg('❌ ' + (data.error || 'Save failed'));
+    }
+    setPpEditSaving(false);
   };
 
   const openInvForm = (p) => {
@@ -402,6 +440,76 @@ export default function OperationsDashboard({ staff, onLogout }) {
                       )}
                     </div>
                   )}
+
+                  {/* ── Payment Plan Section ── */}
+                  <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em' }}>💰 Payment Plan</div>
+                      {!ppEditMode ? (
+                        <button onClick={() => openPpEdit(selectedBooking)} style={{ background: '#fef3c7', border: '1px solid #fde68a', color: '#92400e', borderRadius: 7, padding: '0.25rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>✏️ Edit Terms</button>
+                      ) : (
+                        <button onClick={() => { setPpEditMode(false); setPpEditMsg(''); }} style={{ background: '#f1f5f9', border: 'none', color: '#64748b', borderRadius: 7, padding: '0.25rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                      )}
+                    </div>
+                    {!ppEditMode ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        {selectedBooking.paymentPlanOverride ? (
+                          <>
+                            {[
+                              ['Down Payment', `PKR ${Number(selectedBooking.paymentPlanOverride.downPayment ?? selectedBooking.downPayment ?? 0).toLocaleString('en-US')}`],
+                              ['Monthly Installment', selectedBooking.paymentPlanOverride.monthlyAmount !== undefined ? `PKR ${Number(selectedBooking.paymentPlanOverride.monthlyAmount).toLocaleString('en-US')}` : '—'],
+                              ['Monthly Count', selectedBooking.paymentPlanOverride.monthlyCount !== undefined ? `${selectedBooking.paymentPlanOverride.monthlyCount} months` : '—'],
+                              ['Confirmation', selectedBooking.paymentPlanOverride.confirmationAmount !== undefined ? `PKR ${Number(selectedBooking.paymentPlanOverride.confirmationAmount).toLocaleString('en-US')}` : '—'],
+                              ['Possession', selectedBooking.paymentPlanOverride.possessionAmount !== undefined ? `PKR ${Number(selectedBooking.paymentPlanOverride.possessionAmount).toLocaleString('en-US')}` : '—'],
+                            ].map(([label, value]) => (
+                              <div key={label} style={{ display: 'flex', gap: '0.5rem', fontSize: '0.8rem' }}>
+                                <span style={{ color: '#64748b', minWidth: 115, flexShrink: 0, fontWeight: 600 }}>{label}:</span>
+                                <span style={{ color: '#0f172a', fontWeight: 700 }}>{value}</span>
+                              </div>
+                            ))}
+                            {selectedBooking.paymentPlanOverride.paymentNotes && (
+                              <div style={{ background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 7, padding: '0.4rem 0.625rem', fontSize: '0.78rem', color: '#78350f', marginTop: '0.25rem' }}>
+                                📝 {selectedBooking.paymentPlanOverride.paymentNotes}
+                              </div>
+                            )}
+                            <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '0.15rem' }}>
+                              Modified by {selectedBooking.paymentPlanOverride.updatedBy} · {new Date(selectedBooking.paymentPlanOverride.updatedAt).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Using standard plan for {selectedBooking.plotSize}. Click "Edit Terms" to negotiate custom terms.</div>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                        {[
+                          ['Down Payment (PKR)', 'downPayment', 'number'],
+                          ['Confirmation Amount (PKR)', 'confirmationAmount', 'number'],
+                          ['Monthly Installment (PKR)', 'monthlyAmount', 'number'],
+                          ['No. of Monthly Installments', 'monthlyCount', 'number'],
+                          ['Possession Amount (PKR)', 'possessionAmount', 'number'],
+                        ].map(([label, key, type]) => (
+                          <div key={key}>
+                            <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>{label}</div>
+                            <input type={type} value={ppEditForm[key] || ''} onChange={e => setPpEditForm(f => ({ ...f, [key]: e.target.value }))} placeholder="Leave blank for default" style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#d97706'} onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+                          </div>
+                        ))}
+                        <div>
+                          <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Negotiation Notes</div>
+                          <textarea value={ppEditForm.paymentNotes || ''} onChange={e => setPpEditForm(f => ({ ...f, paymentNotes: e.target.value }))} placeholder="e.g. Client agreed to 30 installments at reduced rate..." rows={2} style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} onFocus={e => e.target.style.borderColor = '#d97706'} onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+                        </div>
+                        {selectedBooking.status === 'confirmed' && (
+                          <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 8, padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: '#92400e' }}>
+                            ⚠️ Booking is confirmed. Ledger will be regenerated — paid installments are preserved.
+                          </div>
+                        )}
+                        {ppEditMsg && <div style={{ fontSize: '0.82rem', fontWeight: 600, color: ppEditMsg.startsWith('✅') ? '#059669' : '#dc2626' }}>{ppEditMsg}</div>}
+                        <button onClick={() => handleSavePaymentPlan(selectedBooking)} disabled={ppEditSaving} style={{ background: ppEditSaving ? '#94a3b8' : '#d97706', color: '#fff', border: 'none', borderRadius: 10, padding: '0.65rem 1rem', fontWeight: 700, cursor: ppEditSaving ? 'not-allowed' : 'pointer', fontSize: '0.875rem' }}>
+                          {ppEditSaving ? 'Saving...' : '💾 Save Payment Terms'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
