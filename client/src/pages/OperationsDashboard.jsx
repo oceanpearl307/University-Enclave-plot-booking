@@ -31,7 +31,7 @@ const ROLE_COLOR = {
 const defaultInvForm = () => ({ number: '', area: '', size: '5 Marla', category: 'residential', price: '', status: 'available' });
 const defaultAnnForm = () => ({ title: '', body: '', date: new Date().toISOString().slice(0, 10), tag: '', important: false });
 
-export default function OperationsDashboard({ staff, onLogout }) {
+export default function OperationsDashboard({ staff, authToken, onLogout }) {
   const privileges = staff.privileges || {};
   const availableTabs = PRIV_TABS.filter(t => privileges[t.key]);
   const [tab, setTab] = useState(availableTabs[0]?.key || null);
@@ -150,7 +150,8 @@ export default function OperationsDashboard({ staff, onLogout }) {
     }
     setPpEditSaving(true); setPpEditMsg('');
     const res = await fetch(`/api/admin/bookings/${bkg.id}/payment-plan`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
       body: JSON.stringify(ppEditForm),
     });
     const data = await res.json().catch(() => ({}));

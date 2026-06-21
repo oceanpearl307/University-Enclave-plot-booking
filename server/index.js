@@ -869,7 +869,7 @@ app.post('/api/dealer/login', async (req, res) => {
     const ops = operationsStaff.find(o => o.username === username && o.password === password);
     if (ops) {
       const token = `ops-${ops.id}-${Date.now()}`;
-      sessions[token] = { dealerId: ops.id, role: 'operations' };
+      sessions[token] = { dealerId: ops.id, role: 'operations', username: ops.username, privileges: ops.privileges || {} };
       const { password: _, ...safe } = ops;
       return res.json({ success: true, dealer: safe, token });
     }
@@ -1514,12 +1514,12 @@ function generateLedger(booking) {
 
   if (!plan) return items;
 
+  const isNegotiated = !!ov.negotiatedPrice;
   const dp = ov.downPayment !== undefined ? ov.downPayment : (booking.downPayment > 0 ? booking.downPayment : Math.round(plan.downPayment * scale));
   const confirmationDueDays = ov.confirmationDueDays || 30;
   const installmentStartMonths = ov.installmentStartMonths || 1;
-  const monthlyAmt = ov.installmentAmount !== undefined ? ov.installmentAmount : Math.round(plan.monthlyInstallment * scale);
-  const possessionAmt = Math.round(plan.possession * scale);
   const confirmationAmt = Math.round(plan.confirmation * scale);
+  const possessionAmt = Math.round(plan.possession * scale);
 
   items.push({
     id: ++ledgerIdCounter, type: 'down-payment', label: 'Down Payment',
@@ -1533,20 +1533,31 @@ function generateLedger(booking) {
     status: 'pending', paidDate: null, paidAmount: null, paidBy: null, notes: null,
   });
 
-  for (let i = 1; i <= plan.monthlyCount; i++) {
-    items.push({
-      id: ++ledgerIdCounter, type: 'monthly', label: `Monthly #${i}`,
-      dueDate: addMonthsToDate(start, installmentStartMonths - 1 + i), amount: monthlyAmt,
-      status: 'pending', paidDate: null, paidAmount: null, paidBy: null, notes: null,
-    });
-  }
-
-  for (let i = 1; i <= plan.semiAnnualCount; i++) {
-    items.push({
-      id: ++ledgerIdCounter, type: 'semi-annual', label: `Semi-Annual #${i}`,
-      dueDate: addMonthsToDate(start, i * 6), amount: Math.round(plan.semiAnnualInstallment * scale),
-      status: 'pending', paidDate: null, paidAmount: null, paidBy: null, notes: null,
-    });
+  if (isNegotiated) {
+    const monthlyAmt = ov.installmentAmount;
+    for (let i = 1; i <= 48; i++) {
+      items.push({
+        id: ++ledgerIdCounter, type: 'monthly', label: `Monthly #${i}`,
+        dueDate: addMonthsToDate(start, installmentStartMonths - 1 + i), amount: monthlyAmt,
+        status: 'pending', paidDate: null, paidAmount: null, paidBy: null, notes: null,
+      });
+    }
+  } else {
+    const monthlyAmt = Math.round(plan.monthlyInstallment * scale);
+    for (let i = 1; i <= plan.monthlyCount; i++) {
+      items.push({
+        id: ++ledgerIdCounter, type: 'monthly', label: `Monthly #${i}`,
+        dueDate: addMonthsToDate(start, installmentStartMonths - 1 + i), amount: monthlyAmt,
+        status: 'pending', paidDate: null, paidAmount: null, paidBy: null, notes: null,
+      });
+    }
+    for (let i = 1; i <= plan.semiAnnualCount; i++) {
+      items.push({
+        id: ++ledgerIdCounter, type: 'semi-annual', label: `Semi-Annual #${i}`,
+        dueDate: addMonthsToDate(start, i * 6), amount: Math.round(plan.semiAnnualInstallment * scale),
+        status: 'pending', paidDate: null, paidAmount: null, paidBy: null, notes: null,
+      });
+    }
   }
 
   items.push({
@@ -1798,6 +1809,9 @@ app.patch('/api/admin/bookings/:id/payment-plan', (req, res) => {
   const booking = bookings.find(b => b.id === parseInt(req.params.id));
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
 
+  if (session.role === 'operations' && !session.privileges?.approveBookings)
+    return res.status(403).json({ error: 'Insufficient privileges — approveBookings privilege required to edit payment plans' });
+
   const { negotiatedPrice, installmentAmount, confirmationDueDays, installmentStartMonths, notes } = req.body;
 
   if (!notes || String(notes).trim().length < 5)
@@ -1809,9 +1823,21 @@ app.patch('/api/admin/bookings/:id/payment-plan', (req, res) => {
   const downPayment = Math.round(price * 0.10);
   const dueDays = Number(confirmationDueDays) > 0 ? Number(confirmationDueDays) : 30;
   const startMonths = Number(installmentStartMonths) > 0 ? Number(installmentStartMonths) : 1;
+  const defaultInstAmt = Math.round(price * 0.60 / 48);
   const instAmt = installmentAmount && Number(installmentAmount) > 0
     ? Number(installmentAmount)
-    : Math.round(price * 0.60 / 48);
+    : defaultInstAmt;
+
+  if (installmentAmount && Number(installmentAmount) > 0) {
+    const actualTotal = instAmt * 48;
+    const expectedTotal = price * 0.60;
+    const tolerance = Math.max(48, Math.round(expectedTotal * 0.05));
+    if (Math.abs(actualTotal - expectedTotal) > tolerance) {
+      return res.status(400).json({
+        error: `Monthly installment × 48 (PKR ${actualTotal.toLocaleString('en-US')}) must be within 5% of 60% of negotiated price (PKR ${Math.round(expectedTotal).toLocaleString('en-US')}). Suggested: PKR ${defaultInstAmt.toLocaleString('en-US')}/month`,
+      });
+    }
+  }
 
   const entry = {
     negotiatedPrice: price,
