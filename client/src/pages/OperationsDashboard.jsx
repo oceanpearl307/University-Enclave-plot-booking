@@ -6,17 +6,23 @@ const statusColor = { pending: '#d97706', confirmed: '#059669', rejected: '#dc26
 const statusBg = { pending: '#fef3c7', confirmed: '#d1fae5', rejected: '#fee2e2' };
 
 const PRIV_TABS = [
-  { key: 'approveBookings',     label: 'Bookings',      icon: '📋' },
+  { key: 'approveBookings',     label: 'Bookings',      icon: '📋', anyOf: ['approveBookings', 'editBookings', 'viewLedger'] },
   { key: 'viewPlots',           label: 'Plots',         icon: '🏘️' },
   { key: 'manageInventory',     label: 'Inventory',     icon: '🏗️' },
   { key: 'viewDealers',         label: 'Dealers',       icon: '👥' },
   { key: 'viewDeals',           label: 'Deals',         icon: '🏷️' },
   { key: 'viewRegistrations',   label: 'Registrations', icon: '📝' },
+  { key: 'viewCustomers',       label: 'Customers',     icon: '🙍' },
+  { key: 'manageStaff',         label: 'Staff',         icon: '🛡️' },
   { key: 'viewReports',         label: 'Reports',       icon: '📊' },
   { key: 'manageAnnouncements', label: 'Announcements', icon: '📢' },
-  { key: 'viewCustomers',       label: 'Customers',     icon: '🙍' },
   { key: 'exportData',          label: 'Export',        icon: '📤' },
 ];
+const OPS_STAFF_ROLE_OPTIONS = ['Sales Staff', 'Operations Staff'];
+const OPS_ROLE_PRESETS = {
+  'Sales Staff':      { viewPlots: true, viewDealers: true, viewCustomers: true },
+  'Operations Staff': { approveBookings: true, editBookings: true },
+};
 
 const PLOT_SIZES = ['5 Marla', '7 Marla', '10 Marla', '1 Kanal', '2 Kanal', '4 Marla', 'Other'];
 const PLOT_CATS = ['residential', 'commercial'];
@@ -33,7 +39,8 @@ const defaultAnnForm = () => ({ title: '', body: '', date: new Date().toISOStrin
 
 export default function OperationsDashboard({ staff, authToken, onLogout }) {
   const privileges = staff.privileges || {};
-  const availableTabs = PRIV_TABS.filter(t => privileges[t.key]);
+  const aFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { Authorization: `Bearer ${authToken}`, ...(opts.headers || {}) } });
+  const availableTabs = PRIV_TABS.filter(t => t.anyOf ? t.anyOf.some(k => privileges[k]) : privileges[t.key]);
   const [tab, setTab] = useState(availableTabs[0]?.key || null);
   const [actionMsg, setActionMsg] = useState('');
 
@@ -51,6 +58,19 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
   const [exEditSaving, setExEditSaving] = useState(false);
   const [exEditMsg, setExEditMsg] = useState('');
   const [ppEditMsg, setPpEditMsg] = useState('');
+  const [editBkgMode, setEditBkgMode] = useState(false);
+  const [editBkgForm, setEditBkgForm] = useState({});
+  const [editBkgSaving, setEditBkgSaving] = useState(false);
+  const [editBkgMsg, setEditBkgMsg] = useState('');
+  const [ledger, setLedger] = useState(null);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+
+  const [opsStaffList, setOpsStaffList] = useState([]);
+  const [opsStaffLoading, setOpsStaffLoading] = useState(false);
+  const [opsStaffEdit, setOpsStaffEdit] = useState(null);
+  const [opsStaffForm, setOpsStaffForm] = useState({ name: '', username: '', password: '', staffRole: 'Sales Staff' });
+  const [opsStaffSaving, setOpsStaffSaving] = useState(false);
+  const [opsStaffMsg, setOpsStaffMsg] = useState('');
 
   const [plots, setPlots] = useState([]);
   const [plotsLoading, setPlotsLoading] = useState(false);
@@ -80,7 +100,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
 
   const reloadBookings = () => {
     setBookingsLoading(true);
-    fetch('/api/admin/bookings').then(r => r.json()).then(d => { setBookings(Array.isArray(d) ? d : []); setBookingsLoading(false); }).catch(() => setBookingsLoading(false));
+    aFetch('/api/admin/bookings').then(r => r.json()).then(d => { setBookings(Array.isArray(d) ? d : []); setBookingsLoading(false); }).catch(() => setBookingsLoading(false));
   };
   const reloadPlots = () => {
     setPlotsLoading(true);
@@ -92,7 +112,11 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
   };
   const reloadCustomers = () => {
     setCustomersLoading(true);
-    fetch('/api/admin/customers').then(r => r.json()).then(d => { setCustomers(Array.isArray(d) ? d : []); setCustomersLoading(false); }).catch(() => setCustomersLoading(false));
+    aFetch('/api/admin/customers').then(r => r.json()).then(d => { setCustomers(Array.isArray(d) ? d : []); setCustomersLoading(false); }).catch(() => setCustomersLoading(false));
+  };
+  const loadOpsStaff = () => {
+    setOpsStaffLoading(true);
+    aFetch('/api/admin/staff').then(r => r.json()).then(d => { setOpsStaffList(Array.isArray(d) ? d : []); setOpsStaffLoading(false); }).catch(() => setOpsStaffLoading(false));
   };
 
   useEffect(() => {
@@ -100,17 +124,26 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
     setActionMsg('');
     if (tab === 'approveBookings' || tab === 'viewReports') reloadBookings();
     if (tab === 'viewPlots' || tab === 'manageInventory') reloadPlots();
-    if (tab === 'viewDealers') { setDealersLoading(true); fetch('/api/admin/dealers').then(r => r.json()).then(d => { setDealers(Array.isArray(d) ? d : []); setDealersLoading(false); }).catch(() => setDealersLoading(false)); }
-    if (tab === 'viewDeals') { setDealsLoading(true); fetch('/api/admin/deals').then(r => r.json()).then(d => { setDeals(Array.isArray(d) ? d : []); setDealsLoading(false); }).catch(() => setDealsLoading(false)); }
-    if (tab === 'viewRegistrations') { setRegsLoading(true); fetch('/api/admin/registrations').then(r => r.json()).then(d => { setRegs(Array.isArray(d) ? d : []); setRegsLoading(false); }).catch(() => setRegsLoading(false)); }
+    if (tab === 'viewDealers') { setDealersLoading(true); aFetch('/api/admin/dealers').then(r => r.json()).then(d => { setDealers(Array.isArray(d) ? d : []); setDealersLoading(false); }).catch(() => setDealersLoading(false)); }
+    if (tab === 'viewDeals') { setDealsLoading(true); aFetch('/api/admin/deals').then(r => r.json()).then(d => { setDeals(Array.isArray(d) ? d : []); setDealsLoading(false); }).catch(() => setDealsLoading(false)); }
+    if (tab === 'viewRegistrations') { setRegsLoading(true); aFetch('/api/admin/registrations').then(r => r.json()).then(d => { setRegs(Array.isArray(d) ? d : []); setRegsLoading(false); }).catch(() => setRegsLoading(false)); }
     if (tab === 'manageAnnouncements') reloadAnns();
     if (tab === 'viewCustomers') reloadCustomers();
+    if (tab === 'manageStaff') loadOpsStaff();
     if (tab === 'exportData') { reloadBookings(); reloadPlots(); reloadCustomers(); }
   }, [tab]);
 
+  useEffect(() => {
+    setEditBkgMode(false); setEditBkgMsg(''); setLedger(null);
+    if (selectedBooking && privileges.viewLedger) {
+      setLedgerLoading(true);
+      aFetch(`/api/ledger/${selectedBooking.id}`).then(r => r.json()).then(d => { setLedger(d); setLedgerLoading(false); }).catch(() => setLedgerLoading(false));
+    }
+  }, [selectedBooking?.id]);
+
   const handleApprove = async (bookingId) => {
     setActionMsg('');
-    const res = await fetch(`/api/admin/bookings/${bookingId}/approve`, {
+    const res = await aFetch(`/api/admin/bookings/${bookingId}/approve`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ approvedBy: staff.name }),
     });
@@ -126,12 +159,69 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
   const handleReject = async () => {
     if (!rejectModal) return;
     setActionMsg('');
-    const res = await fetch(`/api/admin/bookings/${rejectModal.id}/reject`, {
+    const res = await aFetch(`/api/admin/bookings/${rejectModal.id}/reject`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason: rejectReason, rejectedBy: staff.name }),
     });
     if (res.ok) { setActionMsg('✅ Booking rejected — plot is now available again.'); setRejectModal(null); setRejectReason(''); setSelectedBooking(null); reloadBookings(); }
     else setActionMsg('❌ Failed to reject booking.');
+  };
+
+  const openEditBkg = (bkg) => {
+    setEditBkgForm({
+      name: bkg.name || '', fatherName: bkg.fatherName || '', cnic: bkg.cnic || '',
+      phone: bkg.phone || '', email: bkg.email || '',
+      residentialAddress: bkg.residentialAddress || bkg.address || '', postalAddress: bkg.postalAddress || '',
+    });
+    setEditBkgMsg(''); setEditBkgMode(true);
+  };
+  const handleSaveBooking = async (bkg) => {
+    if (!editBkgForm.name?.trim() || !editBkgForm.cnic?.trim() || !editBkgForm.phone?.trim()) { setEditBkgMsg('❌ Name, CNIC and phone are required'); return; }
+    setEditBkgSaving(true); setEditBkgMsg('');
+    const res = await aFetch(`/api/admin/bookings/${bkg.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(editBkgForm),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setEditBkgMsg('✅ Booking data corrected');
+      setEditBkgMode(false);
+      const updated = { ...bkg, ...data.booking };
+      setSelectedBooking(updated);
+      setBookings(prev => prev.map(b => b.id === updated.id ? updated : b));
+    } else setEditBkgMsg('❌ ' + (data.error || 'Save failed'));
+    setEditBkgSaving(false);
+  };
+
+  const openOpsStaffForm = (s) => {
+    setOpsStaffMsg('');
+    if (s) { setOpsStaffEdit(s); setOpsStaffForm({ name: s.name || '', username: s.username || '', password: '', staffRole: s.staffRole || 'Sales Staff' }); }
+    else { setOpsStaffEdit('new'); setOpsStaffForm({ name: '', username: '', password: '', staffRole: 'Sales Staff' }); }
+  };
+  const handleSaveOpsStaff = async (e) => {
+    e.preventDefault();
+    if (!opsStaffForm.name.trim() || !opsStaffForm.username.trim()) { setOpsStaffMsg('❌ Name and username are required'); return; }
+    if (opsStaffEdit === 'new' && !opsStaffForm.password) { setOpsStaffMsg('❌ Password is required for new staff'); return; }
+    setOpsStaffSaving(true); setOpsStaffMsg('');
+    const isNew = opsStaffEdit === 'new';
+    const body = {
+      name: opsStaffForm.name.trim(), username: opsStaffForm.username.trim(),
+      staffRole: opsStaffForm.staffRole, privileges: { ...OPS_ROLE_PRESETS[opsStaffForm.staffRole] },
+    };
+    if (opsStaffForm.password) body.password = opsStaffForm.password;
+    const res = await aFetch(isNew ? '/api/admin/staff' : `/api/admin/staff/${opsStaffEdit.id}`, {
+      method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) { setOpsStaffMsg('✅ Staff saved'); loadOpsStaff(); setTimeout(() => { setOpsStaffEdit(null); setOpsStaffMsg(''); }, 1000); }
+    else setOpsStaffMsg('❌ ' + (data.error || 'Save failed'));
+    setOpsStaffSaving(false);
+  };
+  const handleDeleteOpsStaff = async (id) => {
+    if (!confirm('Remove this staff account? This cannot be undone.')) return;
+    const res = await aFetch(`/api/admin/staff/${id}`, { method: 'DELETE' });
+    if (res.ok) loadOpsStaff();
+    else { const d = await res.json().catch(() => ({})); alert(d.error || 'Delete failed'); }
   };
 
   const openPpEdit = (bkg) => {
@@ -376,7 +466,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
                             <span style={{ background: statusBg[b.status] || '#f1f5f9', color: statusColor[b.status] || '#374151', borderRadius: 9999, padding: '0.2rem 0.5rem', fontSize: '0.72rem', fontWeight: 700, textTransform: 'capitalize' }}>{b.status}</span>
                           </td>
                           <td style={{ padding: '0.875rem' }}>
-                            {b.status === 'pending' && (
+                            {b.status === 'pending' && privileges.approveBookings && (
                               <div style={{ display: 'flex', gap: '0.375rem' }} onClick={e => e.stopPropagation()}>
                                 <button onClick={() => handleApprove(b.id)} style={{ padding: '0.3rem 0.55rem', background: '#d1fae5', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#065f46' }}>✓</button>
                                 <button onClick={() => { setRejectModal(b); setRejectReason(''); }} style={{ padding: '0.3rem 0.55rem', background: '#fee2e2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#dc2626' }}>✕</button>
@@ -451,7 +541,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
                       </div>
                     </div>
                   )}
-                  {selectedBooking.status === 'pending' && (
+                  {selectedBooking.status === 'pending' && privileges.approveBookings && (
                     <div style={{ display: 'flex', gap: '0.75rem' }}>
                       <button onClick={() => handleApprove(selectedBooking.id)} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#059669', borderColor: 'transparent' }}>✓ Approve</button>
                       <button onClick={() => { setRejectModal(selectedBooking); setRejectReason(''); }} className="btn btn-outline" style={{ flex: 1, justifyContent: 'center', color: '#dc2626', borderColor: '#dc2626' }}>✕ Reject</button>
@@ -470,7 +560,88 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
                     </div>
                   )}
 
+                  {/* ── Correct Booking Data (editBookings) ── */}
+                  {privileges.editBookings && (
+                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em' }}>✏️ Correct Booking Data</div>
+                        {!editBkgMode ? (
+                          <button onClick={() => openEditBkg(selectedBooking)} style={{ background: '#e0f2fe', border: '1px solid #bae6fd', color: '#0369a1', borderRadius: 7, padding: '0.25rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>✏️ Edit Form Data</button>
+                        ) : (
+                          <button onClick={() => { setEditBkgMode(false); setEditBkgMsg(''); }} style={{ background: '#f1f5f9', border: 'none', color: '#64748b', borderRadius: 7, padding: '0.25rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
+                        )}
+                      </div>
+                      {!editBkgMode ? (
+                        <div style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Fix typos or correct the buyer's submitted details. Use "Edit Form Data" to update name, CNIC, contact and address fields.</div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                          {[
+                            ['name', 'Name *'], ['fatherName', 'Father Name'], ['cnic', 'CNIC *'], ['phone', 'Phone *'],
+                            ['email', 'Email'], ['residentialAddress', 'Residential Address'], ['postalAddress', 'Postal Address'],
+                          ].map(([k, label]) => (
+                            <div key={k}>
+                              <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>{label}</div>
+                              <input type="text" value={editBkgForm[k] || ''} onChange={e => setEditBkgForm(f => ({ ...f, [k]: e.target.value }))} style={{ width: '100%', padding: '0.45rem 0.625rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', boxSizing: 'border-box' }} onFocus={e => e.target.style.borderColor = '#0284c7'} onBlur={e => e.target.style.borderColor = '#e2e8f0'} />
+                            </div>
+                          ))}
+                          {editBkgMsg && <div style={{ fontSize: '0.82rem', fontWeight: 600, color: editBkgMsg.startsWith('✅') ? '#059669' : '#dc2626' }}>{editBkgMsg}</div>}
+                          <button onClick={() => handleSaveBooking(selectedBooking)} disabled={editBkgSaving} style={{ background: editBkgSaving ? '#94a3b8' : '#0284c7', color: '#fff', border: 'none', borderRadius: 10, padding: '0.65rem 1rem', fontWeight: 700, cursor: editBkgSaving ? 'not-allowed' : 'pointer', fontSize: '0.875rem' }}>
+                            {editBkgSaving ? 'Saving...' : '💾 Save Corrections'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── Installment Ledger (viewLedger) ── */}
+                  {privileges.viewLedger && (
+                    <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.625rem' }}>📒 Installment Ledger</div>
+                      {ledgerLoading ? (
+                        <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Loading ledger...</div>
+                      ) : !ledger || !ledger.ledger || ledger.ledger.length === 0 ? (
+                        <div style={{ fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic' }}>No installment schedule yet. A ledger is generated once the booking is confirmed.</div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          {ledger.summary && (
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                              {[
+                                ['Paid', ledger.summary.paidCount ?? ledger.summary.paid, '#059669', '#d1fae5'],
+                                ['Due', ledger.summary.dueCount ?? ledger.summary.pending, '#d97706', '#fef3c7'],
+                                ['Overdue', ledger.summary.overdueCount ?? ledger.summary.overdue, '#dc2626', '#fee2e2'],
+                              ].map(([label, val, c, bg]) => (
+                                <span key={label} style={{ background: bg, color: c, borderRadius: 8, padding: '0.2rem 0.55rem', fontSize: '0.72rem', fontWeight: 700 }}>{label}: {val ?? 0}</span>
+                              ))}
+                            </div>
+                          )}
+                          <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid #f1f5f9', borderRadius: 8 }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                              <thead>
+                                <tr style={{ borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
+                                  {['#', 'Due Date', 'Amount', 'Status'].map(h => <th key={h} style={{ padding: '0.4rem 0.5rem', textAlign: 'left', fontWeight: 700, color: '#64748b' }}>{h}</th>)}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {ledger.ledger.map((it, i) => (
+                                  <tr key={it.id ?? i} style={{ borderBottom: '1px solid #f8fafc' }}>
+                                    <td style={{ padding: '0.4rem 0.5rem', color: '#94a3b8' }}>{it.installmentNo ?? it.no ?? (i + 1)}</td>
+                                    <td style={{ padding: '0.4rem 0.5rem', color: '#374151' }}>{it.dueDate || '—'}</td>
+                                    <td style={{ padding: '0.4rem 0.5rem', fontWeight: 700 }}>PKR {Number(it.amount || 0).toLocaleString('en-US')}</td>
+                                    <td style={{ padding: '0.4rem 0.5rem' }}>
+                                      <span style={{ background: statusBg[it.status === 'paid' ? 'confirmed' : it.status === 'overdue' ? 'rejected' : 'pending'], color: statusColor[it.status === 'paid' ? 'confirmed' : it.status === 'overdue' ? 'rejected' : 'pending'], borderRadius: 6, padding: '0.1rem 0.4rem', fontWeight: 700, textTransform: 'capitalize' }}>{it.status}</span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* ── Payment Plan Section ── */}
+                  {privileges.approveBookings && (
                   <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
@@ -479,11 +650,11 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
                           <span style={{ background: '#fef3c7', border: '1px solid #fde68a', color: '#92400e', borderRadius: 9999, fontSize: '0.62rem', fontWeight: 800, padding: '0.1rem 0.45rem' }}>✏️ Modified</span>
                         )}
                       </div>
-                      {!ppEditMode ? (
+                      {privileges.approveBookings && (!ppEditMode ? (
                         <button onClick={() => openPpEdit(selectedBooking)} style={{ background: '#fef3c7', border: '1px solid #fde68a', color: '#92400e', borderRadius: 7, padding: '0.25rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>✏️ Negotiate Terms</button>
                       ) : (
                         <button onClick={() => { setPpEditMode(false); setPpEditMsg(''); }} style={{ background: '#f1f5f9', border: 'none', color: '#64748b', borderRadius: 7, padding: '0.25rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer' }}>Cancel</button>
-                      )}
+                      ))}
                     </div>
                     {!ppEditMode ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
@@ -590,17 +761,21 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
                       </div>
                     )}
                   </div>
+                  )}
 
                   {/* Exchange Asset */}
+                  {privileges.approveBookings && (
                   <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
                       <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                         🔄 Exchange / Commodity
                         {selectedBooking.exchangeAsset && <span style={{ fontWeight: 600, fontSize: '0.68rem', color: '#059669', textTransform: 'none', background: '#d1fae5', borderRadius: 6, padding: '0.1rem 0.4rem', marginLeft: '0.4rem' }}>✓ Recorded</span>}
                       </div>
+                      {privileges.approveBookings && (
                       <button onClick={() => { setExEditMode(m => !m); setExEditForm(selectedBooking.exchangeAsset ? { ...selectedBooking.exchangeAsset } : { assetType: 'property', description: '', agreedValue: '', notes: '' }); setExEditMsg(''); }} style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 8, padding: '0.25rem 0.6rem', fontSize: '0.72rem', cursor: 'pointer', color: '#64748b', fontWeight: 600 }}>
                         {exEditMode ? '✕ Cancel' : selectedBooking.exchangeAsset ? '✏️ Edit' : '+ Record'}
                       </button>
+                      )}
                     </div>
                     {!exEditMode && selectedBooking.exchangeAsset ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.82rem' }}>
@@ -654,6 +829,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1085,6 +1261,102 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ─── STAFF TAB (manageStaff) ─── */}
+        {tab === 'manageStaff' && (
+          <div className="side-panel-layout" style={{ gridTemplateColumns: opsStaffEdit ? '1fr 380px' : '1fr' }}>
+            <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div>
+                  <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Staff Accounts</h3>
+                  <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Assign Sales Staff and Operations Staff roles. Privileges are set automatically by role.</p>
+                </div>
+                <button onClick={() => openOpsStaffForm(null)} className="btn btn-primary" style={{ background: '#0284c7', borderColor: 'transparent' }}>+ Add Staff</button>
+              </div>
+              {opsStaffLoading ? <div className="loading"><div className="spinner"></div>Loading...</div> : opsStaffList.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🛡️</div>
+                  <div style={{ fontWeight: 600 }}>No staff accounts yet</div>
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
+                        {['Name', 'Username', 'Role', 'Actions'].map(h => (
+                          <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {opsStaffList.map(s => {
+                        const rc = ROLE_COLOR[s.staffRole] || { color: '#374151', bg: '#f1f5f9' };
+                        const isManager = s.staffRole === 'Operations Manager';
+                        return (
+                          <tr key={s.id} style={{ borderBottom: '1px solid #f8fafc' }}>
+                            <td style={{ padding: '0.875rem', fontWeight: 700, color: '#0f172a' }}>{s.name}</td>
+                            <td style={{ padding: '0.875rem', fontFamily: 'monospace', fontSize: '0.8rem', color: '#64748b' }}>{s.username}</td>
+                            <td style={{ padding: '0.875rem' }}>
+                              <span style={{ background: rc.bg, color: rc.color, borderRadius: 9999, padding: '0.2rem 0.6rem', fontSize: '0.72rem', fontWeight: 700 }}>{s.staffRole}</span>
+                            </td>
+                            <td style={{ padding: '0.875rem' }}>
+                              {isManager ? (
+                                <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontStyle: 'italic' }}>Managed by Admin</span>
+                              ) : (
+                                <div style={{ display: 'flex', gap: '0.375rem' }}>
+                                  <button onClick={() => openOpsStaffForm(s)} style={{ padding: '0.3rem 0.55rem', background: '#e0f2fe', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#0369a1' }}>Edit</button>
+                                  <button onClick={() => handleDeleteOpsStaff(s.id)} style={{ padding: '0.3rem 0.55rem', background: '#fee2e2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#dc2626' }}>Delete</button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {opsStaffEdit && (
+              <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', position: 'sticky', top: 20, overflow: 'hidden', alignSelf: 'start' }}>
+                <div style={{ background: 'linear-gradient(135deg, #0ea5e9, #0284c7)', color: '#fff', padding: '1.1rem 1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontWeight: 800, fontSize: '1rem' }}>{opsStaffEdit === 'new' ? 'Add Staff' : 'Edit Staff'}</div>
+                  <button onClick={() => setOpsStaffEdit(null)} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer' }}>✕</button>
+                </div>
+                <form onSubmit={handleSaveOpsStaff} style={{ padding: '1.4rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Full Name *</div>
+                    <input type="text" value={opsStaffForm.name} onChange={e => setOpsStaffForm(f => ({ ...f, name: e.target.value }))} style={{ width: '100%', padding: '0.5rem 0.7rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Username *</div>
+                    <input type="text" value={opsStaffForm.username} onChange={e => setOpsStaffForm(f => ({ ...f, username: e.target.value }))} disabled={opsStaffEdit !== 'new'} style={{ width: '100%', padding: '0.5rem 0.7rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box', background: opsStaffEdit !== 'new' ? '#f8fafc' : '#fff' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>{opsStaffEdit === 'new' ? 'Password *' : 'New Password (leave blank to keep)'}</div>
+                    <input type="text" value={opsStaffForm.password} onChange={e => setOpsStaffForm(f => ({ ...f, password: e.target.value }))} style={{ width: '100%', padding: '0.5rem 0.7rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#64748b', marginBottom: '0.2rem' }}>Role *</div>
+                    <select value={opsStaffForm.staffRole} onChange={e => setOpsStaffForm(f => ({ ...f, staffRole: e.target.value }))} style={{ width: '100%', padding: '0.5rem 0.7rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.85rem', outline: 'none', background: '#fff' }}>
+                      {OPS_STAFF_ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ background: '#f8fafc', border: '1px solid #f1f5f9', borderRadius: 8, padding: '0.6rem 0.75rem', fontSize: '0.72rem', color: '#64748b' }}>
+                    {opsStaffForm.staffRole === 'Sales Staff'
+                      ? 'Can view plot inventory, dealers & targets, and customer records (read-only).'
+                      : 'Can confirm bookings and correct booking form data.'}
+                  </div>
+                  {opsStaffMsg && <div style={{ fontSize: '0.82rem', fontWeight: 600, color: opsStaffMsg.startsWith('✅') ? '#059669' : '#dc2626' }}>{opsStaffMsg}</div>}
+                  <button type="submit" disabled={opsStaffSaving} className="btn btn-primary" style={{ justifyContent: 'center', background: opsStaffSaving ? '#94a3b8' : '#0284c7', borderColor: 'transparent' }}>
+                    {opsStaffSaving ? 'Saving...' : '💾 Save Staff'}
+                  </button>
+                </form>
               </div>
             )}
           </div>

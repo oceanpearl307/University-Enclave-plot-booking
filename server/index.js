@@ -79,6 +79,18 @@ function validateSession(req) {
   return sessions[token] || null;
 }
 
+// Allow super admin OR an operations staff member holding ANY of the given
+// view privileges. Returns the session on success, or sends 401/403 and
+// returns null. Used to gate read endpoints that staff roles must reach.
+function viewSession(req, res, privKeys = []) {
+  const session = validateSession(req);
+  if (!session) { res.status(401).json({ error: 'Authentication required' }); return null; }
+  if (session.role === 'admin') return session;
+  if (session.role === 'operations' && privKeys.some(k => session.privileges?.[k])) return session;
+  res.status(403).json({ error: 'Access denied' });
+  return null;
+}
+
 // ─── Plot Inventory ──────────────────────────────────────────────────────────
 // ─── Premium Tag Pricing ──────────────────────────────────────────────────────
 const TAG_PREMIUMS = { 'Corner Plot': 0.10, 'Park Facing': 0.10, 'Main Road': 0.10, 'Main Boulevard': 0.15 };
@@ -483,21 +495,20 @@ let customers = [];
 let customerCounter = 100;
 
 // ─── Operations Staff ─────────────────────────────────────────────────────────
+const STAFF_PRIV_KEYS = ['approveBookings', 'editBookings', 'viewLedger', 'viewPlots', 'manageInventory', 'viewDealers', 'viewDeals', 'viewRegistrations', 'viewCustomers', 'manageStaff', 'viewReports', 'exportData', 'manageAnnouncements'];
+const blankPrivs = () => Object.fromEntries(STAFF_PRIV_KEYS.map(k => [k, false]));
+const ROLE_PRESETS = {
+  'Operations Manager': { ...blankPrivs(), viewLedger: true, viewPlots: true, viewDealers: true, viewDeals: true, viewRegistrations: true, viewCustomers: true, manageStaff: true, viewReports: true, exportData: true },
+  'Sales Staff':        { ...blankPrivs(), viewPlots: true, viewDealers: true, viewCustomers: true },
+  'Operations Staff':   { ...blankPrivs(), approveBookings: true, editBookings: true },
+};
+let rbacSeeded = false;
 let operationsStaff = [
-  {
-    id: 1, username: 'ops1', password: 'ops123', name: 'Operations Staff',
-    role: 'operations',
-    privileges: {
-      approveBookings: true,
-      viewPlots: true,
-      viewDealers: false,
-      viewDeals: false,
-      viewRegistrations: false,
-    },
-    createdAt: '2026-01-01T00:00:00.000Z',
-  },
+  { id: 1, username: 'ops1', password: 'ops123', name: 'Operations Staff', role: 'operations', staffRole: 'Operations Staff', privileges: { ...ROLE_PRESETS['Operations Staff'] }, createdAt: '2026-01-01T00:00:00.000Z' },
+  { id: 2, username: 'manager1', password: 'manager123', name: 'Operations Manager', role: 'operations', staffRole: 'Operations Manager', privileges: { ...ROLE_PRESETS['Operations Manager'] }, createdAt: '2026-01-01T00:00:00.000Z' },
+  { id: 3, username: 'sales1', password: 'sales123', name: 'Sales Staff', role: 'operations', staffRole: 'Sales Staff', privileges: { ...ROLE_PRESETS['Sales Staff'] }, createdAt: '2026-01-01T00:00:00.000Z' },
 ];
-let opsCounter = 1;
+let opsCounter = 3;
 
 let announcements = [
   { id: 1, title: 'Rose Area Plots Now Available!', body: 'We are pleased to announce the launch of 246 residential plots in the Rose area. All plots are 1 Kanal in size. Limited availability — book early to secure your preferred plot.', date: '2026-04-20', tag: 'New Launch', important: true, images: [] },
@@ -556,6 +567,7 @@ function applyDb(db) {
   if (db.customerCounter)      { customerCounter = db.customerCounter;        }
   if (db.operationsStaff)      { operationsStaff = db.operationsStaff;        }
   if (db.opsCounter)           { opsCounter = db.opsCounter;                  }
+  if (db.rbacSeeded !== undefined) { rbacSeeded = db.rbacSeeded;             }
   if (db.announcements)        { announcements = db.announcements; annCounter = announcements.reduce((m, a) => Math.max(m, a.id || 0), annCounter); }
   if (db.annCounter)           { annCounter = db.annCounter;                  }
   if (db.ledgerIdCounter)      { ledgerIdCounter = db.ledgerIdCounter;        }
@@ -624,6 +636,7 @@ function saveDb() {
         bookings, bookingCounter,
         customers, customerCounter,
         operationsStaff, opsCounter,
+        rbacSeeded,
         announcements, annCounter,
         ledgerIdCounter,
         receiptSettings,
@@ -652,6 +665,29 @@ function getDealerStats(dealerId) {
 
 // ─── Load persisted data before serving routes ────────────────────────────────
 loadDb();
+
+// ─── Normalize & one-time seed operations-staff roles/privileges ──────────────
+(function normalizeAndSeedStaff() {
+  operationsStaff.forEach(s => {
+    if (!s.staffRole) s.staffRole = 'Operations Staff';
+    s.privileges = { ...blankPrivs(), ...(s.privileges || {}) };
+  });
+  if (!rbacSeeded) {
+    const ops1 = operationsStaff.find(s => s.username === 'ops1');
+    if (ops1) { ops1.staffRole = ops1.staffRole || 'Operations Staff'; ops1.privileges = { ...blankPrivs(), ...ROLE_PRESETS['Operations Staff'] }; }
+    const ensure = (acc) => {
+      if (!operationsStaff.some(s => s.username === acc.username)) {
+        acc.id = ++opsCounter;
+        operationsStaff.push(acc);
+      }
+    };
+    ensure({ username: 'manager1', password: 'manager123', name: 'Operations Manager', role: 'operations', staffRole: 'Operations Manager', privileges: { ...ROLE_PRESETS['Operations Manager'] }, createdAt: new Date().toISOString() });
+    ensure({ username: 'sales1', password: 'sales123', name: 'Sales Staff', role: 'operations', staffRole: 'Sales Staff', privileges: { ...ROLE_PRESETS['Sales Staff'] }, createdAt: new Date().toISOString() });
+    rbacSeeded = true;
+    saveDb();
+    console.log('[RBAC] Seeded staff roles — accounts:', operationsStaff.map(s => `${s.username}(${s.staffRole})`).join(', '));
+  }
+})();
 
 // ─── Seed demo confirmed bookings for dealer1 (id=2) if none exist ────────────
 (function seedDemoBookings() {
@@ -983,9 +1019,7 @@ app.get('/api/dealer/dashboard/:dealerId', (req, res) => {
 
 // ─── Admin: List All Dealers ──────────────────────────────────────────────────
 app.get('/api/admin/dealers', (req, res) => {
-  const session = validateSession(req);
-  if (!session) return res.status(401).json({ error: 'Authentication required' });
-  if (session.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
+  if (!viewSession(req, res, ['viewDealers'])) return;
   const result = dealers.filter(d => d.role !== 'admin').map(d => {
     const target = dealerTargets[d.id];
     const pkg = target?.packageId ? packages.find(p => p.id === target.packageId) : null;
@@ -1240,9 +1274,7 @@ app.get('/api/admin/dealers/:id/login-history', (req, res) => {
 
 // ─── Admin: Registrations ─────────────────────────────────────────────────────
 app.get('/api/admin/registrations', (req, res) => {
-  const session = validateSession(req);
-  if (!session) return res.status(401).json({ error: 'Authentication required' });
-  if (session.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
+  if (!viewSession(req, res, ['viewRegistrations'])) return;
   res.json([...dealerRegistrations].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
 });
 
@@ -1407,9 +1439,7 @@ app.delete('/api/admin/plots/:id', (req, res) => {
 
 // ─── Admin: Deals CRUD ────────────────────────────────────────────────────────
 app.get('/api/admin/deals', (req, res) => {
-  const session = validateSession(req);
-  if (!session) return res.status(401).json({ error: 'Authentication required' });
-  if (session.role !== 'admin') return res.status(403).json({ error: 'Access denied' });
+  if (!viewSession(req, res, ['viewDeals'])) return;
   res.json([...deals].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
 });
 
@@ -1657,6 +1687,10 @@ app.get('/api/admin/bookings', (req, res) => {
 });
 
 app.post('/api/admin/bookings/:id/approve', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (session.role !== 'admin' && !(session.role === 'operations' && session.privileges?.approveBookings))
+    return res.status(403).json({ error: 'Insufficient privileges — approveBookings required to confirm bookings' });
   const booking = bookings.find(b => b.id === parseInt(req.params.id));
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
   if (booking.status !== 'pending') return res.status(409).json({ error: 'Booking is not pending' });
@@ -1682,7 +1716,8 @@ app.get('/api/ledger/:bookingId', (req, res) => {
 
   const isAdmin = session.role === 'admin';
   const isOwner = session.role === 'dealer' && booking.dealerId === session.dealerId;
-  if (!isAdmin && !isOwner) return res.status(403).json({ error: 'Access denied' });
+  const isOpsLedger = session.role === 'operations' && session.privileges?.viewLedger;
+  if (!isAdmin && !isOwner && !isOpsLedger) return res.status(403).json({ error: 'Access denied' });
 
   if (!booking.ledger || booking.ledger.length === 0) {
     if (booking.status === 'confirmed') booking.ledger = generateLedger(booking);
@@ -1777,6 +1812,10 @@ app.get('/api/admin/notifications', (req, res) => {
 });
 
 app.post('/api/admin/bookings/:id/reject', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (session.role !== 'admin' && !(session.role === 'operations' && session.privileges?.approveBookings))
+    return res.status(403).json({ error: 'Insufficient privileges — approveBookings required to reject bookings' });
   const booking = bookings.find(b => b.id === parseInt(req.params.id));
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
   if (booking.status !== 'pending') return res.status(409).json({ error: 'Booking is not pending' });
@@ -1793,6 +1832,8 @@ app.patch('/api/admin/bookings/:id', (req, res) => {
   const session = validateSession(req);
   if (!session) return res.status(401).json({ error: 'Authentication required' });
   if (session.role !== 'admin' && session.role !== 'operations') return res.status(403).json({ error: 'Access denied' });
+  if (session.role === 'operations' && !session.privileges?.editBookings)
+    return res.status(403).json({ error: 'Insufficient privileges — editBookings required to correct booking data' });
   const booking = bookings.find(b => b.id === parseInt(req.params.id));
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
   const allowed = ['name', 'fatherName', 'cnic', 'phone', 'email', 'residentialAddress', 'postalAddress', 'address', 'plotPrice', 'downPayment', 'notes', 'nominee'];
@@ -1972,20 +2013,43 @@ app.delete('/api/admin/bookings/:id', (req, res) => {
   res.json({ success: true });
 });
 
-// ─── Admin: Operations Staff CRUD ────────────────────────────────────────────
+// ─── Admin / Operations-Manager: Operations Staff CRUD ───────────────────────
+// Super Admin (role 'admin') has full control. Operations Managers (role
+// 'operations' with manageStaff privilege) may only create/edit/delete
+// Sales Staff and Operations Staff — never other Managers, and never escalate.
+function staffManageSession(req, res) {
+  const session = validateSession(req);
+  if (!session) { res.status(401).json({ error: 'Authentication required' }); return null; }
+  const isAdmin = session.role === 'admin';
+  const canManage = isAdmin || (session.role === 'operations' && session.privileges?.manageStaff);
+  if (!canManage) { res.status(403).json({ error: 'Access denied — manageStaff privilege required' }); return null; }
+  return { session, isAdmin };
+}
+const ASSIGNABLE_BY_MANAGER = ['Sales Staff', 'Operations Staff'];
+
 app.get('/api/admin/staff', (req, res) => {
+  const ctx = staffManageSession(req, res);
+  if (!ctx) return;
   res.json(operationsStaff.map(({ password: _, ...safe }) => safe));
 });
 
 app.post('/api/admin/staff', (req, res) => {
+  const ctx = staffManageSession(req, res);
+  if (!ctx) return;
   const { username, password, name, staffRole, privileges } = req.body;
   if (!username || !password || !name) return res.status(400).json({ error: 'username, password, name required' });
   if (dealers.find(d => d.username === username) || operationsStaff.find(o => o.username === username))
     return res.status(409).json({ error: 'Username already taken' });
+  let role = staffRole || 'Operations Staff';
+  let privs = { ...blankPrivs(), ...(privileges || {}) };
+  if (!ctx.isAdmin) {
+    if (!ASSIGNABLE_BY_MANAGER.includes(role))
+      return res.status(403).json({ error: 'Managers can only create Sales Staff or Operations Staff accounts' });
+    privs = { ...blankPrivs(), ...ROLE_PRESETS[role] };
+  }
   const staff = {
     id: ++opsCounter, username, password, name, role: 'operations',
-    staffRole: staffRole || 'Operations Staff',
-    privileges: privileges || { approveBookings: false, viewPlots: false, manageInventory: false, viewDealers: false, viewDeals: false, viewRegistrations: false, viewReports: false, exportData: false, manageAnnouncements: false, viewCustomers: false },
+    staffRole: role, privileges: privs,
     createdAt: new Date().toISOString(),
   };
   operationsStaff.push(staff);
@@ -1995,21 +2059,38 @@ app.post('/api/admin/staff', (req, res) => {
 });
 
 app.put('/api/admin/staff/:id', (req, res) => {
+  const ctx = staffManageSession(req, res);
+  if (!ctx) return;
   const staff = operationsStaff.find(o => o.id === parseInt(req.params.id));
   if (!staff) return res.status(404).json({ error: 'Staff not found' });
   const { name, password, staffRole, privileges } = req.body;
+  if (!ctx.isAdmin) {
+    if (staff.staffRole === 'Operations Manager')
+      return res.status(403).json({ error: 'Managers cannot modify Operations Managers' });
+    if (staffRole && !ASSIGNABLE_BY_MANAGER.includes(staffRole))
+      return res.status(403).json({ error: 'Managers can only assign Sales Staff or Operations Staff roles' });
+  }
   if (name) staff.name = name;
   if (password) staff.password = password;
   if (staffRole) staff.staffRole = staffRole;
-  if (privileges) staff.privileges = privileges;
+  if (!ctx.isAdmin) {
+    // Force preset privileges for managers (no manual escalation)
+    staff.privileges = { ...blankPrivs(), ...ROLE_PRESETS[staff.staffRole] };
+  } else if (privileges) {
+    staff.privileges = { ...blankPrivs(), ...privileges };
+  }
   saveDb();
   const { password: _, ...safe } = staff;
   res.json(safe);
 });
 
 app.delete('/api/admin/staff/:id', (req, res) => {
+  const ctx = staffManageSession(req, res);
+  if (!ctx) return;
   const idx = operationsStaff.findIndex(o => o.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Staff not found' });
+  if (!ctx.isAdmin && operationsStaff[idx].staffRole === 'Operations Manager')
+    return res.status(403).json({ error: 'Managers cannot delete Operations Managers' });
   operationsStaff.splice(idx, 1);
   saveDb();
   res.json({ success: true });

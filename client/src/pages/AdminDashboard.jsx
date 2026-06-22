@@ -26,31 +26,32 @@ const CustomTooltip = ({ active, payload, label }) => {
 const TABS = ['Dealers', 'Registrations', 'Bookings', 'Packages', 'Inventory', 'Deals', 'Staff', 'Backups', 'Announcements', 'Receipt'];
 const tabIcons = { Dealers: '👥', Registrations: '📋', Bookings: '📩', Packages: '📦', Inventory: '🏘️', Deals: '🏷️', Staff: '⚙️', Backups: '🗄️', Announcements: '📢', Receipt: '🧾' };
 const PRIV_OPTIONS = [
-  { key: 'approveBookings',     label: 'Approve Bookings',          icon: '📋', group: 'Bookings'   },
+  { key: 'approveBookings',     label: 'Confirm Bookings',           icon: '✅', group: 'Bookings'   },
+  { key: 'editBookings',        label: 'Correct Booking Data',       icon: '✏️', group: 'Bookings'   },
+  { key: 'viewLedger',          label: 'View Installment Ledgers',   icon: '📒', group: 'Bookings'   },
   { key: 'viewPlots',           label: 'View Plot Inventory',        icon: '🏘️', group: 'Inventory'  },
   { key: 'manageInventory',     label: 'Add & Edit Plots',           icon: '🏗️', group: 'Inventory'  },
-  { key: 'viewDealers',         label: 'View Dealers & Targets',     icon: '👥', group: 'Dealers'    },
+  { key: 'viewDealers',         label: 'View Dealers, Targets & Progress', icon: '👥', group: 'Dealers' },
   { key: 'viewDeals',           label: 'View Active Deals',          icon: '🏷️', group: 'Dealers'    },
   { key: 'viewRegistrations',   label: 'View Dealer Registrations',  icon: '📝', group: 'Dealers'    },
+  { key: 'viewCustomers',       label: 'View Customer Records',      icon: '🙍', group: 'People'     },
+  { key: 'manageStaff',         label: 'Assign Staff Roles',         icon: '🛡️', group: 'People'     },
   { key: 'viewReports',         label: 'View Sales Reports',         icon: '📊', group: 'Reports'    },
   { key: 'exportData',          label: 'Export Data to CSV',         icon: '📤', group: 'Reports'    },
   { key: 'manageAnnouncements', label: 'Manage Announcements',       icon: '📢', group: 'Content'    },
-  { key: 'viewCustomers',       label: 'View Customer Accounts',     icon: '🙍', group: 'Content'    },
 ];
-const PRIV_GROUPS = ['Bookings', 'Inventory', 'Dealers', 'Reports', 'Content'];
+const PRIV_GROUPS = ['Bookings', 'Inventory', 'Dealers', 'People', 'Reports', 'Content'];
 const STAFF_ROLES = [
-  { value: 'Operations Staff',   color: '#0284c7', bg: '#e0f2fe', icon: '⚙️'  },
   { value: 'Operations Manager', color: '#7c3aed', bg: '#f5f3ff', icon: '🏆'  },
   { value: 'Sales Staff',        color: '#059669', bg: '#d1fae5', icon: '💼'  },
-  { value: 'Finance Staff',      color: '#d97706', bg: '#fef3c7', icon: '💰'  },
-  { value: 'Marketing Staff',    color: '#dc2626', bg: '#fee2e2', icon: '📣'  },
+  { value: 'Operations Staff',   color: '#0284c7', bg: '#e0f2fe', icon: '⚙️'  },
 ];
+const ALL_PRIV_KEYS = PRIV_OPTIONS.map(p => p.key);
+const blankAllPrivs = () => Object.fromEntries(ALL_PRIV_KEYS.map(k => [k, false]));
 const ROLE_PRESETS = {
-  'Operations Manager': { approveBookings: true,  viewPlots: true,  manageInventory: true,  viewDealers: true,  viewDeals: true,  viewRegistrations: true,  viewReports: true,  exportData: true,  manageAnnouncements: true,  viewCustomers: true  },
-  'Operations Staff':   { approveBookings: true,  viewPlots: true,  manageInventory: false, viewDealers: false, viewDeals: false, viewRegistrations: false, viewReports: false, exportData: false, manageAnnouncements: false, viewCustomers: false },
-  'Sales Staff':        { approveBookings: true,  viewPlots: true,  manageInventory: false, viewDealers: true,  viewDeals: true,  viewRegistrations: true,  viewReports: false, exportData: false, manageAnnouncements: false, viewCustomers: true  },
-  'Finance Staff':      { approveBookings: true,  viewPlots: false, manageInventory: false, viewDealers: false, viewDeals: false, viewRegistrations: false, viewReports: true,  exportData: true,  manageAnnouncements: false, viewCustomers: true  },
-  'Marketing Staff':    { approveBookings: false, viewPlots: true,  manageInventory: false, viewDealers: false, viewDeals: true,  viewRegistrations: false, viewReports: true,  exportData: false, manageAnnouncements: true,  viewCustomers: false },
+  'Operations Manager': { ...blankAllPrivs(), viewLedger: true, viewPlots: true, viewDealers: true, viewDeals: true, viewRegistrations: true, viewCustomers: true, manageStaff: true, viewReports: true, exportData: true },
+  'Sales Staff':        { ...blankAllPrivs(), viewPlots: true, viewDealers: true, viewCustomers: true },
+  'Operations Staff':   { ...blankAllPrivs(), approveBookings: true, editBookings: true },
 };
 
 export default function AdminDashboard({ dealer: admin, authToken, onLogout, navigate }) {
@@ -280,7 +281,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [dealerSort, setDealerSort] = useState({ col: null, dir: 'desc' });
   const [staffLoading, setStaffLoading] = useState(false);
   const [staffEdit, setStaffEdit] = useState(null);
-  const defaultPrivs = () => ({ approveBookings: false, viewPlots: false, manageInventory: false, viewDealers: false, viewDeals: false, viewRegistrations: false, viewReports: false, exportData: false, manageAnnouncements: false, viewCustomers: false });
+  const defaultPrivs = () => blankAllPrivs();
   const [staffForm, setStaffForm] = useState({ name: '', username: '', password: '', staffRole: 'Operations Staff', privileges: defaultPrivs() });
   const [staffSaving, setStaffSaving] = useState(false);
   const [staffMsg, setStaffMsg] = useState('');

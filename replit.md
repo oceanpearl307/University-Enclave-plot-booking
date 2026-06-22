@@ -36,13 +36,22 @@ A web application for booking residential and commercial plots in University Enc
 
 ## Default Logins
 
-| Role       | Username  | Password   |
-|------------|-----------|------------|
-| Admin      | admin     | admin123   |
-| Dealer     | dealer1   | dealer123  |
-| Dealer     | dealer2   | dealer456  |
-| Dealer     | dealer3   | dealer789  |
-| Operations | ops1      | ops123     |
+| Role                | Username  | Password    |
+|---------------------|-----------|-------------|
+| Super Admin         | admin     | admin123    |
+| Dealer              | dealer1   | dealer123   |
+| Dealer              | dealer2   | dealer456   |
+| Dealer              | dealer3   | dealer789   |
+| Operations Manager  | manager1  | manager123  |
+| Sales Staff         | sales1    | sales123    |
+| Operations Staff    | ops1      | ops123      |
+
+### Staff Roles & Permissions
+
+- **Super Admin** — full control over every panel and action.
+- **Operations Manager** — view-only across all data (inventory, dealers/targets, deals, registrations, customers, ledger, reports, export) plus the ability to assign Sales Staff and Operations Staff roles. Cannot approve/edit bookings or manage inventory.
+- **Sales Staff** — read-only view of plot inventory, dealers/targets, and customer records.
+- **Operations Staff** — confirm (approve/reject) bookings and correct booking form data.
 
 ## Features
 
