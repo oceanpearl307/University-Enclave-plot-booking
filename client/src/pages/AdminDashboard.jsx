@@ -1142,7 +1142,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       };
       const isNew = staffEdit === 'new';
       if (isNew) payload.password = staffForm.password;
-      const res = await fetch(isNew ? '/api/admin/staff' : `/api/admin/staff/${staffEdit.id}`, {
+      const res = await aFetch(isNew ? '/api/admin/staff' : `/api/admin/staff/${staffEdit.id}`, {
         method: isNew ? 'POST' : 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -1157,7 +1157,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   const handleDeleteStaff = async (id) => {
     if (!confirm('Delete this staff account? They will no longer be able to log in.')) return;
-    await fetch(`/api/admin/staff/${id}`, { method: 'DELETE' });
+    await aFetch(`/api/admin/staff/${id}`, { method: 'DELETE' });
     loadStaff();
   };
 
