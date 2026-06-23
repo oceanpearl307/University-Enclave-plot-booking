@@ -31,7 +31,7 @@ export default function Navbar({ currentPage, navigate, dealer, customer, onLogo
 
   return (
     <nav style={{
-      background: '#0f172a',
+      background: '#28243b',
       color: '#fff',
       padding: '0 1.5rem',
       position: 'sticky',
