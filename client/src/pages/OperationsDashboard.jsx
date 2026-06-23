@@ -67,6 +67,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
   const [notifList, setNotifList] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [checkingSaving, setCheckingSaving] = useState(false);
+  const [notifDrawerOpen, setNotifDrawerOpen] = useState(false);
 
   const [opsStaffList, setOpsStaffList] = useState([]);
   const [opsStaffLoading, setOpsStaffLoading] = useState(false);
@@ -335,6 +336,32 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
     if (res.ok) reloadPlots();
   };
 
+  const handleNotifClick = async (notif) => {
+    setNotifDrawerOpen(false);
+    const userId = String(staff.id || staff.username || '');
+    const isRead = notif.readBy?.includes(userId) || notif._read;
+    if (!isRead) {
+      aFetch(`/api/admin/notifications/${notif.id}/read`, { method: 'POST' }).then(() => {
+        setNotifList(prev => prev.map(x => x.id === notif.id ? { ...x, _read: true } : x));
+        setUnreadCount(c => Math.max(0, c - 1));
+      }).catch(() => {});
+    }
+    setTab('approveBookings');
+    setSelectedBooking(null);
+    if (bookings.length === 0) {
+      setBookingsLoading(true);
+      const data = await aFetch('/api/admin/bookings').then(r => r.json()).catch(() => []);
+      const list = Array.isArray(data) ? data : [];
+      setBookings(list);
+      setBookingsLoading(false);
+      const found = list.find(b => b.id === notif.bookingId);
+      if (found) setSelectedBooking(found);
+    } else {
+      const found = bookings.find(b => b.id === notif.bookingId);
+      if (found) setSelectedBooking(found);
+    }
+  };
+
   const openAnnForm = (a) => {
     setAnnMsg('');
     if (a) { setAnnEdit(a); setAnnForm({ title: a.title, body: a.body, date: a.date, tag: a.tag || '', important: !!a.important }); }
@@ -419,7 +446,79 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
               )}
             </div>
           </div>
-          <button className="btn btn-primary btn-sm" onClick={onLogout} style={{ background: 'rgba(220,38,38,0.9)', borderColor: 'transparent' }}>Logout</button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', position: 'relative' }}>
+            {privileges.approveBookings && (
+              <>
+                <button
+                  onClick={() => setNotifDrawerOpen(o => !o)}
+                  title="Notifications"
+                  style={{ position: 'relative', background: notifDrawerOpen ? '#e0f2fe' : '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 10, width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '1.1rem', transition: 'background 0.15s' }}
+                >
+                  🔔
+                  {unreadCount > 0 && (
+                    <span style={{ position: 'absolute', top: -5, right: -5, background: '#dc2626', color: '#fff', borderRadius: 9999, fontSize: '0.6rem', fontWeight: 800, padding: '0.1rem 0.35rem', minWidth: 17, textAlign: 'center', lineHeight: 1.4 }}>{unreadCount}</span>
+                  )}
+                </button>
+
+                {notifDrawerOpen && (
+                  <>
+                    <div onClick={() => setNotifDrawerOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 999 }} />
+                    <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 1000, width: 360, background: '#fff', borderRadius: 14, boxShadow: '0 8px 30px rgba(0,0,0,0.13)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
+                        <span style={{ fontWeight: 800, fontSize: '0.875rem', color: '#0f172a' }}>
+                          🔔 Notifications
+                          {unreadCount > 0 && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 9999, fontSize: '0.62rem', fontWeight: 800, padding: '0.1rem 0.4rem', marginLeft: '0.4rem' }}>{unreadCount} new</span>}
+                        </span>
+                        {unreadCount > 0 && (
+                          <button onClick={() => { markAllNotifsRead(); }} style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 7, padding: '0.2rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', cursor: 'pointer' }}>Mark all read</button>
+                        )}
+                      </div>
+                      <div style={{ maxHeight: 380, overflowY: 'auto' }}>
+                        {notifList.length === 0 ? (
+                          <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                            <div style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>🔕</div>
+                            No notifications yet
+                          </div>
+                        ) : notifList.map(n => {
+                          const userId = String(staff.id || staff.username || '');
+                          const isRead = n.readBy?.includes(userId) || n._read;
+                          return (
+                            <div
+                              key={n.id}
+                              onClick={() => handleNotifClick(n)}
+                              style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f8fafc', background: isRead ? '#fff' : '#f0f9ff', cursor: 'pointer', display: 'flex', gap: '0.625rem', alignItems: 'flex-start', transition: 'background 0.12s' }}
+                              onMouseEnter={e => e.currentTarget.style.background = isRead ? '#f8fafc' : '#e0f2fe'}
+                              onMouseLeave={e => e.currentTarget.style.background = isRead ? '#fff' : '#f0f9ff'}
+                            >
+                              <div style={{ marginTop: 3, flexShrink: 0 }}>
+                                {isRead
+                                  ? <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#cbd5e1' }} />
+                                  : <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#0284c7' }} />
+                                }
+                              </div>
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                                  <span style={{ fontWeight: isRead ? 500 : 700, fontSize: '0.8rem', color: '#0f172a' }}>Ref: {n.bookingRef}</span>
+                                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', flexShrink: 0 }}>{new Date(n.createdAt).toLocaleString('en-PK', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: '#374151', marginBottom: '0.15rem' }}>
+                                  <strong>Plot:</strong> {n.plotNumber} &nbsp;·&nbsp; <strong>Buyer:</strong> {n.buyerName}
+                                </div>
+                                <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                                  {n.dealerName && n.dealerName !== 'Walk-in' ? `Dealer: ${n.dealerName}` : 'Walk-in customer'} &nbsp;·&nbsp; <span style={{ color: '#0284c7' }}>View booking →</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+            <button className="btn btn-primary btn-sm" onClick={onLogout} style={{ background: 'rgba(220,38,38,0.9)', borderColor: 'transparent' }}>Logout</button>
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '1.75rem', background: '#fff', borderRadius: 14, padding: '0.375rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', overflowX: 'auto' }}>
