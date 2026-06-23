@@ -459,6 +459,34 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
                   ))}
                 </div>
               </div>
+              {/* ── Notification inbox ── */}
+              {notifList.length > 0 && (
+                <div style={{ marginBottom: '1rem', border: '1px solid #fde68a', borderRadius: 12, overflow: 'hidden' }}>
+                  <div style={{ background: '#fef9c3', padding: '0.5rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#78350f' }}>🔔 Recent Notifications {unreadCount > 0 && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 9999, fontSize: '0.65rem', fontWeight: 800, padding: '0.1rem 0.4rem', marginLeft: '0.3rem' }}>{unreadCount} new</span>}</span>
+                    {unreadCount > 0 && <button onClick={markAllNotifsRead} style={{ background: 'none', border: '1px solid #fde68a', borderRadius: 7, padding: '0.2rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, color: '#78350f', cursor: 'pointer' }}>Mark all read</button>}
+                  </div>
+                  <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+                    {notifList.slice(0, 10).map(n => {
+                      const userId = String(staff.id || staff.username || '');
+                      const isRead = n.readBy?.includes(userId);
+                      return (
+                        <div key={n.id} style={{ padding: '0.5rem 1rem', borderBottom: '1px solid #fef3c7', background: isRead ? '#fff' : '#fffbeb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
+                          <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: '0.78rem', fontWeight: isRead ? 500 : 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {!isRead && <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#dc2626', marginRight: '0.35rem', verticalAlign: 'middle' }} />}
+                              {n.message}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.1rem' }}>{n.dealerName !== 'Walk-in' ? `Dealer: ${n.dealerName}` : 'Walk-in'} · {new Date(n.createdAt).toLocaleString('en-PK', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                          </div>
+                          {!isRead && <button onClick={() => aFetch(`/api/admin/notifications/${n.id}/read`, { method: 'POST' }).then(() => { setNotifList(prev => prev.map(x => x.id === n.id ? { ...x, _read: true } : x)); setUnreadCount(c => Math.max(0, c - 1)); })} style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, padding: '0.15rem 0.45rem', fontSize: '0.65rem', fontWeight: 700, color: '#64748b', cursor: 'pointer', flexShrink: 0 }}>✓ Read</button>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {bookingsLoading ? <div className="loading"><div className="spinner"></div>Loading...</div> : bookings.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '3rem', color: '#94a3b8' }}>
                   <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📋</div>
@@ -891,7 +919,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
                                   <span style={{ fontSize: '0.75rem', fontWeight: 700, color: c.dot }}>{c.label}</span>
                                   <span style={{ fontSize: '0.68rem', color: '#94a3b8', flexShrink: 0 }}>{new Date(entry.at).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                                 </div>
-                                <div style={{ fontSize: '0.72rem', color: '#374151', marginTop: '0.1rem' }}>by <strong>{entry.by}</strong></div>
+                                <div style={{ fontSize: '0.72rem', color: '#374151', marginTop: '0.1rem' }}>by <strong>{entry.by}</strong>{entry.byRole && entry.byRole !== entry.by && <span style={{ color: '#94a3b8', fontWeight: 400 }}> · {entry.byRole}</span>}</div>
                                 {entry.note && <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.1rem', fontStyle: 'italic' }}>{entry.note}</div>}
                               </div>
                             </div>

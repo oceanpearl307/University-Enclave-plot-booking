@@ -1669,7 +1669,7 @@ app.post('/api/bookings', (req, res) => {
     commissionAmount,
     status: 'pending', createdAt: new Date().toISOString(),
     checkedBy: null, checkedAt: null,
-    auditLog: [{ action: 'submitted', by: 'Customer', at: new Date().toISOString(), note: 'Booking submitted online' }],
+    auditLog: [{ action: 'submitted', by: 'Customer', byRole: 'Customer', at: new Date().toISOString(), note: 'Booking submitted online' }],
   };
   bookings.push(booking);
   plot.status = 'booked';
@@ -1716,12 +1716,13 @@ app.post('/api/admin/bookings/:id/approve', (req, res) => {
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
   if (booking.status !== 'pending') return res.status(409).json({ error: 'Booking is not pending' });
   const actorName = session.name || session.username || 'Admin';
+  const actorRoleApprove = session.role === 'admin' ? 'Super Admin' : (session.staffRole || 'Operations Staff');
   booking.status = 'confirmed';
   booking.approvedAt = new Date().toISOString();
   booking.approvedBy = actorName;
   booking.receiptNumber = `UE-RCPT-${booking.id}`;
   if (!booking.auditLog) booking.auditLog = [];
-  booking.auditLog.push({ action: 'approved', by: actorName, at: new Date().toISOString(), note: '' });
+  booking.auditLog.push({ action: 'approved', by: actorName, byRole: actorRoleApprove, at: new Date().toISOString(), note: '' });
   if (!booking.ledger || booking.ledger.length === 0) {
     booking.ledger = generateLedger(booking);
   }
@@ -1831,10 +1832,13 @@ app.get('/api/dealer/:dealerId/calendar', (req, res) => {
   res.json(events);
 });
 
+const canViewNotifications = (session) =>
+  session && (session.role === 'admin' || (session.role === 'operations' && session.privileges?.approveBookings));
+
 app.get('/api/admin/notifications', (req, res) => {
   const pendingBookings = bookings.filter(b => b.status === 'pending').length;
   const session = validateSession(req);
-  if (!session) return res.json({ pendingBookings, notifications: [], unreadCount: 0 });
+  if (!canViewNotifications(session)) return res.json({ pendingBookings, notifications: [], unreadCount: 0 });
   const userId = String(session.id || session.username || '');
   const list = [...notifications].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const unreadCount = list.filter(n => !n.readBy.includes(userId)).length;
@@ -1843,7 +1847,7 @@ app.get('/api/admin/notifications', (req, res) => {
 
 app.post('/api/admin/notifications/:id/read', (req, res) => {
   const session = validateSession(req);
-  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (!canViewNotifications(session)) return res.status(403).json({ error: 'Insufficient privileges' });
   const userId = String(session.id || session.username || '');
   const notif = notifications.find(n => n.id === parseInt(req.params.id));
   if (!notif) return res.status(404).json({ error: 'Notification not found' });
@@ -1854,7 +1858,7 @@ app.post('/api/admin/notifications/:id/read', (req, res) => {
 
 app.post('/api/admin/notifications/read-all', (req, res) => {
   const session = validateSession(req);
-  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (!canViewNotifications(session)) return res.status(403).json({ error: 'Insufficient privileges' });
   const userId = String(session.id || session.username || '');
   notifications.forEach(n => { if (!n.readBy.includes(userId)) n.readBy.push(userId); });
   saveDb();
@@ -1869,10 +1873,11 @@ app.post('/api/admin/bookings/:id/check', (req, res) => {
   const booking = bookings.find(b => b.id === parseInt(req.params.id));
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
   const actorName = session.name || session.username || 'Staff';
+  const actorRole = session.role === 'admin' ? 'Super Admin' : (session.staffRole || 'Operations Staff');
   booking.checkedBy = actorName;
   booking.checkedAt = new Date().toISOString();
   if (!booking.auditLog) booking.auditLog = [];
-  booking.auditLog.push({ action: 'checked', by: actorName, at: new Date().toISOString(), note: req.body.note || '' });
+  booking.auditLog.push({ action: 'checked', by: actorName, byRole: actorRole, at: new Date().toISOString(), note: req.body.note || '' });
   saveDb();
   res.json({ success: true, booking });
 });
@@ -1886,12 +1891,13 @@ app.post('/api/admin/bookings/:id/reject', (req, res) => {
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
   if (booking.status !== 'pending') return res.status(409).json({ error: 'Booking is not pending' });
   const actorNameR = session.name || session.username || 'Staff';
+  const actorRoleReject = session.role === 'admin' ? 'Super Admin' : (session.staffRole || 'Operations Staff');
   booking.status = 'rejected';
   booking.rejectedAt = new Date().toISOString();
   booking.rejectedBy = actorNameR;
   booking.rejectionReason = req.body.reason || '';
   if (!booking.auditLog) booking.auditLog = [];
-  booking.auditLog.push({ action: 'rejected', by: actorNameR, at: new Date().toISOString(), note: req.body.reason || '' });
+  booking.auditLog.push({ action: 'rejected', by: actorNameR, byRole: actorRoleReject, at: new Date().toISOString(), note: req.body.reason || '' });
   const plot = plots.find(p => p.id === booking.plotId);
   if (plot && plot.status === 'booked') plot.status = 'available';
   saveDb();

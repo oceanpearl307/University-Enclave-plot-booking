@@ -149,6 +149,8 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [exEditMsg, setExEditMsg] = useState('');
   const [ppEditMsg, setPpEditMsg] = useState('');
   const [bkgNotifs, setBkgNotifs] = useState([]);
+  const [notifList, setNotifList] = useState([]);
+  const [notifUnread, setNotifUnread] = useState(0);
   const lastPendingCountRef = React.useRef(null);
   const loadBookings = () => { setBkgsLoading(true); fetch('/api/admin/bookings').then(r => r.json()).then(d => { setBkgs(Array.isArray(d) ? d : []); setBkgsLoading(false); }).catch(() => setBkgsLoading(false)); };
 
@@ -368,14 +370,41 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   const fmtBytes = (b) => b >= 1048576 ? (b / 1048576).toFixed(2) + ' MB' : b >= 1024 ? (b / 1024).toFixed(1) + ' KB' : b + ' B';
 
+  const fetchNotifList = () => {
+    aFetch('/api/admin/notifications').then(d => {
+      if (!d) return;
+      const count = d.pendingBookings || 0;
+      const prev = lastPendingCountRef.current;
+      if (prev !== null && count > prev) {
+        const newCount = count - prev;
+        const notif = { id: Date.now(), message: `${newCount} new booking${newCount > 1 ? 's' : ''} submitted — pending approval`, time: new Date().toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' }) };
+        setBkgNotifs(n => [...n, notif]);
+        setTimeout(() => setBkgNotifs(n => n.filter(x => x.id !== notif.id)), 8000);
+      }
+      lastPendingCountRef.current = count;
+      setNotifList(Array.isArray(d.notifications) ? d.notifications : []);
+      setNotifUnread(d.unreadCount || 0);
+    }).catch(() => {});
+  };
+
+  const markAdminNotifRead = (id) => {
+    aFetch(`/api/admin/notifications/${id}/read`, { method: 'POST' }).then(() => {
+      setNotifList(prev => prev.map(n => n.id === id ? { ...n, _localRead: true } : n));
+      setNotifUnread(c => Math.max(0, c - 1));
+    }).catch(() => {});
+  };
+
+  const markAllAdminNotifsRead = () => {
+    aFetch('/api/admin/notifications/read-all', { method: 'POST' }).then(() => {
+      setNotifList(prev => prev.map(n => ({ ...n, _localRead: true })));
+      setNotifUnread(0);
+    }).catch(() => {});
+  };
+
   useEffect(() => {
     loadDealers();
     loadPackages();
-    fetch('/api/admin/notifications').then(r => r.json()).then(d => {
-      const count = d.pendingBookings || 0;
-      lastPendingCountRef.current = count;
-      if (count > 0) setBkgs(prev => prev.length === 0 ? [{ _placeholder: true }] : prev);
-    }).catch(() => {});
+    fetchNotifList();
     fetch('/api/admin/restore-alert', { headers: { Authorization: `Bearer ${authToken}` } })
       .then(r => r.json())
       .then(d => { if (d.alert) setRestoreAlert(d.alert); })
@@ -383,19 +412,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   }, []);
 
   useEffect(() => {
-    const poll = setInterval(() => {
-      fetch('/api/admin/notifications').then(r => r.json()).then(d => {
-        const count = d.pendingBookings || 0;
-        const prev = lastPendingCountRef.current;
-        if (prev !== null && count > prev) {
-          const newCount = count - prev;
-          const notif = { id: Date.now(), message: `${newCount} new booking${newCount > 1 ? 's' : ''} submitted — pending approval`, time: new Date().toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' }) };
-          setBkgNotifs(n => [...n, notif]);
-          setTimeout(() => setBkgNotifs(n => n.filter(x => x.id !== notif.id)), 8000);
-        }
-        lastPendingCountRef.current = count;
-      }).catch(() => {});
-    }, 20000);
+    const poll = setInterval(fetchNotifList, 20000);
     return () => clearInterval(poll);
   }, []);
   useEffect(() => {
@@ -2424,6 +2441,33 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     ))}
                   </div>
                 </div>
+                {/* ── Notification inbox ── */}
+                {notifList.length > 0 && (
+                  <div style={{ marginBottom: '1rem', border: '1px solid #fde68a', borderRadius: 12, overflow: 'hidden' }}>
+                    <div style={{ background: '#fef9c3', padding: '0.5rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#78350f' }}>🔔 Recent Notifications {notifUnread > 0 && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 9999, fontSize: '0.65rem', fontWeight: 800, padding: '0.1rem 0.4rem', marginLeft: '0.3rem' }}>{notifUnread} new</span>}</span>
+                      {notifUnread > 0 && <button onClick={markAllAdminNotifsRead} style={{ background: 'none', border: '1px solid #fde68a', borderRadius: 7, padding: '0.2rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, color: '#78350f', cursor: 'pointer' }}>Mark all read</button>}
+                    </div>
+                    <div style={{ maxHeight: 180, overflowY: 'auto' }}>
+                      {notifList.slice(0, 10).map(n => {
+                        const isRead = n._localRead || false;
+                        return (
+                          <div key={n.id} style={{ padding: '0.5rem 1rem', borderBottom: '1px solid #fef3c7', background: isRead ? '#fff' : '#fffbeb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: '0.78rem', fontWeight: isRead ? 500 : 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {!isRead && <span style={{ display: 'inline-block', width: 6, height: 6, borderRadius: '50%', background: '#dc2626', marginRight: '0.35rem', verticalAlign: 'middle' }} />}
+                                {n.message}
+                              </div>
+                              <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.1rem' }}>{n.dealerName !== 'Walk-in' ? `Dealer: ${n.dealerName}` : 'Walk-in'} · {new Date(n.createdAt).toLocaleString('en-PK', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                            </div>
+                            {!isRead && <button onClick={() => markAdminNotifRead(n.id)} style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, padding: '0.15rem 0.45rem', fontSize: '0.65rem', fontWeight: 700, color: '#64748b', cursor: 'pointer', flexShrink: 0 }}>✓ Read</button>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div style={{ marginBottom: '1rem' }}>
                   <input
                     value={bkgSearch}
@@ -2914,7 +2958,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                                     <span style={{ fontSize: '0.75rem', fontWeight: 700, color: c.dot }}>{c.label}</span>
                                     <span style={{ fontSize: '0.68rem', color: '#94a3b8', flexShrink: 0 }}>{new Date(entry.at).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                                   </div>
-                                  <div style={{ fontSize: '0.72rem', color: '#374151', marginTop: '0.1rem' }}>by <strong>{entry.by}</strong></div>
+                                  <div style={{ fontSize: '0.72rem', color: '#374151', marginTop: '0.1rem' }}>by <strong>{entry.by}</strong>{entry.byRole && entry.byRole !== entry.by && <span style={{ color: '#94a3b8', fontWeight: 400 }}> · {entry.byRole}</span>}</div>
                                   {entry.note && <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.1rem', fontStyle: 'italic' }}>{entry.note}</div>}
                                 </div>
                               </div>
