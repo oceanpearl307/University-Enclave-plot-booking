@@ -64,6 +64,9 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
   const [editBkgMsg, setEditBkgMsg] = useState('');
   const [ledger, setLedger] = useState(null);
   const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [notifList, setNotifList] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [checkingSaving, setCheckingSaving] = useState(false);
 
   const [opsStaffList, setOpsStaffList] = useState([]);
   const [opsStaffLoading, setOpsStaffLoading] = useState(false);
@@ -102,6 +105,29 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
     setBookingsLoading(true);
     aFetch('/api/admin/bookings').then(r => r.json()).then(d => { setBookings(Array.isArray(d) ? d : []); setBookingsLoading(false); }).catch(() => setBookingsLoading(false));
   };
+  const fetchNotifs = () => {
+    aFetch('/api/admin/notifications').then(r => r.json()).then(d => {
+      setNotifList(Array.isArray(d.notifications) ? d.notifications : []);
+      setUnreadCount(typeof d.unreadCount === 'number' ? d.unreadCount : 0);
+    }).catch(() => {});
+  };
+  const markAllNotifsRead = () => {
+    aFetch('/api/admin/notifications/read-all', { method: 'POST' }).then(() => {
+      setUnreadCount(0);
+      setNotifList(prev => prev.map(n => ({ ...n, _read: true })));
+    }).catch(() => {});
+  };
+  const handleMarkChecked = async (bkg) => {
+    setCheckingSaving(true);
+    const res = await aFetch(`/api/admin/bookings/${bkg.id}/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+    if (res.ok) {
+      const data = await res.json();
+      const updated = { ...bkg, ...data.booking };
+      setSelectedBooking(updated);
+      setBookings(prev => prev.map(b => b.id === updated.id ? { ...b, ...data.booking } : b));
+    }
+    setCheckingSaving(false);
+  };
   const reloadPlots = () => {
     setPlotsLoading(true);
     fetch('/api/plots').then(r => r.json()).then(d => { setPlots(Array.isArray(d) ? d : []); setPlotsLoading(false); }).catch(() => setPlotsLoading(false));
@@ -119,10 +145,12 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
     aFetch('/api/admin/staff').then(r => r.json()).then(d => { setOpsStaffList(Array.isArray(d) ? d : []); setOpsStaffLoading(false); }).catch(() => setOpsStaffLoading(false));
   };
 
+  useEffect(() => { fetchNotifs(); const iv = setInterval(fetchNotifs, 20000); return () => clearInterval(iv); }, []);
+
   useEffect(() => {
     if (!tab) return;
     setActionMsg('');
-    if (tab === 'approveBookings' || tab === 'viewReports') reloadBookings();
+    if (tab === 'approveBookings' || tab === 'viewReports') { reloadBookings(); markAllNotifsRead(); }
     if (tab === 'viewPlots' || tab === 'manageInventory') reloadPlots();
     if (tab === 'viewDealers') { setDealersLoading(true); aFetch('/api/admin/dealers').then(r => r.json()).then(d => { setDealers(Array.isArray(d) ? d : []); setDealersLoading(false); }).catch(() => setDealersLoading(false)); }
     if (tab === 'viewDeals') { setDealsLoading(true); aFetch('/api/admin/deals').then(r => r.json()).then(d => { setDeals(Array.isArray(d) ? d : []); setDealsLoading(false); }).catch(() => setDealsLoading(false)); }
@@ -403,8 +431,8 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
               color: tab === t.key ? '#fff' : '#64748b', transition: 'all 0.15s',
             }}>
               {t.icon} {t.label}
-              {t.key === 'approveBookings' && pendingCount > 0 && (
-                <span style={{ background: '#dc2626', color: '#fff', borderRadius: 9999, fontSize: '0.65rem', fontWeight: 800, padding: '0.1rem 0.4rem', minWidth: 18, textAlign: 'center' }}>{pendingCount}</span>
+              {t.key === 'approveBookings' && unreadCount > 0 && (
+                <span style={{ background: '#dc2626', color: '#fff', borderRadius: 9999, fontSize: '0.65rem', fontWeight: 800, padding: '0.1rem 0.4rem', minWidth: 18, textAlign: 'center' }}>{unreadCount}</span>
               )}
             </button>
           ))}
@@ -449,7 +477,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
                     <tbody>
                       {bookings.map(b => (
                         <tr key={b.id}
-                          style={{ borderBottom: '1px solid #f8fafc', background: selectedBooking?.id === b.id ? '#f0f9ff' : 'transparent', cursor: 'pointer' }}
+                          style={{ borderBottom: '1px solid #f8fafc', background: selectedBooking?.id === b.id ? '#f0f9ff' : b.status === 'pending' ? '#fffbeb' : 'transparent', cursor: 'pointer', borderLeft: b.status === 'pending' ? '3px solid #f59e0b' : '3px solid transparent' }}
                           onClick={() => setSelectedBooking(selectedBooking?.id === b.id ? null : b)}
                           onMouseEnter={e => { if (selectedBooking?.id !== b.id) e.currentTarget.style.background = '#f8fafc'; }}
                           onMouseLeave={e => { e.currentTarget.style.background = selectedBooking?.id === b.id ? '#f0f9ff' : 'transparent'; }}>
@@ -830,6 +858,51 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
                     )}
                   </div>
                   )}
+
+                  {/* ── Audit Trail ── */}
+                  <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.625rem' }}>🔍 Audit Trail</div>
+
+                    {/* Mark as Checked button — editBookings priv, pending, not yet checked */}
+                    {privileges.editBookings && selectedBooking.status === 'pending' && !selectedBooking.checkedBy && (
+                      <button onClick={() => handleMarkChecked(selectedBooking)} disabled={checkingSaving} style={{ marginBottom: '0.75rem', width: '100%', background: checkingSaving ? '#94a3b8' : '#fef9c3', border: '1px solid #fde68a', color: '#92400e', borderRadius: 10, padding: '0.6rem 1rem', fontWeight: 700, cursor: checkingSaving ? 'not-allowed' : 'pointer', fontSize: '0.82rem' }}>
+                        {checkingSaving ? 'Saving...' : '✅ Mark as Checked — I have reviewed this booking'}
+                      </button>
+                    )}
+                    {selectedBooking.checkedBy && (
+                      <div style={{ marginBottom: '0.625rem', background: '#fef9c3', border: '1px solid #fde68a', borderRadius: 8, padding: '0.4rem 0.75rem', fontSize: '0.78rem', color: '#78350f', fontWeight: 600 }}>
+                        ✅ Checked by <strong>{selectedBooking.checkedBy}</strong> · {new Date(selectedBooking.checkedAt).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                    )}
+
+                    {(selectedBooking.auditLog?.length > 0) ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                        {(selectedBooking.auditLog || []).map((entry, i) => {
+                          const colors = { submitted: { bg: '#eff6ff', dot: '#3b82f6', label: 'Submitted' }, checked: { bg: '#fef9c3', dot: '#d97706', label: 'Checked' }, approved: { bg: '#f0fdf4', dot: '#059669', label: 'Approved' }, rejected: { bg: '#fef2f2', dot: '#dc2626', label: 'Rejected' } };
+                          const c = colors[entry.action] || { bg: '#f8fafc', dot: '#94a3b8', label: entry.action };
+                          return (
+                            <div key={i} style={{ display: 'flex', gap: '0.625rem', alignItems: 'flex-start', paddingBottom: '0.625rem' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                                <div style={{ width: 10, height: 10, borderRadius: '50%', background: c.dot, marginTop: 3 }} />
+                                {i < (selectedBooking.auditLog || []).length - 1 && <div style={{ width: 2, flex: 1, minHeight: 16, background: '#e2e8f0', marginTop: 2 }} />}
+                              </div>
+                              <div style={{ background: c.bg, borderRadius: 8, padding: '0.35rem 0.625rem', flex: 1, minWidth: 0 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: c.dot }}>{c.label}</span>
+                                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', flexShrink: 0 }}>{new Date(entry.at).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                </div>
+                                <div style={{ fontSize: '0.72rem', color: '#374151', marginTop: '0.1rem' }}>by <strong>{entry.by}</strong></div>
+                                {entry.note && <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.1rem', fontStyle: 'italic' }}>{entry.note}</div>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '0.78rem', color: '#94a3b8', fontStyle: 'italic' }}>No audit log entries yet (older bookings). New bookings will show the full trail.</div>
+                    )}
+                  </div>
+
                 </div>
               </div>
             )}

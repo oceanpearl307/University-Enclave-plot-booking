@@ -2649,7 +2649,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     )}
                     {selectedBkg.status === 'pending' && (
                       <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <button onClick={async () => { setBkgMsg(''); const res = await fetch(`/api/admin/bookings/${selectedBkg.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approvedBy: 'Admin' }) }); if (res.ok) { const data = await res.json(); setBkgMsg('✅ Booking approved.'); setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Failed.'); }} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#059669', borderColor: 'transparent' }}>✓ Approve</button>
+                        <button onClick={async () => { setBkgMsg(''); const res = await aFetch(`/api/admin/bookings/${selectedBkg.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }); if (res.ok) { const data = await res.json(); setBkgMsg('✅ Booking approved.'); setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Failed.'); }} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#059669', borderColor: 'transparent' }}>✓ Approve</button>
                         <button onClick={() => { setRejectBkg(selectedBkg); setRejectReason(''); }} className="btn btn-outline" style={{ flex: 1, justifyContent: 'center', color: '#dc2626', borderColor: '#dc2626' }}>✕ Reject</button>
                       </div>
                     )}
@@ -2892,6 +2892,35 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                         ) : (
                           <div style={{ textAlign: 'center', padding: '1rem', color: '#94a3b8', fontSize: '0.82rem' }}>No ledger data</div>
                         )}
+                      </div>
+                    )}
+
+                    {/* Audit Trail */}
+                    {(selectedBkg.auditLog?.length > 0 || selectedBkg.checkedBy) && (
+                      <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1rem' }}>
+                        <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.625rem' }}>🔍 Audit Trail</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+                          {(selectedBkg.auditLog || []).map((entry, i) => {
+                            const colors = { submitted: { bg: '#eff6ff', dot: '#3b82f6', label: 'Submitted' }, checked: { bg: '#fef9c3', dot: '#d97706', label: 'Checked' }, approved: { bg: '#f0fdf4', dot: '#059669', label: 'Approved' }, rejected: { bg: '#fef2f2', dot: '#dc2626', label: 'Rejected' } };
+                            const c = colors[entry.action] || { bg: '#f8fafc', dot: '#94a3b8', label: entry.action };
+                            return (
+                              <div key={i} style={{ display: 'flex', gap: '0.625rem', alignItems: 'flex-start', paddingBottom: '0.625rem', position: 'relative' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
+                                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: c.dot, marginTop: 3 }} />
+                                  {i < (selectedBkg.auditLog || []).length - 1 && <div style={{ width: 2, flex: 1, minHeight: 16, background: '#e2e8f0', marginTop: 2 }} />}
+                                </div>
+                                <div style={{ background: c.bg, borderRadius: 8, padding: '0.35rem 0.625rem', flex: 1, minWidth: 0 }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: c.dot }}>{c.label}</span>
+                                    <span style={{ fontSize: '0.68rem', color: '#94a3b8', flexShrink: 0 }}>{new Date(entry.at).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                  </div>
+                                  <div style={{ fontSize: '0.72rem', color: '#374151', marginTop: '0.1rem' }}>by <strong>{entry.by}</strong></div>
+                                  {entry.note && <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.1rem', fontStyle: 'italic' }}>{entry.note}</div>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
 

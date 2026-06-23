@@ -490,6 +490,8 @@ let dealCounter = 1;
 // ─── Bookings ─────────────────────────────────────────────────────────────────
 let bookings = [];
 let bookingCounter = 1000;
+let notifications = [];
+let notifCounter = 0;
 
 let customers = [];
 let customerCounter = 100;
@@ -572,6 +574,8 @@ function applyDb(db) {
   if (db.annCounter)           { annCounter = db.annCounter;                  }
   if (db.ledgerIdCounter)      { ledgerIdCounter = db.ledgerIdCounter;        }
   if (db.receiptSettings)      { receiptSettings = { ...receiptSettings, ...db.receiptSettings }; }
+  if (db.notifications)        { notifications = db.notifications;            }
+  if (db.notifCounter !== undefined) { notifCounter = db.notifCounter;        }
 }
 
 function loadDb() {
@@ -640,6 +644,7 @@ function saveDb() {
         announcements, annCounter,
         ledgerIdCounter,
         receiptSettings,
+        notifications, notifCounter,
       };
       fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
     } catch (e) {
@@ -1663,9 +1668,25 @@ app.post('/api/bookings', (req, res) => {
     commissionPct: effectiveCommissionPct,
     commissionAmount,
     status: 'pending', createdAt: new Date().toISOString(),
+    checkedBy: null, checkedAt: null,
+    auditLog: [{ action: 'submitted', by: 'Customer', at: new Date().toISOString(), note: 'Booking submitted online' }],
   };
   bookings.push(booking);
   plot.status = 'booked';
+  const dealerLabel = dealerForCommission ? dealerForCommission.name : 'Walk-in';
+  notifications.push({
+    id: ++notifCounter,
+    type: 'new_booking',
+    bookingId: booking.id,
+    bookingRef: booking.bookingRef,
+    plotNumber: booking.plotNumber,
+    buyerName: booking.name,
+    dealerName: dealerLabel,
+    message: `New booking ${booking.bookingRef} — ${booking.plotNumber} by ${booking.name}`,
+    createdAt: new Date().toISOString(),
+    readBy: [],
+  });
+  saveDb();
   res.status(201).json(booking);
 });
 
@@ -1694,15 +1715,19 @@ app.post('/api/admin/bookings/:id/approve', (req, res) => {
   const booking = bookings.find(b => b.id === parseInt(req.params.id));
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
   if (booking.status !== 'pending') return res.status(409).json({ error: 'Booking is not pending' });
+  const actorName = session.name || session.username || 'Admin';
   booking.status = 'confirmed';
   booking.approvedAt = new Date().toISOString();
-  booking.approvedBy = req.body.approvedBy || 'Operations';
+  booking.approvedBy = actorName;
   booking.receiptNumber = `UE-RCPT-${booking.id}`;
+  if (!booking.auditLog) booking.auditLog = [];
+  booking.auditLog.push({ action: 'approved', by: actorName, at: new Date().toISOString(), note: '' });
   if (!booking.ledger || booking.ledger.length === 0) {
     booking.ledger = generateLedger(booking);
   }
   const plot = plots.find(p => p.id === booking.plotId);
   if (plot) plot.status = 'sold';
+  saveDb();
   res.json({ success: true, booking });
 });
 
@@ -1808,7 +1833,48 @@ app.get('/api/dealer/:dealerId/calendar', (req, res) => {
 
 app.get('/api/admin/notifications', (req, res) => {
   const pendingBookings = bookings.filter(b => b.status === 'pending').length;
-  res.json({ pendingBookings });
+  const session = validateSession(req);
+  if (!session) return res.json({ pendingBookings, notifications: [], unreadCount: 0 });
+  const userId = String(session.id || session.username || '');
+  const list = [...notifications].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const unreadCount = list.filter(n => !n.readBy.includes(userId)).length;
+  res.json({ pendingBookings, notifications: list, unreadCount });
+});
+
+app.post('/api/admin/notifications/:id/read', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  const userId = String(session.id || session.username || '');
+  const notif = notifications.find(n => n.id === parseInt(req.params.id));
+  if (!notif) return res.status(404).json({ error: 'Notification not found' });
+  if (!notif.readBy.includes(userId)) notif.readBy.push(userId);
+  saveDb();
+  res.json({ success: true });
+});
+
+app.post('/api/admin/notifications/read-all', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  const userId = String(session.id || session.username || '');
+  notifications.forEach(n => { if (!n.readBy.includes(userId)) n.readBy.push(userId); });
+  saveDb();
+  res.json({ success: true });
+});
+
+app.post('/api/admin/bookings/:id/check', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (session.role !== 'admin' && !(session.role === 'operations' && session.privileges?.editBookings))
+    return res.status(403).json({ error: 'Insufficient privileges — editBookings required' });
+  const booking = bookings.find(b => b.id === parseInt(req.params.id));
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  const actorName = session.name || session.username || 'Staff';
+  booking.checkedBy = actorName;
+  booking.checkedAt = new Date().toISOString();
+  if (!booking.auditLog) booking.auditLog = [];
+  booking.auditLog.push({ action: 'checked', by: actorName, at: new Date().toISOString(), note: req.body.note || '' });
+  saveDb();
+  res.json({ success: true, booking });
 });
 
 app.post('/api/admin/bookings/:id/reject', (req, res) => {
@@ -1819,12 +1885,16 @@ app.post('/api/admin/bookings/:id/reject', (req, res) => {
   const booking = bookings.find(b => b.id === parseInt(req.params.id));
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
   if (booking.status !== 'pending') return res.status(409).json({ error: 'Booking is not pending' });
+  const actorNameR = session.name || session.username || 'Staff';
   booking.status = 'rejected';
   booking.rejectedAt = new Date().toISOString();
-  booking.rejectedBy = req.body.rejectedBy || 'Operations';
+  booking.rejectedBy = actorNameR;
   booking.rejectionReason = req.body.reason || '';
+  if (!booking.auditLog) booking.auditLog = [];
+  booking.auditLog.push({ action: 'rejected', by: actorNameR, at: new Date().toISOString(), note: req.body.reason || '' });
   const plot = plots.find(p => p.id === booking.plotId);
   if (plot && plot.status === 'booked') plot.status = 'available';
+  saveDb();
   res.json({ success: true, booking });
 });
 
