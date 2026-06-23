@@ -370,8 +370,10 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   const fmtBytes = (b) => b >= 1048576 ? (b / 1048576).toFixed(2) + ' MB' : b >= 1024 ? (b / 1024).toFixed(1) + ' KB' : b + ' B';
 
+  const adminUserId = String(admin?.id || admin?.username || '');
+
   const fetchNotifList = () => {
-    aFetch('/api/admin/notifications').then(d => {
+    aFetch('/api/admin/notifications').then(r => r.json()).then(d => {
       if (!d) return;
       const count = d.pendingBookings || 0;
       const prev = lastPendingCountRef.current;
@@ -388,15 +390,15 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   };
 
   const markAdminNotifRead = (id) => {
-    aFetch(`/api/admin/notifications/${id}/read`, { method: 'POST' }).then(() => {
-      setNotifList(prev => prev.map(n => n.id === id ? { ...n, _localRead: true } : n));
+    aFetch(`/api/admin/notifications/${id}/read`, { method: 'POST' }).then(r => r.json()).then(() => {
+      setNotifList(prev => prev.map(n => n.id === id ? { ...n, _readBy: [...(n._readBy || n.readBy || []), adminUserId] } : n));
       setNotifUnread(c => Math.max(0, c - 1));
     }).catch(() => {});
   };
 
   const markAllAdminNotifsRead = () => {
-    aFetch('/api/admin/notifications/read-all', { method: 'POST' }).then(() => {
-      setNotifList(prev => prev.map(n => ({ ...n, _localRead: true })));
+    aFetch('/api/admin/notifications/read-all', { method: 'POST' }).then(r => r.json()).then(() => {
+      setNotifList(prev => prev.map(n => ({ ...n, _readBy: [...new Set([...(n._readBy || n.readBy || []), adminUserId])] })));
       setNotifUnread(0);
     }).catch(() => {});
   };
@@ -2450,7 +2452,8 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     </div>
                     <div style={{ maxHeight: 180, overflowY: 'auto' }}>
                       {notifList.slice(0, 10).map(n => {
-                        const isRead = n._localRead || false;
+                        const effectiveReadBy = n._readBy || n.readBy || [];
+                        const isRead = effectiveReadBy.includes(adminUserId);
                         return (
                           <div key={n.id} style={{ padding: '0.5rem 1rem', borderBottom: '1px solid #fef3c7', background: isRead ? '#fff' : '#fffbeb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
                             <div style={{ minWidth: 0 }}>

@@ -1836,10 +1836,10 @@ const canViewNotifications = (session) =>
   session && (session.role === 'admin' || (session.role === 'operations' && session.privileges?.approveBookings));
 
 app.get('/api/admin/notifications', (req, res) => {
-  const pendingBookings = bookings.filter(b => b.status === 'pending').length;
   const session = validateSession(req);
-  if (!canViewNotifications(session)) return res.json({ pendingBookings, notifications: [], unreadCount: 0 });
+  if (!canViewNotifications(session)) return res.status(403).json({ error: 'Access denied' });
   const userId = String(session.id || session.username || '');
+  const pendingBookings = bookings.filter(b => b.status === 'pending').length;
   const list = [...notifications].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const unreadCount = list.filter(n => !n.readBy.includes(userId)).length;
   res.json({ pendingBookings, notifications: list, unreadCount });
