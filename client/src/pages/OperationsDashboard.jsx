@@ -72,6 +72,39 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
   const [liveToast, setLiveToast] = useState(null);
   const [notifFilter, setNotifFilter] = useState('all');
   const [notifSearch, setNotifSearch] = useState('');
+  const [soundMuted, setSoundMuted] = useState(() => {
+    try { return localStorage.getItem('ops_sound_muted') === 'true'; } catch { return false; }
+  });
+
+  const playChime = React.useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + i * 0.13;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.22, t + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+        osc.start(t);
+        osc.stop(t + 0.46);
+      });
+      setTimeout(() => ctx.close(), 2000);
+    } catch (_) {}
+  }, []);
+
+  const toggleMute = () => {
+    setSoundMuted(prev => {
+      const next = !prev;
+      try { localStorage.setItem('ops_sound_muted', String(next)); } catch {}
+      return next;
+    });
+  };
 
   const [opsStaffList, setOpsStaffList] = useState([]);
   const [opsStaffLoading, setOpsStaffLoading] = useState(false);
@@ -168,6 +201,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
         setTimeout(() => setBellAnimating(false), 1200);
         setLiveToast(notif);
         setTimeout(() => setLiveToast(null), 5000);
+        setSoundMuted(muted => { if (!muted) playChime(); return muted; });
       } catch (_) {}
     };
     return () => es.close();
@@ -506,6 +540,13 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', position: 'relative' }}>
             {privileges.approveBookings && (
               <>
+                <button
+                  onClick={toggleMute}
+                  title={soundMuted ? 'Unmute booking alerts' : 'Mute booking alerts'}
+                  style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 10, width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '1.1rem', transition: 'background 0.15s', opacity: soundMuted ? 0.55 : 1 }}
+                >
+                  {soundMuted ? '🔇' : '🔊'}
+                </button>
                 <button
                   onClick={() => setNotifDrawerOpen(o => !o)}
                   title="Notifications"
