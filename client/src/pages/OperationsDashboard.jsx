@@ -70,6 +70,8 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
   const [notifDrawerOpen, setNotifDrawerOpen] = useState(false);
   const [bellAnimating, setBellAnimating] = useState(false);
   const [liveToast, setLiveToast] = useState(null);
+  const [notifFilter, setNotifFilter] = useState('all');
+  const [notifSearch, setNotifSearch] = useState('');
 
   const [opsStaffList, setOpsStaffList] = useState([]);
   const [opsStaffLoading, setOpsStaffLoading] = useState(false);
@@ -518,54 +520,96 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
                 {notifDrawerOpen && (
                   <>
                     <div onClick={() => setNotifDrawerOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 999 }} />
-                    <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 1000, width: 360, background: '#fff', borderRadius: 14, boxShadow: '0 8px 30px rgba(0,0,0,0.13)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
-                        <span style={{ fontWeight: 800, fontSize: '0.875rem', color: '#0f172a' }}>
-                          🔔 Notifications
-                          {unreadCount > 0 && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 9999, fontSize: '0.62rem', fontWeight: 800, padding: '0.1rem 0.4rem', marginLeft: '0.4rem' }}>{unreadCount} new</span>}
-                        </span>
-                        {unreadCount > 0 && (
-                          <button onClick={() => { markAllNotifsRead(); }} style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 7, padding: '0.2rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', cursor: 'pointer' }}>Mark all read</button>
-                        )}
-                      </div>
-                      <div style={{ maxHeight: 380, overflowY: 'auto' }}>
-                        {notifList.length === 0 ? (
-                          <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
-                            <div style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>🔕</div>
-                            No notifications yet
+                    <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 1000, width: 370, background: '#fff', borderRadius: 14, boxShadow: '0 8px 30px rgba(0,0,0,0.13)', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                      <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f1f5f9', background: '#f8fafc' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                          <span style={{ fontWeight: 800, fontSize: '0.875rem', color: '#0f172a' }}>
+                            🔔 Notifications
+                            {unreadCount > 0 && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 9999, fontSize: '0.62rem', fontWeight: 800, padding: '0.1rem 0.4rem', marginLeft: '0.4rem' }}>{unreadCount} new</span>}
+                          </span>
+                          {unreadCount > 0 && (
+                            <button onClick={() => { markAllNotifsRead(); }} style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 7, padding: '0.2rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', cursor: 'pointer' }}>Mark all read</button>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.4rem' }}>
+                          <div style={{ position: 'relative', flex: 1 }}>
+                            <span style={{ position: 'absolute', left: '0.5rem', top: '50%', transform: 'translateY(-50%)', fontSize: '0.75rem', color: '#94a3b8', pointerEvents: 'none' }}>🔍</span>
+                            <input
+                              type="text"
+                              placeholder="Ref, plot, buyer…"
+                              value={notifSearch}
+                              onChange={e => setNotifSearch(e.target.value)}
+                              onClick={e => e.stopPropagation()}
+                              style={{ width: '100%', paddingLeft: '1.6rem', paddingRight: '0.5rem', paddingTop: '0.3rem', paddingBottom: '0.3rem', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: '0.75rem', outline: 'none', background: '#fff', boxSizing: 'border-box' }}
+                            />
                           </div>
-                        ) : notifList.map(n => {
+                          <button
+                            onClick={() => setNotifFilter('all')}
+                            style={{ padding: '0.3rem 0.6rem', borderRadius: 7, border: '1px solid #e2e8f0', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', background: notifFilter === 'all' ? '#0284c7' : '#fff', color: notifFilter === 'all' ? '#fff' : '#64748b', transition: 'all 0.15s' }}
+                          >All</button>
+                          <button
+                            onClick={() => setNotifFilter('unread')}
+                            style={{ padding: '0.3rem 0.6rem', borderRadius: 7, border: '1px solid #e2e8f0', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer', background: notifFilter === 'unread' ? '#0284c7' : '#fff', color: notifFilter === 'unread' ? '#fff' : '#64748b', transition: 'all 0.15s', whiteSpace: 'nowrap' }}
+                          >Unread</button>
+                        </div>
+                      </div>
+                      <div style={{ maxHeight: 360, overflowY: 'auto' }}>
+                        {(() => {
                           const userId = String(staff.id || staff.username || '');
-                          const isRead = n.readBy?.includes(userId) || n._read;
-                          return (
-                            <div
-                              key={n.id}
-                              onClick={() => handleNotifClick(n)}
-                              style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f8fafc', background: isRead ? '#fff' : '#f0f9ff', cursor: 'pointer', display: 'flex', gap: '0.625rem', alignItems: 'flex-start', transition: 'background 0.12s' }}
-                              onMouseEnter={e => e.currentTarget.style.background = isRead ? '#f8fafc' : '#e0f2fe'}
-                              onMouseLeave={e => e.currentTarget.style.background = isRead ? '#fff' : '#f0f9ff'}
-                            >
-                              <div style={{ marginTop: 3, flexShrink: 0 }}>
-                                {isRead
-                                  ? <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#cbd5e1' }} />
-                                  : <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#0284c7' }} />
-                                }
-                              </div>
-                              <div style={{ minWidth: 0, flex: 1 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.2rem' }}>
-                                  <span style={{ fontWeight: isRead ? 500 : 700, fontSize: '0.8rem', color: '#0f172a' }}>Ref: {n.bookingRef}</span>
-                                  <span style={{ fontSize: '0.68rem', color: '#94a3b8', flexShrink: 0 }}>{new Date(n.createdAt).toLocaleString('en-PK', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-                                </div>
-                                <div style={{ fontSize: '0.75rem', color: '#374151', marginBottom: '0.15rem' }}>
-                                  <strong>Plot:</strong> {n.plotNumber} &nbsp;·&nbsp; <strong>Buyer:</strong> {n.buyerName}
-                                </div>
-                                <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                                  {n.dealerName && n.dealerName !== 'Walk-in' ? `Dealer: ${n.dealerName}` : 'Walk-in customer'} &nbsp;·&nbsp; <span style={{ color: '#0284c7' }}>View booking →</span>
-                                </div>
-                              </div>
+                          const q = notifSearch.trim().toLowerCase();
+                          const filtered = notifList.filter(n => {
+                            const isRead = n.readBy?.includes(userId) || n._read;
+                            if (notifFilter === 'unread' && isRead) return false;
+                            if (q) {
+                              const haystack = [n.bookingRef, n.plotNumber, n.buyerName].join(' ').toLowerCase();
+                              if (!haystack.includes(q)) return false;
+                            }
+                            return true;
+                          });
+                          if (notifList.length === 0) return (
+                            <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                              <div style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>🔕</div>
+                              No notifications yet
                             </div>
                           );
-                        })}
+                          if (filtered.length === 0) return (
+                            <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                              <div style={{ fontSize: '1.75rem', marginBottom: '0.5rem' }}>🔍</div>
+                              No notifications match your filter
+                            </div>
+                          );
+                          return filtered.map(n => {
+                            const isRead = n.readBy?.includes(userId) || n._read;
+                            return (
+                              <div
+                                key={n.id}
+                                onClick={() => handleNotifClick(n)}
+                                style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #f8fafc', background: isRead ? '#fff' : '#f0f9ff', cursor: 'pointer', display: 'flex', gap: '0.625rem', alignItems: 'flex-start', transition: 'background 0.12s' }}
+                                onMouseEnter={e => e.currentTarget.style.background = isRead ? '#f8fafc' : '#e0f2fe'}
+                                onMouseLeave={e => e.currentTarget.style.background = isRead ? '#fff' : '#f0f9ff'}
+                              >
+                                <div style={{ marginTop: 3, flexShrink: 0 }}>
+                                  {isRead
+                                    ? <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#cbd5e1' }} />
+                                    : <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#0284c7' }} />
+                                  }
+                                </div>
+                                <div style={{ minWidth: 0, flex: 1 }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                                    <span style={{ fontWeight: isRead ? 500 : 700, fontSize: '0.8rem', color: '#0f172a' }}>Ref: {n.bookingRef}</span>
+                                    <span style={{ fontSize: '0.68rem', color: '#94a3b8', flexShrink: 0 }}>{new Date(n.createdAt).toLocaleString('en-PK', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                  </div>
+                                  <div style={{ fontSize: '0.75rem', color: '#374151', marginBottom: '0.15rem' }}>
+                                    <strong>Plot:</strong> {n.plotNumber} &nbsp;·&nbsp; <strong>Buyer:</strong> {n.buyerName}
+                                  </div>
+                                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                                    {n.dealerName && n.dealerName !== 'Walk-in' ? `Dealer: ${n.dealerName}` : 'Walk-in customer'} &nbsp;·&nbsp; <span style={{ color: '#0284c7' }}>View booking →</span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
                       </div>
                     </div>
                   </>
