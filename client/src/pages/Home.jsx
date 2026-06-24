@@ -4,7 +4,7 @@ import SignUpModal from '../components/SignUpModal.jsx';
 import DealerRegisterModal from '../components/DealerRegisterModal.jsx';
 import PaymentPlanTable from '../components/PaymentPlanTable.jsx';
 
-export default function Home({ navigate, dealer, customer, onDealerLogin, onCustomerLogin, onLogout }) {
+export default function Home({ navigate, dealer, customer, authToken, onDealerLogin, onCustomerLogin, onLogout }) {
   const [stats, setStats] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
   const [activeDeals, setActiveDeals] = useState([]);
@@ -12,10 +12,17 @@ export default function Home({ navigate, dealer, customer, onDealerLogin, onCust
   const [signupSuccess, setSignupSuccess] = useState(null);
 
   useEffect(() => {
-    fetch('/api/stats').then(r => r.json()).then(setStats).catch(() => {});
+    if (dealer?.role === 'dealer' && dealer?.id && authToken) {
+      fetch(`/api/dealer/${dealer.id}/package-stats`, { headers: { Authorization: `Bearer ${authToken}` } })
+        .then(r => r.json())
+        .then(d => { if (!d.error) setStats({ total: d.total, booked: d.booked, sold: d.sold, available: d.available, _packageName: d.packageName, _isPackage: true }); })
+        .catch(() => fetch('/api/stats').then(r => r.json()).then(setStats).catch(() => {}));
+    } else {
+      fetch('/api/stats').then(r => r.json()).then(setStats).catch(() => {});
+    }
     fetch('/api/announcements').then(r => r.json()).then(setAnnouncements).catch(() => {});
     fetch('/api/deals').then(r => r.json()).then(setActiveDeals).catch(() => {});
-  }, []);
+  }, [dealer?.id, authToken]);
 
   const tagColor = {
     'New Launch': { bg: '#fef3c7', color: '#92400e' },
@@ -149,17 +156,24 @@ export default function Home({ navigate, dealer, customer, onDealerLogin, onCust
           )}
 
           {stats && (
-            <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-              {[
-                { label: 'Total Plots', value: stats.total, icon: '📍', color: '#94a3b8' },
-                { label: 'Booked', value: stats.booked, icon: '📋', color: '#fbbf24' },
-                { label: 'Sold', value: stats.sold, icon: '🏠', color: '#f87171' },
-              ].map(s => (
-                <div key={s.label} style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '1.75rem', fontWeight: 900, color: s.color }}>{s.value}</div>
-                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>{s.icon} {s.label}</div>
+            <div>
+              {stats._isPackage && stats._packageName && (
+                <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                  📦 {stats._packageName} Package Inventory
                 </div>
-              ))}
+              )}
+              <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                {[
+                  { label: stats._isPackage ? 'My Package' : 'Total Plots', value: stats.total, icon: '📍', color: '#94a3b8' },
+                  { label: 'Booked', value: stats.booked, icon: '📋', color: '#fbbf24' },
+                  { label: stats._isPackage ? 'Available' : 'Sold', value: stats._isPackage ? stats.available : stats.sold, icon: stats._isPackage ? '✅' : '🏠', color: stats._isPackage ? '#34d399' : '#f87171' },
+                ].map(s => (
+                  <div key={s.label} style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '1.75rem', fontWeight: 900, color: s.color }}>{s.value}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>{s.icon} {s.label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

@@ -962,11 +962,26 @@ app.get('/api/dealer/dashboard/:dealerId', (req, res) => {
     return { month, bookings: mb.length, payments: mb.reduce((s, b) => s + (b.downPayment || Math.round(b.plotPrice * 0.1)), 0) };
   });
 
-  const plotDistribution = [
-    { name: 'Available', value: plots.filter(p => p.status === 'available').length, color: '#059669' },
-    { name: 'Booked', value: plots.filter(p => p.status === 'booked').length, color: '#d97706' },
-    { name: 'Sold', value: plots.filter(p => p.status === 'sold').length, color: '#dc2626' },
+  // Scope plot distribution + package stats to dealer's assigned plots
+  const allAssignedIds = target ? Object.values(target.assignedPlots || {}).flat() : [];
+  const scopedPlots = allAssignedIds.length > 0 ? plots.filter(p => allAssignedIds.includes(p.id)) : null;
+  const plotDistribution = scopedPlots ? [
+    { name: 'Available', value: scopedPlots.filter(p => p.status === 'available').length, color: '#059669' },
+    { name: 'Booked', value: scopedPlots.filter(p => p.status === 'booked').length, color: '#d97706' },
+    { name: 'Sold', value: scopedPlots.filter(p => p.status === 'sold').length, color: '#dc2626' },
+  ] : [
+    { name: 'Available', value: 0, color: '#059669' },
+    { name: 'Booked', value: 0, color: '#d97706' },
+    { name: 'Sold', value: 0, color: '#dc2626' },
   ];
+  const packageStats = target ? {
+    quota: totalTarget,
+    packageName: pkg?.name || null,
+    total: scopedPlots ? scopedPlots.length : totalTarget,
+    available: scopedPlots ? scopedPlots.filter(p => p.status === 'available').length : totalTarget,
+    booked: scopedPlots ? scopedPlots.filter(p => p.status === 'booked').length : 0,
+    sold: scopedPlots ? scopedPlots.filter(p => p.status === 'sold').length : 0,
+  } : null;
 
   const recentBookings = [...myBookings].reverse().slice(0, 5).map(b => ({
     ref: b.bookingRef, plot: b.plotNumber, customer: b.name,
@@ -1017,9 +1032,33 @@ app.get('/api/dealer/dashboard/:dealerId', (req, res) => {
     package: pkg ? { id: pkg.id, name: pkg.name, rewardDescription: pkg.rewardDescription, rewardAmount: pkg.rewardAmount, commissionPct: pkg.commissionPct || 0 } : null,
     sizeBreakdown, targetPct,
     stats: { achieved, totalTarget, paymentsCollected, paymentTarget: target?.paymentTarget || 0 },
+    packageStats,
     commission: { rate: commissionRate, hasOverride: dealer.commissionPct !== undefined && dealer.commissionPct !== null, pkgRate: pkg?.commissionPct || 0, totalEarned: totalCommissionEarned, totalPaid: dealer.commissionPaidAmount || 0, totalOutstanding: Math.max(0, totalCommissionEarned - (dealer.commissionPaidAmount || 0)) },
     commissions,
     monthlySales, plotDistribution, recentBookings, activeDeals, inventory,
+  });
+});
+
+// ─── Dealer: Lightweight package stats (for home page hero) ──────────────────
+app.get('/api/dealer/:id/package-stats', (req, res) => {
+  const session = validateSession(req);
+  const dealerId = parseInt(req.params.id);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (session.role !== 'admin' && session.dealerId !== dealerId) return res.status(403).json({ error: 'Access denied' });
+  const dealer = dealers.find(d => d.id === dealerId);
+  if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
+  const target = dealerTargets[dealerId] || null;
+  const pkg = target?.packageId ? packages.find(p => p.id === target.packageId) : null;
+  const totalQuota = target ? target.sizes.reduce((sum, s) => sum + s.target, 0) : 0;
+  const assignedIds = target ? Object.values(target.assignedPlots || {}).flat() : [];
+  const scoped = assignedIds.length > 0 ? plots.filter(p => assignedIds.includes(p.id)) : null;
+  res.json({
+    packageName: pkg?.name || null,
+    quota: totalQuota,
+    total: scoped ? scoped.length : totalQuota,
+    available: scoped ? scoped.filter(p => p.status === 'available').length : totalQuota,
+    booked: scoped ? scoped.filter(p => p.status === 'booked').length : 0,
+    sold: scoped ? scoped.filter(p => p.status === 'sold').length : 0,
   });
 });
 

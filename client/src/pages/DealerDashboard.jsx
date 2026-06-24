@@ -89,7 +89,7 @@ export default function DealerDashboard({ dealer, authToken, onLogout, navigate 
     <div className="empty-state"><h3>Failed to load dashboard</h3><p>Please refresh the page.</p></div>
   );
 
-  const { target, sizeBreakdown, stats, monthlySales, plotDistribution, recentBookings, activeDeals, inventory, package: pkg, targetPct: rawPct, commission, commissions } = data;
+  const { target, sizeBreakdown, stats, monthlySales, plotDistribution, recentBookings, activeDeals, inventory, package: pkg, targetPct: rawPct, commission, commissions, packageStats } = data;
   const dealerInfo = data.dealer;
 
   const totalTarget = stats.totalTarget || 0;
@@ -358,8 +358,8 @@ export default function DealerDashboard({ dealer, authToken, onLogout, navigate 
         </div>
 
         <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', marginBottom: '1.5rem' }}>
-          <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Society Plot Status</h3>
-          <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1.25rem' }}>Overall distribution across all society plots</p>
+          <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>My Package Plot Status</h3>
+          <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1.25rem' }}>{pkg ? `${pkg.name} package — assigned plots breakdown` : 'Plot distribution across your assigned inventory'}</p>
           <div style={{ display: 'flex', alignItems: 'center', gap: '2rem', flexWrap: 'wrap' }}>
             <ResponsiveContainer width={180} height={180}>
               <PieChart>

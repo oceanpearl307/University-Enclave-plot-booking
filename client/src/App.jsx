@@ -118,6 +118,7 @@ export default function App() {
   const authProps = {
     dealer,
     customer,
+    authToken,
     onDealerLogin: handleDealerLogin,
     onCustomerLogin: setCustomer,
     onLogout: handleLogout,
