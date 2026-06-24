@@ -68,6 +68,8 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [checkingSaving, setCheckingSaving] = useState(false);
   const [notifDrawerOpen, setNotifDrawerOpen] = useState(false);
+  const [bellAnimating, setBellAnimating] = useState(false);
+  const [liveToast, setLiveToast] = useState(null);
 
   const [opsStaffList, setOpsStaffList] = useState([]);
   const [opsStaffLoading, setOpsStaffLoading] = useState(false);
@@ -146,7 +148,28 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
     aFetch('/api/admin/staff').then(r => r.json()).then(d => { setOpsStaffList(Array.isArray(d) ? d : []); setOpsStaffLoading(false); }).catch(() => setOpsStaffLoading(false));
   };
 
-  useEffect(() => { fetchNotifs(); const iv = setInterval(fetchNotifs, 20000); return () => clearInterval(iv); }, []);
+  useEffect(() => {
+    fetchNotifs();
+    const iv = setInterval(fetchNotifs, 60000);
+    return () => clearInterval(iv);
+  }, []);
+
+  useEffect(() => {
+    if (!privileges.approveBookings) return;
+    const es = new EventSource(`/api/admin/notifications/stream?token=${encodeURIComponent(authToken)}`);
+    es.onmessage = (e) => {
+      try {
+        const notif = JSON.parse(e.data);
+        setNotifList(prev => [notif, ...prev]);
+        setUnreadCount(c => c + 1);
+        setBellAnimating(true);
+        setTimeout(() => setBellAnimating(false), 1200);
+        setLiveToast(notif);
+        setTimeout(() => setLiveToast(null), 5000);
+      } catch (_) {}
+    };
+    return () => es.close();
+  }, [authToken, privileges.approveBookings]);
 
   useEffect(() => {
     if (!tab) return;
@@ -429,6 +452,38 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
 
   return (
     <div style={{ background: '#f8fafc', minHeight: '100vh' }}>
+      <style>{`
+        @keyframes bellShake {
+          0%   { transform: rotate(0deg); }
+          15%  { transform: rotate(-20deg); }
+          30%  { transform: rotate(20deg); }
+          45%  { transform: rotate(-15deg); }
+          60%  { transform: rotate(15deg); }
+          75%  { transform: rotate(-8deg); }
+          90%  { transform: rotate(8deg); }
+          100% { transform: rotate(0deg); }
+        }
+        @keyframes toastSlideIn {
+          from { transform: translateX(110%); opacity: 0; }
+          to   { transform: translateX(0);   opacity: 1; }
+        }
+        @keyframes toastSlideOut {
+          from { transform: translateX(0);   opacity: 1; }
+          to   { transform: translateX(110%); opacity: 0; }
+        }
+        .bell-shake { animation: bellShake 0.6s ease-in-out; }
+      `}</style>
+      {liveToast && (
+        <div style={{ position: 'fixed', bottom: '1.5rem', right: '1.5rem', zIndex: 9999, animation: 'toastSlideIn 0.35s ease-out', maxWidth: 340, background: '#fff', border: '1px solid #bfdbfe', borderLeft: '4px solid #0284c7', borderRadius: 12, boxShadow: '0 8px 30px rgba(0,0,0,0.14)', padding: '0.875rem 1rem', display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+          <span style={{ fontSize: '1.3rem', flexShrink: 0, marginTop: 1 }}>🔔</span>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: '0.82rem', color: '#0284c7', marginBottom: '0.2rem' }}>New booking just arrived</div>
+            <div style={{ fontSize: '0.78rem', color: '#374151', fontWeight: 600 }}>{liveToast.plotNumber} &nbsp;·&nbsp; {liveToast.bookingRef}</div>
+            <div style={{ fontSize: '0.73rem', color: '#64748b', marginTop: '0.15rem' }}>Buyer: {liveToast.buyerName}</div>
+          </div>
+          <button onClick={() => setLiveToast(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '1rem', padding: '0 0.25rem', flexShrink: 0, lineHeight: 1 }}>✕</button>
+        </div>
+      )}
       <div style={{ maxWidth: 1300, margin: '0 auto', padding: '2rem 1.5rem' }}>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
@@ -454,7 +509,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
                   title="Notifications"
                   style={{ position: 'relative', background: notifDrawerOpen ? '#e0f2fe' : '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 10, width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '1.1rem', transition: 'background 0.15s' }}
                 >
-                  🔔
+                  <span className={bellAnimating ? 'bell-shake' : ''} style={{ display: 'inline-block' }}>🔔</span>
                   {unreadCount > 0 && (
                     <span style={{ position: 'absolute', top: -5, right: -5, background: '#dc2626', color: '#fff', borderRadius: 9999, fontSize: '0.6rem', fontWeight: 800, padding: '0.1rem 0.35rem', minWidth: 17, textAlign: 'center', lineHeight: 1.4 }}>{unreadCount}</span>
                   )}

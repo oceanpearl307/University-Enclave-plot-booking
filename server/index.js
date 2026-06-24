@@ -71,6 +71,7 @@ let sectorCounter = 1;
 
 // ─── Session store (token → { dealerId, role }) ───────────────────────────────
 const sessions = {};
+const sseClients = new Set();
 
 function validateSession(req) {
   const auth = req.headers['authorization'] || '';
@@ -1674,7 +1675,7 @@ app.post('/api/bookings', (req, res) => {
   bookings.push(booking);
   plot.status = 'booked';
   const dealerLabel = dealerForCommission ? dealerForCommission.name : 'Walk-in';
-  notifications.push({
+  const newNotif = {
     id: ++notifCounter,
     type: 'new_booking',
     bookingId: booking.id,
@@ -1685,7 +1686,9 @@ app.post('/api/bookings', (req, res) => {
     message: `New booking ${booking.bookingRef} — ${booking.plotNumber} by ${booking.name}`,
     createdAt: new Date().toISOString(),
     readBy: [],
-  });
+  };
+  notifications.push(newNotif);
+  broadcastNotification(newNotif);
   saveDb();
   res.status(201).json(booking);
 });
@@ -1834,6 +1837,36 @@ app.get('/api/dealer/:dealerId/calendar', (req, res) => {
 
 const canViewNotifications = (session) =>
   session && (session.role === 'admin' || (session.role === 'operations' && session.privileges?.approveBookings));
+
+function broadcastNotification(notif) {
+  const payload = JSON.stringify(notif);
+  for (const client of sseClients) {
+    try { client.res.write(`data: ${payload}\n\n`); } catch (_) { sseClients.delete(client); }
+  }
+}
+
+app.get('/api/admin/notifications/stream', (req, res) => {
+  const token = (req.query.token || '').trim();
+  const session = token ? (sessions[token] || null) : null;
+  if (!canViewNotifications(session)) {
+    res.status(403).end();
+    return;
+  }
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no',
+  });
+  res.flushHeaders();
+  res.write(': connected\n\n');
+  const client = { res };
+  sseClients.add(client);
+  const keepAlive = setInterval(() => {
+    try { res.write(': ping\n\n'); } catch (_) { clearInterval(keepAlive); sseClients.delete(client); }
+  }, 25000);
+  req.on('close', () => { clearInterval(keepAlive); sseClients.delete(client); });
+});
 
 app.get('/api/admin/notifications', (req, res) => {
   const session = validateSession(req);
