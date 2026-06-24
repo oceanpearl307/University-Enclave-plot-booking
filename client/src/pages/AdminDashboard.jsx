@@ -152,6 +152,40 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [notifList, setNotifList] = useState([]);
   const [notifUnread, setNotifUnread] = useState(0);
   const lastPendingCountRef = React.useRef(null);
+
+  const [soundMuted, setSoundMuted] = useState(() => {
+    try { return localStorage.getItem('admin_sound_muted') === 'true'; } catch { return false; }
+  });
+
+  const playChime = React.useCallback(() => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const notes = [523.25, 659.25, 783.99, 1046.5];
+      notes.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const t = ctx.currentTime + i * 0.13;
+        gain.gain.setValueAtTime(0, t);
+        gain.gain.linearRampToValueAtTime(0.22, t + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+        osc.start(t);
+        osc.stop(t + 0.46);
+      });
+      setTimeout(() => ctx.close(), 2000);
+    } catch (_) {}
+  }, []);
+
+  const toggleAdminMute = () => {
+    setSoundMuted(prev => {
+      const next = !prev;
+      try { localStorage.setItem('admin_sound_muted', String(next)); } catch {}
+      return next;
+    });
+  };
   const loadBookings = () => { setBkgsLoading(true); fetch('/api/admin/bookings').then(r => r.json()).then(d => { setBkgs(Array.isArray(d) ? d : []); setBkgsLoading(false); }).catch(() => setBkgsLoading(false)); };
 
   const loadAdminLedger = (bookingId) => {
@@ -417,6 +451,19 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     const poll = setInterval(fetchNotifList, 20000);
     return () => clearInterval(poll);
   }, []);
+
+  useEffect(() => {
+    const es = new EventSource(`/api/admin/notifications/stream?token=${encodeURIComponent(authToken)}`);
+    es.onmessage = (e) => {
+      try {
+        const notif = JSON.parse(e.data);
+        setNotifList(prev => [notif, ...prev]);
+        setNotifUnread(c => c + 1);
+        setSoundMuted(muted => { if (!muted) playChime(); return muted; });
+      } catch (_) {}
+    };
+    return () => es.close();
+  }, [authToken]);
   useEffect(() => {
     if (tab === 'Registrations') loadRegs();
     if (tab === 'Bookings') loadBookings();
@@ -1308,7 +1355,14 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
             </div>
             <p style={{ color: '#64748b', fontSize: '0.875rem', paddingLeft: '3rem' }}>Welcome, <strong style={{ color: '#1a6b3c' }}>{admin?.name}</strong></p>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            <button
+              onClick={toggleAdminMute}
+              title={soundMuted ? 'Unmute booking alerts' : 'Mute booking alerts'}
+              style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 10, width: 38, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '1.1rem', transition: 'background 0.15s', opacity: soundMuted ? 0.55 : 1 }}
+            >
+              {soundMuted ? '🔇' : '🔊'}
+            </button>
             <button className="btn btn-outline btn-sm" onClick={() => navigate('plots')}>🗺️ View Plots</button>
             <button className="btn btn-primary btn-sm" onClick={onLogout}>Logout</button>
           </div>
@@ -2448,7 +2502,16 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                   <div style={{ marginBottom: '1rem', border: '1px solid #fde68a', borderRadius: 12, overflow: 'hidden' }}>
                     <div style={{ background: '#fef9c3', padding: '0.5rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#78350f' }}>🔔 Recent Notifications {notifUnread > 0 && <span style={{ background: '#dc2626', color: '#fff', borderRadius: 9999, fontSize: '0.65rem', fontWeight: 800, padding: '0.1rem 0.4rem', marginLeft: '0.3rem' }}>{notifUnread} new</span>}</span>
-                      {notifUnread > 0 && <button onClick={markAllAdminNotifsRead} style={{ background: 'none', border: '1px solid #fde68a', borderRadius: 7, padding: '0.2rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, color: '#78350f', cursor: 'pointer' }}>Mark all read</button>}
+                      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                        <button
+                          onClick={toggleAdminMute}
+                          title={soundMuted ? 'Unmute booking alerts' : 'Mute booking alerts'}
+                          style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.85rem', opacity: soundMuted ? 0.55 : 1 }}
+                        >
+                          {soundMuted ? '🔇' : '🔊'}
+                        </button>
+                        {notifUnread > 0 && <button onClick={markAllAdminNotifsRead} style={{ background: 'none', border: '1px solid #fde68a', borderRadius: 7, padding: '0.2rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, color: '#78350f', cursor: 'pointer' }}>Mark all read</button>}
+                      </div>
                     </div>
                     <div style={{ maxHeight: 180, overflowY: 'auto' }}>
                       {notifList.slice(0, 10).map(n => {
