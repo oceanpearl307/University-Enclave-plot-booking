@@ -9,8 +9,15 @@ and are created via `createSession(token, data)`, read via `getSession(token)`
 these helpers — `validateSession(req)`, the notifications SSE stream, and the
 exchange-asset patch — so expiry/revocation is enforced everywhere.
 
-**TTL is env-configurable:** `SESSION_TTL_MS` (default 12h). `SERVER_PORT`
-(default 3001) is also env-configurable so tests can boot an isolated instance.
+**Sessions slide on activity:** `SESSION_TTL_MS` (default 12h) is an *idle*
+timeout — `getSession` renews `expiresAt` to `now + SESSION_TTL_MS` on every
+successful lookup (i.e. every authenticated request), capped by a per-session
+`maxExpiresAt` = login + `SESSION_MAX_TTL_MS` (absolute lifetime, default 24h,
+env-configurable, floored to never be below the idle TTL). So active users stay
+signed in while idle sessions still lapse on the base TTL, and even a
+continuously-warm token is eventually forced to re-auth at the hard cap.
+`SERVER_PORT` (default 3001) is also env-configurable so tests can boot an
+isolated instance.
 
 **Why:** tokens previously lived forever until server restart. Logout now hits
 `POST /api/auth/logout` (client `handleLogout` in `App.jsx`) for real server-side

@@ -73,27 +73,50 @@ let sectorCounter = 1;
 const sessions = {};
 const sseClients = new Set();
 
-// How long a login stays valid before it must be re-authenticated. Configurable
-// via env (milliseconds) so tests can use a short TTL; defaults to 12 hours.
+// How long a login stays valid after its last activity before it must be
+// re-authenticated. Configurable via env (milliseconds) so tests can use a short
+// TTL; defaults to 12 hours. This is the *idle* timeout — each authenticated
+// request slides the expiry forward by this much (see getSession).
 const SESSION_TTL_MS = parseInt(process.env.SESSION_TTL_MS, 10) || 12 * 60 * 60 * 1000;
+
+// Absolute cap on a session's lifetime measured from login, regardless of how
+// active the user is. Sliding renewal can never push expiry past this, so even a
+// continuously-used token is eventually forced to re-authenticate. Defaults to
+// 24 hours; guarded to never be shorter than the idle TTL.
+const SESSION_MAX_TTL_MS = Math.max(
+  parseInt(process.env.SESSION_MAX_TTL_MS, 10) || 24 * 60 * 60 * 1000,
+  SESSION_TTL_MS,
+);
 
 // Create a server-side session for a token, stamping issue/expiry times.
 function createSession(token, data) {
   const now = Date.now();
-  sessions[token] = { ...data, issuedAt: now, expiresAt: now + SESSION_TTL_MS };
+  sessions[token] = {
+    ...data,
+    issuedAt: now,
+    expiresAt: now + SESSION_TTL_MS,
+    maxExpiresAt: now + SESSION_MAX_TTL_MS,
+  };
   return sessions[token];
 }
 
 // Look up a session by token, rejecting (and evicting) expired ones so a token
-// can never be used forever.
+// can never be used forever. On a successful lookup the session is treated as
+// activity: its idle expiry slides forward by SESSION_TTL_MS (capped at the
+// absolute maxExpiresAt), so actively-used tokens stay valid while idle ones
+// still lapse on the base TTL.
 function getSession(token) {
   if (!token) return null;
   const session = sessions[token];
   if (!session) return null;
-  if (session.expiresAt && Date.now() > session.expiresAt) {
+  const now = Date.now();
+  if (session.expiresAt && now > session.expiresAt) {
     delete sessions[token];
     return null;
   }
+  const cap = session.maxExpiresAt || (session.issuedAt + SESSION_MAX_TTL_MS);
+  const renewed = Math.min(now + SESSION_TTL_MS, cap);
+  if (renewed > session.expiresAt) session.expiresAt = renewed;
   return session;
 }
 
