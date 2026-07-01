@@ -123,6 +123,10 @@ export default function App() {
     window.scrollTo(0, 0);
   };
 
+  if (import.meta.env.DEV) {
+    window.__testNavigate = navigate;
+  }
+
   const handleDealerLogin = (d, token) => {
     setDealer(d);
     if (token) setAuthToken(token);
