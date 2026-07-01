@@ -87,12 +87,17 @@ export default function App() {
     } catch {}
   }, [customer]);
 
-  // Route guard: redirect Sales Staff away from pages they must not access
+  // Route guard: redirect staff roles away from pages they must not access
   useEffect(() => {
     if (!dealer || dealer.role !== 'operations') return;
-    if (dealer.staffRole === 'Sales Staff') {
+    const role = dealer.staffRole;
+    if (role === 'Sales Staff') {
       if (page === 'ops-dashboard' || page === 'admin-dashboard') {
         setPage('sales-agent-dashboard');
+      }
+    } else if (role === 'Operations Manager' || role === 'Operations Staff') {
+      if (page === 'admin-dashboard') {
+        setPage('ops-dashboard');
       }
     }
   }, [page, dealer]);
