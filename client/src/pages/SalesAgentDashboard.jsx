@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 
 const fmt = n => n >= 1000000 ? 'PKR ' + (n / 1000000).toFixed(1) + 'M' : n > 0 ? 'PKR ' + (n / 1000).toFixed(0) + 'K' : 'PKR 0';
+const fmtFull = n => 'PKR ' + (n || 0).toLocaleString('en-PK');
 const fmtDate = d => d ? new Date(d).toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+const fmtDateLong = d => d ? new Date(d).toLocaleDateString('en-PK', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : '—';
 
 const StatCard = ({ title, value, sub, icon, color, bg }) => (
   <div style={{
@@ -51,11 +53,158 @@ const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent
 
 const statusColor = { available: '#059669', booked: '#d97706', sold: '#dc2626', pending: '#d97706', confirmed: '#059669', rejected: '#dc2626' };
 const statusLabel = { available: 'Available', booked: 'Booked', sold: 'Sold', pending: 'Pending', confirmed: 'Confirmed', rejected: 'Rejected' };
+const statusIcon = { confirmed: '✅', pending: '⏳', rejected: '❌', booked: '📋', sold: '🏆', available: '✅' };
+
+function BookingReceipt({ booking, agentName, onClose }) {
+  const receiptRef = useRef(null);
+
+  const handlePrint = () => {
+    const content = receiptRef.current.innerHTML;
+    const win = window.open('', '_blank', 'width=800,height=900');
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Booking Receipt — ${booking.ref}</title>
+          <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #0f172a; }
+            @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+          </style>
+        </head>
+        <body>${content}</body>
+      </html>
+    `);
+    win.document.close();
+    win.focus();
+    setTimeout(() => { win.print(); }, 300);
+  };
+
+  const sc = statusColor[booking.status] || '#94a3b8';
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 9999,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+    }} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{
+        background: '#fff', borderRadius: 20, width: '100%', maxWidth: 640,
+        maxHeight: '92vh', overflow: 'auto',
+        boxShadow: '0 24px 80px rgba(0,0,0,0.35)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.25rem 1.5rem', borderBottom: '1px solid #f1f5f9' }}>
+          <div style={{ fontWeight: 800, fontSize: '1rem', color: '#0f172a' }}>Booking Receipt</div>
+          <div style={{ display: 'flex', gap: '0.625rem' }}>
+            <button
+              onClick={handlePrint}
+              style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 8, padding: '0.5rem 1rem', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.375rem' }}
+            >
+              🖨️ Print
+            </button>
+            <button
+              onClick={onClose}
+              style={{ background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: 8, padding: '0.5rem 0.875rem', fontWeight: 700, fontSize: '0.85rem', cursor: 'pointer' }}
+            >
+              ✕ Close
+            </button>
+          </div>
+        </div>
+
+        <div ref={receiptRef} style={{ padding: '2rem' }}>
+          <div style={{ textAlign: 'center', marginBottom: '1.75rem', paddingBottom: '1.5rem', borderBottom: '2px solid #f1f5f9' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🏘️</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#0f172a' }}>University Enclave Housing Society</div>
+            <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '0.25rem' }}>Official Booking Receipt</div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Booking Reference</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#059669', fontFamily: 'monospace' }}>{booking.ref}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>Status</div>
+              <span style={{
+                background: sc + '18', color: sc, border: `1.5px solid ${sc}40`,
+                borderRadius: 9999, padding: '0.25rem 0.875rem', fontSize: '0.82rem', fontWeight: 800,
+              }}>
+                {statusLabel[booking.status] || booking.status}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
+            <Section title="Plot Details">
+              <Row label="Plot No." value={booking.plot} mono />
+              <Row label="Size" value={booking.plotSize} />
+              {booking.plotArea && <Row label="Area" value={booking.plotArea} />}
+              <Row label="Plot Price" value={fmtFull(booking.amount)} bold />
+            </Section>
+            <Section title="Customer Details">
+              <Row label="Full Name" value={booking.customer} bold />
+              {booking.customerPhone && <Row label="Phone" value={booking.customerPhone} />}
+              {booking.customerEmail && <Row label="Email" value={booking.customerEmail} />}
+              {booking.customerCnic && <Row label="CNIC" value={booking.customerCnic} mono />}
+            </Section>
+          </div>
+
+          <Section title="Booking Information" style={{ marginBottom: '1.25rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 1.5rem' }}>
+              <Row label="Booking Date" value={fmtDateLong(booking.date)} />
+              <Row label="Payment Plan" value={booking.paymentPlan || 'Full Payment'} />
+              {booking.totalPaid > 0 && <Row label="Amount Paid" value={fmtFull(booking.totalPaid)} />}
+              {booking.address && <Row label="Address" value={booking.address} />}
+              {booking.notes && <Row label="Notes" value={booking.notes} />}
+            </div>
+          </Section>
+
+          <div style={{ background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 12, padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#166534' }}>Total Plot Value</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#059669' }}>{fmtFull(booking.amount)}</div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingTop: '1.25rem', borderTop: '1px dashed #e2e8f0', fontSize: '0.75rem', color: '#94a3b8' }}>
+            <div>
+              <div style={{ fontWeight: 600, color: '#64748b', marginBottom: '0.15rem' }}>Sales Agent</div>
+              <div style={{ fontWeight: 700, color: '#0f172a' }}>{agentName}</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div>Printed: {new Date().toLocaleDateString('en-PK', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+              <div style={{ marginTop: '0.15rem', fontStyle: 'italic' }}>University Enclave Housing Society</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Section({ title, children, style }) {
+  return (
+    <div style={{ marginBottom: '0.5rem', ...style }}>
+      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.625rem', paddingBottom: '0.375rem', borderBottom: '1px solid #f1f5f9' }}>{title}</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>{children}</div>
+    </div>
+  );
+}
+
+function Row({ label, value, mono, bold }) {
+  if (!value && value !== 0) return null;
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '0.5rem' }}>
+      <span style={{ fontSize: '0.75rem', color: '#94a3b8', flexShrink: 0 }}>{label}</span>
+      <span style={{ fontSize: '0.82rem', color: '#0f172a', fontWeight: bold ? 700 : 500, fontFamily: mono ? 'monospace' : undefined, textAlign: 'right' }}>{value}</span>
+    </div>
+  );
+}
 
 export default function SalesAgentDashboard({ dealer: agent, authToken, onLogout, navigate }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [receipt, setReceipt] = useState(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     if (!agent?.id) return;
@@ -83,7 +232,18 @@ export default function SalesAgentDashboard({ dealer: agent, authToken, onLogout
     <div className="empty-state"><h3>Failed to load dashboard</h3><p>Please refresh the page.</p></div>
   );
 
-  const { stats, assignedBySizeSorted, recentBookings } = data;
+  const { stats, assignedBySizeSorted, allBookings = [] } = data;
+
+  const filteredBookings = allBookings.filter(b => {
+    const matchStatus = statusFilter === 'all' || b.status === statusFilter;
+    const q = search.toLowerCase();
+    const matchSearch = !q ||
+      b.ref?.toLowerCase().includes(q) ||
+      b.customer?.toLowerCase().includes(q) ||
+      b.plot?.toLowerCase().includes(q) ||
+      b.plotSize?.toLowerCase().includes(q);
+    return matchStatus && matchSearch;
+  });
 
   const pieData = [
     { name: 'Available', value: stats.available, color: '#059669' },
@@ -241,45 +401,109 @@ export default function SalesAgentDashboard({ dealer: agent, authToken, onLogout
         )}
 
         <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
-          <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Recent Booking Activity</h3>
-          <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1.25rem' }}>Bookings placed on plots assigned to me</p>
-          {recentBookings.length === 0 ? (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+            <div>
+              <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>My Bookings</h3>
+              <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>All bookings on plots assigned to me · {allBookings.length} total</p>
+            </div>
+            <div style={{ display: 'flex', gap: '0.625rem', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                placeholder="Search ref, customer, plot…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                style={{
+                  border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '0.45rem 0.75rem',
+                  fontSize: '0.82rem', outline: 'none', minWidth: 200, color: '#0f172a',
+                  background: '#f8fafc',
+                }}
+              />
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                style={{
+                  border: '1.5px solid #e2e8f0', borderRadius: 8, padding: '0.45rem 0.75rem',
+                  fontSize: '0.82rem', outline: 'none', background: '#f8fafc', color: '#0f172a', cursor: 'pointer',
+                }}
+              >
+                <option value="all">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+
+          {filteredBookings.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '2.5rem', color: '#94a3b8' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📋</div>
-              <div style={{ fontWeight: 600 }}>No bookings yet</div>
-              <div style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>Bookings on your assigned plots will appear here</div>
+              <div style={{ fontWeight: 600 }}>{allBookings.length === 0 ? 'No bookings yet' : 'No bookings match your filters'}</div>
+              <div style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                {allBookings.length === 0 ? 'Bookings on your assigned plots will appear here' : 'Try adjusting your search or status filter'}
+              </div>
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-              {recentBookings.map((b, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', borderRadius: 10, padding: '0.75rem 1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: statusColor[b.status] + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem' }}>
-                      {b.status === 'confirmed' ? '✅' : b.status === 'pending' ? '⏳' : '❌'}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.875rem' }}>{b.customer}</div>
-                      <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
-                        {b.plot} · {b.size} · {fmtDate(b.date)}
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#0f172a' }}>{fmt(b.amount)}</div>
-                      <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontFamily: 'monospace' }}>{b.ref}</div>
-                    </div>
-                    <span style={{ background: (statusColor[b.status] || '#94a3b8') + '20', color: statusColor[b.status] || '#94a3b8', borderRadius: 9999, padding: '0.2rem 0.6rem', fontSize: '0.7rem', fontWeight: 700, border: `1px solid ${statusColor[b.status] || '#94a3b8'}40`, whiteSpace: 'nowrap' }}>
-                      {statusLabel[b.status] || b.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #f1f5f9' }}>
+                    {['Ref', 'Customer', 'Plot', 'Size', 'Amount', 'Status', 'Date', 'Actions'].map(h => (
+                      <th key={h} style={{ textAlign: 'left', padding: '0.625rem 0.875rem', fontSize: '0.72rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredBookings.map((b, i) => {
+                    const sc = statusColor[b.status] || '#94a3b8';
+                    return (
+                      <tr key={b.ref + i} style={{ borderBottom: '1px solid #f8fafc' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                      >
+                        <td style={{ padding: '0.75rem 0.875rem', fontFamily: 'monospace', fontWeight: 700, color: '#059669', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{b.ref}</td>
+                        <td style={{ padding: '0.75rem 0.875rem', fontWeight: 600, color: '#0f172a', whiteSpace: 'nowrap' }}>{b.customer}</td>
+                        <td style={{ padding: '0.75rem 0.875rem', fontFamily: 'monospace', color: '#475569', whiteSpace: 'nowrap' }}>{b.plot}</td>
+                        <td style={{ padding: '0.75rem 0.875rem', color: '#64748b', whiteSpace: 'nowrap' }}>{b.plotSize}</td>
+                        <td style={{ padding: '0.75rem 0.875rem', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap' }}>{fmt(b.amount)}</td>
+                        <td style={{ padding: '0.75rem 0.875rem', whiteSpace: 'nowrap' }}>
+                          <span style={{ background: sc + '18', color: sc, border: `1px solid ${sc}30`, borderRadius: 9999, padding: '0.2rem 0.6rem', fontSize: '0.72rem', fontWeight: 700 }}>
+                            {statusIcon[b.status]} {statusLabel[b.status] || b.status}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.75rem 0.875rem', color: '#94a3b8', fontSize: '0.78rem', whiteSpace: 'nowrap' }}>{fmtDate(b.date)}</td>
+                        <td style={{ padding: '0.75rem 0.875rem', whiteSpace: 'nowrap' }}>
+                          <button
+                            onClick={() => setReceipt(b)}
+                            style={{
+                              background: '#f0fdf4', color: '#059669', border: '1.5px solid #bbf7d0',
+                              borderRadius: 7, padding: '0.3rem 0.75rem', fontSize: '0.78rem',
+                              fontWeight: 700, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                            }}
+                          >
+                            🧾 View & Print
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div style={{ marginTop: '0.875rem', fontSize: '0.78rem', color: '#94a3b8', textAlign: 'right' }}>
+                Showing {filteredBookings.length} of {allBookings.length} booking{allBookings.length !== 1 ? 's' : ''}
+              </div>
             </div>
           )}
         </div>
 
       </div>
+
+      {receipt && (
+        <BookingReceipt
+          booking={receipt}
+          agentName={agent?.name}
+          onClose={() => setReceipt(null)}
+        />
+      )}
     </div>
   );
 }

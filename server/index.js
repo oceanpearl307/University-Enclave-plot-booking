@@ -1600,14 +1600,28 @@ app.get('/api/agent/:id/stats', (req, res) => {
   const allAssignedIds = assignment ? Object.values(assignment.assignedPlots || {}).flat() : [];
   const assignedPlots = allAssignedIds.length > 0 ? plots.filter(p => allAssignedIds.includes(p.id)) : [];
 
-  const recentBookings = [...bookings]
+  const allBookings = [...bookings]
     .filter(b => allAssignedIds.includes(b.plotId))
     .reverse()
-    .slice(0, 10)
     .map(b => ({
-      ref: b.bookingRef, plot: b.plotNumber, customer: b.name,
-      amount: b.plotPrice, status: b.status, date: b.createdAt, size: b.plotSize,
+      ref: b.bookingRef,
+      plot: b.plotNumber,
+      plotSize: b.plotSize,
+      plotArea: b.plotArea,
+      customer: b.name,
+      customerPhone: b.phone,
+      customerEmail: b.email,
+      customerCnic: b.cnic,
+      amount: b.plotPrice,
+      totalPaid: b.totalPaid || 0,
+      status: b.status,
+      date: b.createdAt,
+      address: b.address || '',
+      paymentPlan: b.paymentPlan || 'Full Payment',
+      notes: b.notes || '',
     }));
+
+  const recentBookings = allBookings.slice(0, 10);
 
   const assignedBySizeSorted = Object.entries(assignment?.assignedPlots || {}).map(([size, ids]) => ({
     size,
@@ -1630,6 +1644,7 @@ app.get('/api/agent/:id/stats', (req, res) => {
     },
     assignedBySizeSorted,
     recentBookings,
+    allBookings,
   });
 });
 
