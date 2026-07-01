@@ -55,6 +55,11 @@ export default function App() {
           setDealer(null); setCustomer(null); setAuthToken(null);
           try { localStorage.removeItem('ue_dealer'); localStorage.removeItem('ue_customer'); localStorage.removeItem('ue_page'); localStorage.removeItem('ue_token'); } catch {}
           setPage('home');
+        } else {
+          // Overwrite staffRole from server so localStorage cannot be tampered to escalate privileges
+          if (d.staffRole !== undefined) {
+            setDealer(prev => prev ? { ...prev, staffRole: d.staffRole } : prev);
+          }
         }
         setSessionChecked(true);
       })
@@ -81,6 +86,16 @@ export default function App() {
       else localStorage.removeItem('ue_customer');
     } catch {}
   }, [customer]);
+
+  // Route guard: redirect Sales Staff away from pages they must not access
+  useEffect(() => {
+    if (!dealer || dealer.role !== 'operations') return;
+    if (dealer.staffRole === 'Sales Staff') {
+      if (page === 'ops-dashboard' || page === 'admin-dashboard') {
+        setPage('sales-agent-dashboard');
+      }
+    }
+  }, [page, dealer]);
 
   useEffect(() => {
     const safePage = ['home', 'plots', 'status', 'about'].includes(page) ? page :

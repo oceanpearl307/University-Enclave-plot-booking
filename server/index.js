@@ -941,7 +941,7 @@ app.post('/api/dealer/login', async (req, res) => {
 app.get('/api/auth/check', (req, res) => {
   const session = validateSession(req);
   if (!session) return res.status(401).json({ valid: false });
-  res.json({ valid: true, role: session.role, dealerId: session.dealerId });
+  res.json({ valid: true, role: session.role, dealerId: session.dealerId, staffRole: session.staffRole || null });
 });
 
 // ─── Per-Dealer Dashboard ─────────────────────────────────────────────────────
