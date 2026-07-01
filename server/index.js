@@ -5,7 +5,7 @@ const http = require('http');
 const fs = require('fs');
 
 const app = express();
-const PORT = 3001;
+const PORT = parseInt(process.env.SERVER_PORT, 10) || 3001;
 
 app.use(cors());
 app.use(express.json({ limit: '100mb' }));
@@ -69,15 +69,48 @@ let sectors = [
 ];
 let sectorCounter = 1;
 
-// ─── Session store (token → { dealerId, role }) ───────────────────────────────
+// ─── Session store (token → { dealerId, role, issuedAt, expiresAt }) ──────────
 const sessions = {};
 const sseClients = new Set();
 
-function validateSession(req) {
+// How long a login stays valid before it must be re-authenticated. Configurable
+// via env (milliseconds) so tests can use a short TTL; defaults to 12 hours.
+const SESSION_TTL_MS = parseInt(process.env.SESSION_TTL_MS, 10) || 12 * 60 * 60 * 1000;
+
+// Create a server-side session for a token, stamping issue/expiry times.
+function createSession(token, data) {
+  const now = Date.now();
+  sessions[token] = { ...data, issuedAt: now, expiresAt: now + SESSION_TTL_MS };
+  return sessions[token];
+}
+
+// Look up a session by token, rejecting (and evicting) expired ones so a token
+// can never be used forever.
+function getSession(token) {
+  if (!token) return null;
+  const session = sessions[token];
+  if (!session) return null;
+  if (session.expiresAt && Date.now() > session.expiresAt) {
+    delete sessions[token];
+    return null;
+  }
+  return session;
+}
+
+// Remove a session server-side (logout / revocation).
+function revokeSession(token) {
+  if (token && sessions[token]) { delete sessions[token]; return true; }
+  return false;
+}
+
+function tokenFromReq(req) {
   const auth = req.headers['authorization'] || '';
   if (!auth.startsWith('Bearer ')) return null;
-  const token = auth.slice(7).trim();
-  return sessions[token] || null;
+  return auth.slice(7).trim();
+}
+
+function validateSession(req) {
+  return getSession(tokenFromReq(req));
 }
 
 // Allow super admin OR an operations staff member holding ANY of the given
@@ -917,7 +950,7 @@ app.post('/api/dealer/login', async (req, res) => {
 
       recordLogin(dealer, clientIP, { blocked: false, vpnDetected: vpnInfo.isVpn, isp: vpnInfo.isp, country: vpnInfo.country });
       const token = `dealer-${dealer.id}-${Date.now()}`;
-      sessions[token] = { dealerId: dealer.id, role: dealer.role || 'dealer' };
+      createSession(token, { dealerId: dealer.id, role: dealer.role || 'dealer' });
       const { password: _, ...safe } = dealer;
       return res.json({ success: true, dealer: safe, token });
     }
@@ -925,7 +958,7 @@ app.post('/api/dealer/login', async (req, res) => {
     const ops = operationsStaff.find(o => o.username === username && o.password === password);
     if (ops) {
       const token = `ops-${ops.id}-${Date.now()}`;
-      sessions[token] = { dealerId: ops.id, role: 'operations', username: ops.username, privileges: ops.privileges || {}, staffRole: ops.staffRole };
+      createSession(token, { dealerId: ops.id, role: 'operations', username: ops.username, privileges: ops.privileges || {}, staffRole: ops.staffRole });
       const { password: _, commission: _c, assignedPlots: _ap, ...safe } = ops;
       return res.json({ success: true, dealer: safe, token });
     }
@@ -942,6 +975,12 @@ app.get('/api/auth/check', (req, res) => {
   const session = validateSession(req);
   if (!session) return res.status(401).json({ valid: false });
   res.json({ valid: true, role: session.role, dealerId: session.dealerId, staffRole: session.staffRole || null });
+});
+
+// ─── Logout (server-side session revocation) ──────────────────────────────────
+app.post('/api/auth/logout', (req, res) => {
+  revokeSession(tokenFromReq(req));
+  res.json({ success: true });
 });
 
 // ─── Per-Dealer Dashboard ─────────────────────────────────────────────────────
@@ -2020,7 +2059,7 @@ function broadcastNotification(notif) {
 
 app.get('/api/admin/notifications/stream', (req, res) => {
   const token = (req.query.token || '').trim();
-  const session = token ? (sessions[token] || null) : null;
+  const session = getSession(token);
   if (!canViewNotifications(session)) {
     res.status(403).end();
     return;
@@ -2230,7 +2269,7 @@ app.patch('/api/admin/bookings/:id/payment-plan', handlePaymentPlanPatch);
 app.patch('/api/ops/bookings/:id/payment-plan', handlePaymentPlanPatch);
 
 function handleExchangeAssetPatch(req, res) {
-  const session = sessions[req.headers['authorization']?.replace('Bearer ', '')];
+  const session = getSession(tokenFromReq(req));
   if (!session || (session.role !== 'admin' && session.role !== 'operations'))
     return res.status(401).json({ error: 'Unauthorized' });
   if (session.role === 'operations' && !session.privileges?.approveBookings)

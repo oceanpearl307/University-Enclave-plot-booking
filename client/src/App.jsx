@@ -142,6 +142,10 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    const token = authToken;
+    if (token) {
+      fetch('/api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
+    }
     setDealer(null);
     setCustomer(null);
     setAuthToken(null);

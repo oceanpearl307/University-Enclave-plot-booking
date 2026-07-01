@@ -1,2 +1,3 @@
 - [Admin API auth model](admin-api-auth.md) — most `/api/admin/*` endpoints are unauthenticated; AdminDashboard calls them with plain `fetch`, so locking them down requires converting those calls too.
 - [Staff RBAC model](staff-rbac.md) — 4 staff roles, presets defined on both server and client; keep ROLE_PRESETS in sync across the two.
+- [Session lifetime & revocation](session-lifetime.md) — sessions carry TTL (SESSION_TTL_MS), read via getSession/created via createSession; logout revokes server-side.
