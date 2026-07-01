@@ -810,7 +810,23 @@ app.get('/api/sectors', (req, res) => {
   res.json(result);
 });
 
-// ─── Admin: Sectors CRUD ──────────────────────────────────────────────────────
+// ─── Admin surface gate ───────────────────────────────────────────────────────
+// Every /api/admin/* route requires a valid staff session (super admin OR an
+// operations staff member). Public/anonymous requests get 401; dealers and any
+// other non-staff role get 403. Finer per-route privilege checks (viewSession,
+// requireAdmin, staffManageSession, inline role/privilege checks) still apply on
+// top of this baseline. The notifications SSE stream is exempt because
+// EventSource cannot send an Authorization header — it authenticates via a
+// query-string token inside its own handler.
+app.use('/api/admin', (req, res, next) => {
+  if (req.path === '/notifications/stream') return next();
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  if (session.role !== 'admin' && session.role !== 'operations')
+    return res.status(403).json({ error: 'Access denied' });
+  next();
+});
+
 app.get('/api/admin/sectors', (req, res) => {
   const result = sectors.map(s => ({
     ...s,

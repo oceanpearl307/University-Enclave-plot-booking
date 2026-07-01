@@ -353,7 +353,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
       return;
     }
     setPpEditSaving(true); setPpEditMsg('');
-    const res = await fetch(`/api/admin/bookings/${bkg.id}/payment-plan`, {
+    const res = await aFetch(`/api/admin/bookings/${bkg.id}/payment-plan`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
       body: JSON.stringify(ppEditForm),
@@ -380,7 +380,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
     e.preventDefault(); setInvSaving(true); setInvMsg('');
     try {
       const isNew = invEdit === 'new';
-      const res = await fetch(isNew ? '/api/admin/plots' : `/api/admin/plots/${invEdit.id}`, {
+      const res = await aFetch(isNew ? '/api/admin/plots' : `/api/admin/plots/${invEdit.id}`, {
         method: isNew ? 'POST' : 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...invForm, price: parseInt(invForm.price) || 0 }),
@@ -391,7 +391,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
   };
   const handleDeleteInv = async (id) => {
     if (!confirm('Delete this plot? This cannot be undone.')) return;
-    const res = await fetch(`/api/admin/plots/${id}`, { method: 'DELETE' });
+    const res = await aFetch(`/api/admin/plots/${id}`, { method: 'DELETE' });
     if (res.ok) reloadPlots();
   };
 
@@ -430,7 +430,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
     e.preventDefault(); setAnnSaving(true); setAnnMsg('');
     try {
       const isNew = annEdit === 'new';
-      const res = await fetch(isNew ? '/api/admin/announcements' : `/api/admin/announcements/${annEdit.id}`, {
+      const res = await aFetch(isNew ? '/api/admin/announcements' : `/api/admin/announcements/${annEdit.id}`, {
         method: isNew ? 'POST' : 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(annForm),
@@ -441,7 +441,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
   };
   const handleDeleteAnn = async (id) => {
     if (!confirm('Delete this announcement?')) return;
-    const res = await fetch(`/api/admin/announcements/${id}`, { method: 'DELETE' });
+    const res = await aFetch(`/api/admin/announcements/${id}`, { method: 'DELETE' });
     if (res.ok) reloadAnns();
   };
 

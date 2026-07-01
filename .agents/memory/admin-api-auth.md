@@ -1,26 +1,31 @@
 ---
 name: Admin API auth model
-description: How auth is (and isn't) enforced across the Express /api/admin/* surface
+description: How auth is enforced across the Express /api/admin/* surface
 ---
 
-Most `/api/admin/*` endpoints in `server/index.js` have **no auth check at all** —
-they accept any request (mutations included: plots, deals, packages, targets,
-booking delete, etc.). This is a pre-existing condition of the app, not specific to
-any one role.
+The `/api/admin/*` surface is gated by a single Express middleware
+(`app.use('/api/admin', ...)`) registered just before the admin route handlers.
+It requires a valid session whose role is `admin` OR `operations`:
+- no/invalid token → 401
+- dealer (or any non-staff) token → 403
+- admin / operations → passes the gate
 
-**Why it's wired this way:** `AdminDashboard.jsx` calls many of these endpoints with
-plain `fetch` (no Authorization header). It does have an `aFetch` helper that adds
-the admin bearer token, but only some calls use it (e.g. sectors GET); many
-mutations and detail GETs (sector delete, notifications, commission-payouts,
-login-history, dealer security) use bare `fetch`.
+**Why admin-OR-operations (not admin-only):** the Operations dashboard
+legitimately calls many `/api/admin/*` routes (bookings, plots CRUD, staff,
+customers, notifications). A blanket admin-only gate would break those. Finer
+per-route checks still run on top of the baseline: `viewSession(privKeys)`,
+`requireAdmin`, `staffManageSession`, and inline role/privilege checks. So a
+low-privilege ops user passing the gate still gets 403 from the inner check on
+admin-only routes that have one.
 
-**How to apply:** If you ever lock down the admin surface (e.g. central `requireAdmin`
-middleware on `/api/admin/*`), you MUST first convert every bare `fetch` in
-`AdminDashboard.jsx` to the authenticated `aFetch`, or the admin UI breaks with 401s.
-That conversion is a sizable, app-wide change — treat it as its own task, not a
-drive-by fix.
+**SSE exception:** `/api/admin/notifications/stream` is exempted in the
+middleware (`req.path === '/notifications/stream'`) because `EventSource` can't
+send an Authorization header — it authenticates via a `?token=` query param
+inside its own handler.
 
-Read endpoints that staff roles must reach use the `viewSession(req, res, privKeys)`
-helper (admin OR operations-with-any-of-privKeys). It currently gates GET
-`/api/admin/dealers` (viewDealers), `/api/admin/deals` (viewDeals),
-`/api/admin/registrations` (viewRegistrations).
+**Client contract:** both `AdminDashboard.jsx` and `OperationsDashboard.jsx`
+define an `aFetch(url, opts)` helper that injects `Authorization: Bearer <token>`.
+Every admin call MUST go through `aFetch` (or otherwise send the header), or the
+gate returns 401. All bare `fetch('/api/admin...')` calls were converted to
+`aFetch`. If you add a new admin call, use `aFetch`, never bare `fetch`.
+Note: `aFetch` has a capital F, so a `fetch(` search/replace won't touch it.

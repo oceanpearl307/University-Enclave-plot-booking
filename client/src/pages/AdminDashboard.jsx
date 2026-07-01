@@ -186,7 +186,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       return next;
     });
   };
-  const loadBookings = () => { setBkgsLoading(true); fetch('/api/admin/bookings').then(r => r.json()).then(d => { setBkgs(Array.isArray(d) ? d : []); setBkgsLoading(false); }).catch(() => setBkgsLoading(false)); };
+  const loadBookings = () => { setBkgsLoading(true); aFetch('/api/admin/bookings').then(r => r.json()).then(d => { setBkgs(Array.isArray(d) ? d : []); setBkgsLoading(false); }).catch(() => setBkgsLoading(false)); };
 
   const loadAdminLedger = (bookingId) => {
     setAdminLedgerLoading(true);
@@ -202,7 +202,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const fmtDateAdmin = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-PK', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
   const pendingBkgCount = bkgs.filter(b => b.status === 'pending').length;
   const handleDeleteBkg = async (b) => {
-    const res = await fetch(`/api/admin/bookings/${b.id}`, { method: 'DELETE' });
+    const res = await aFetch(`/api/admin/bookings/${b.id}`, { method: 'DELETE' });
     if (res.ok) { setBkgMsg('✅ Booking deleted — plot released.'); if (selectedBkg?.id === b.id) setSelectedBkg(null); setDeleteBkg(null); loadBookings(); }
     else { const data = await res.json().catch(() => ({})); setBkgMsg(`❌ Delete failed: ${data.error || res.status}`); setDeleteBkg(null); }
   };
@@ -350,7 +350,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     setCreatingBackup(true);
     setBackupsMsg('');
     try {
-      const res = await fetch('/api/admin/backups', { method: 'POST', headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ label: backupLabel.trim() }) });
+      const res = await aFetch('/api/admin/backups', { method: 'POST', headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ label: backupLabel.trim() }) });
       const d = await res.json().catch(() => ({}));
       if (res.ok) { setBackupsMsg(`✅ Backup created: ${d.filename}`); setBackupLabel(''); loadBackups(); }
       else { setBackupsMsg(`❌ ${d.error || 'Failed to create backup'}`); }
@@ -360,7 +360,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   const handleDeleteBackup = async (filename) => {
     setDeletingBackup(filename);
-    const res = await fetch(`/api/admin/backups/${encodeURIComponent(filename)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${authToken}` } });
+    const res = await aFetch(`/api/admin/backups/${encodeURIComponent(filename)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${authToken}` } });
     setDeletingBackup(null);
     if (res.ok) { setBackupsMsg('✅ Backup deleted.'); loadBackups(); }
     else { const d = await res.json().catch(() => ({})); setBackupsMsg(`❌ ${d.error || 'Delete failed'}`); }
@@ -370,7 +370,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     setRestoringBackup(filename);
     setBackupsMsg('');
     try {
-      const res = await fetch(`/api/admin/backups/${encodeURIComponent(filename)}/restore`, { method: 'POST', headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await aFetch(`/api/admin/backups/${encodeURIComponent(filename)}/restore`, { method: 'POST', headers: { Authorization: `Bearer ${authToken}` } });
       const d = await res.json().catch(() => ({}));
       if (res.ok) { setBackupsMsg(`✅ Restored successfully from "${filename}". Live data has been updated.`); }
       else { setBackupsMsg(`❌ ${d.error || 'Restore failed'}`); }
@@ -382,7 +382,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const handleSaveLabel = async (filename) => {
     setSavingLabel(filename);
     try {
-      const res = await fetch(`/api/admin/backups/${encodeURIComponent(filename)}/label`, {
+      const res = await aFetch(`/api/admin/backups/${encodeURIComponent(filename)}/label`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ label: editLabelValue }),
@@ -403,7 +403,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   const handleDownloadBackup = async (filename) => {
     try {
-      const res = await fetch(`/api/admin/backups/${encodeURIComponent(filename)}`, { headers: { Authorization: `Bearer ${authToken}` } });
+      const res = await aFetch(`/api/admin/backups/${encodeURIComponent(filename)}`, { headers: { Authorization: `Bearer ${authToken}` } });
       if (!res.ok) { const d = await res.json().catch(() => ({})); setBackupsMsg(`❌ ${d.error || 'Download failed'}`); return; }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -452,7 +452,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     loadDealers();
     loadPackages();
     fetchNotifList();
-    fetch('/api/admin/restore-alert', { headers: { Authorization: `Bearer ${authToken}` } })
+    aFetch('/api/admin/restore-alert', { headers: { Authorization: `Bearer ${authToken}` } })
       .then(r => r.json())
       .then(d => { if (d.alert) setRestoreAlert(d.alert); })
       .catch(() => {});
@@ -501,9 +501,9 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     setSelected(d); setSaveMsg('');
     setPayoutAmt(''); setPayoutNote(''); setPayoutMsg(''); setPayoutHistoryOpen(false);
     const [res, plotsData, history] = await Promise.all([
-      fetch(`/api/admin/targets/${d.id}`).then(r => r.json()).catch(() => null),
+      aFetch(`/api/admin/targets/${d.id}`).then(r => r.json()).catch(() => null),
       fetch('/api/plots').then(r => r.json()).catch(() => []),
-      fetch(`/api/admin/dealers/${d.id}/commission-payouts`).then(r => r.json()).catch(() => []),
+      aFetch(`/api/admin/dealers/${d.id}/commission-payouts`).then(r => r.json()).catch(() => []),
     ]);
     setAssignPanelPlots(plotsData);
     setPayoutHistory(history);
@@ -732,7 +732,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     setLedgerPayoutSaving(true);
     setLedgerPayoutMsg('');
     try {
-      const r = await fetch(`/api/admin/dealers/${dealerId}/commission-payout`, {
+      const r = await aFetch(`/api/admin/dealers/${dealerId}/commission-payout`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({ amount, notes: form.notes || '', adminName: admin?.name || 'Admin' }),
@@ -773,9 +773,9 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       const autoPaymentTarget = Math.round(totalPlotValue * 0.20);
       const body = { sizes, paymentTarget: autoPaymentTarget, notes: tForm.notes, assignedPlots };
       if (tForm.packageId) body.packageId = parseInt(tForm.packageId);
-      await fetch(`/api/admin/targets/${selected.id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      await fetch(`/api/admin/dealers/${selected.id}/deposit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paid: tForm.depositPaid, amount: parseInt(tForm.depositAmount) || 0 }) });
-      await fetch(`/api/admin/dealers/${selected.id}/commission`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commissionPct: tForm.commissionPct !== '' ? parseFloat(tForm.commissionPct) : null }) });
+      await aFetch(`/api/admin/targets/${selected.id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      await aFetch(`/api/admin/dealers/${selected.id}/deposit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ paid: tForm.depositPaid, amount: parseInt(tForm.depositAmount) || 0 }) });
+      await aFetch(`/api/admin/dealers/${selected.id}/commission`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ commissionPct: tForm.commissionPct !== '' ? parseFloat(tForm.commissionPct) : null }) });
       setSaveMsg('✅ Saved successfully!');
       loadDealers();
     } catch { setSaveMsg('❌ Save failed'); } finally { setSaving(false); }
@@ -786,7 +786,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     if (!amount || amount <= 0) { setPayoutMsg('❌ Enter a valid amount'); return; }
     setPayoutSaving(true); setPayoutMsg('');
     try {
-      const res = await fetch(`/api/admin/dealers/${selected.id}/commission-payout`, {
+      const res = await aFetch(`/api/admin/dealers/${selected.id}/commission-payout`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount, notes: payoutNote, adminName: admin?.name || 'Admin' }),
@@ -795,7 +795,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       if (!res.ok) throw new Error(data.error);
       setPayoutMsg('✅ Payout recorded!');
       setPayoutAmt(''); setPayoutNote('');
-      const history = await fetch(`/api/admin/dealers/${selected.id}/commission-payouts`).then(r => r.json()).catch(() => []);
+      const history = await aFetch(`/api/admin/dealers/${selected.id}/commission-payouts`).then(r => r.json()).catch(() => []);
       setPayoutHistory(history);
       setPayoutHistoryOpen(true);
       loadDealers();
@@ -803,7 +803,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   };
 
   const handleMarkReward = async (dealerId) => {
-    await fetch(`/api/admin/dealers/${dealerId}/reward`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ given: true }) });
+    await aFetch(`/api/admin/dealers/${dealerId}/reward`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ given: true }) });
     loadDealers();
   };
 
@@ -811,7 +811,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const handleApprove = async e => {
     e.preventDefault(); setApproveSaving(true); setApproveMsg('');
     try {
-      const res = await fetch(`/api/admin/registrations/${approveTarget.id}/approve`, {
+      const res = await aFetch(`/api/admin/registrations/${approveTarget.id}/approve`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(approveForm),
       });
       const data = await res.json();
@@ -845,7 +845,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       const body = { name: pkgForm.name, sizes, rewardDescription: pkgForm.rewardDescription, rewardAmount: parseInt(pkgForm.rewardAmount) || 0, commissionPct: parseFloat(pkgForm.commissionPct) || 0 };
       const url = pkgEdit === 'new' ? '/api/admin/packages' : `/api/admin/packages/${pkgEdit.id}`;
       const method = pkgEdit === 'new' ? 'POST' : 'PUT';
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const res = await aFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       if (!res.ok) throw new Error('Failed');
       setPkgMsg('✅ Saved!');
       setTimeout(() => { setPkgEdit(null); setPkgMsg(''); }, 800);
@@ -855,7 +855,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   const handleDeletePkg = async (id) => {
     if (!confirm('Delete this package?')) return;
-    await fetch(`/api/admin/packages/${id}`, { method: 'DELETE' });
+    await aFetch(`/api/admin/packages/${id}`, { method: 'DELETE' });
     loadPackages();
   };
 
@@ -880,7 +880,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     try {
       const url = plotEdit === 'new' ? '/api/admin/plots' : `/api/admin/plots/${plotEdit.id}`;
       const method = plotEdit === 'new' ? 'POST' : 'PUT';
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(plotForm) });
+      const res = await aFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(plotForm) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setPlotMsg('✅ Saved!');
@@ -891,7 +891,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   const handleDeletePlot = async (plot) => {
     if (!confirm(`Delete plot ${plot.number}? ${plot.status !== 'available' ? '⚠️ This plot is currently ' + plot.status + '.' : ''}`)) return;
-    const res = await fetch(`/api/admin/plots/${plot.id}?force=true`, { method: 'DELETE' });
+    const res = await aFetch(`/api/admin/plots/${plot.id}?force=true`, { method: 'DELETE' });
     if (!res.ok) { const d = await res.json(); alert(d.error); return; }
     loadPlots();
   };
@@ -903,8 +903,8 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     setGenPwd(null); setGenPwdCopied(false); setAccessSecMsg(''); setNewTrustedIP('');
     setLoginHistoryLoading(true);
     const [hist, sec] = await Promise.all([
-      fetch(`/api/admin/dealers/${d.id}/login-history`).then(r => r.json()).catch(() => []),
-      fetch(`/api/admin/dealers/${d.id}/security`).then(r => r.json()).catch(() => ({ vpnRestricted: false, ipLocked: false, trustedIPs: [] })),
+      aFetch(`/api/admin/dealers/${d.id}/login-history`).then(r => r.json()).catch(() => []),
+      aFetch(`/api/admin/dealers/${d.id}/security`).then(r => r.json()).catch(() => ({ vpnRestricted: false, ipLocked: false, trustedIPs: [] })),
     ]);
     setLoginHistory(hist);
     setAccessSec({ vpnRestricted: sec.vpnRestricted || false, ipLocked: sec.ipLocked || false, trustedIPs: sec.trustedIPs || [] });
@@ -915,7 +915,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     setGenPwdSaving(true); setGenPwd(null); setGenPwdCopied(false); setCustomPwdMsg('');
     try {
       const body = custom ? { password: custom } : {};
-      const res = await fetch(`/api/admin/dealers/${accessDealer.id}/generate-password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const res = await aFetch(`/api/admin/dealers/${accessDealer.id}/generate-password`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed');
       setGenPwd(data.password);
@@ -926,7 +926,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const handleSaveAccessSec = async () => {
     setAccessSecSaving(true); setAccessSecMsg('');
     try {
-      const res = await fetch(`/api/admin/dealers/${accessDealer.id}/security`, {
+      const res = await aFetch(`/api/admin/dealers/${accessDealer.id}/security`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(accessSec),
       });
       if (!res.ok) throw new Error();
@@ -962,7 +962,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     try {
       const isNew = sectorEdit === 'new';
       const url = isNew ? '/api/admin/sectors' : `/api/admin/sectors/${sectorEdit.id}`;
-      const res = await fetch(url, { method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sectorForm) });
+      const res = await aFetch(url, { method: isNew ? 'POST' : 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(sectorForm) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setSectorMsg('✅ Saved!');
@@ -974,10 +974,10 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const handleDeleteSector = async (s) => {
     if (s.totalPlots > 0) {
       if (!confirm(`"${s.name}" has ${s.totalPlots} plot(s). Deleting the sector will NOT delete the plots — they will just have no sector. Continue?`)) return;
-      await fetch(`/api/admin/sectors/${s.id}?force=true`, { method: 'DELETE' });
+      await aFetch(`/api/admin/sectors/${s.id}?force=true`, { method: 'DELETE' });
     } else {
       if (!confirm(`Delete sector "${s.name}"?`)) return;
-      await fetch(`/api/admin/sectors/${s.id}`, { method: 'DELETE' });
+      await aFetch(`/api/admin/sectors/${s.id}`, { method: 'DELETE' });
     }
     loadSectors();
   };
@@ -994,7 +994,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     if (valid.length === 0) { setBulkMsg('❌ Fill in at least one complete row (Number, Area, Price required).'); return; }
     setBulkSaving(true); setBulkMsg('');
     try {
-      const res = await fetch('/api/admin/plots/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plots: valid }) });
+      const res = await aFetch('/api/admin/plots/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plots: valid }) });
       const data = await res.json();
       const parts = [];
       if (data.added?.length) parts.push(`✅ ${data.added.length} plot${data.added.length > 1 ? 's' : ''} added`);
@@ -1095,7 +1095,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     if (importRows.length === 0) return;
     setImportSaving(true); setImportMsg('');
     try {
-      const res = await fetch('/api/admin/plots/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plots: importRows }) });
+      const res = await aFetch('/api/admin/plots/bulk', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plots: importRows }) });
       const data = await res.json();
       if (!res.ok) { setImportMsg(`❌ Server error: ${data.error || res.statusText}`); return; }
       const addedCount = data.added?.length || 0;
@@ -1130,7 +1130,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     try {
       const url = dealEdit === 'new' ? '/api/admin/deals' : `/api/admin/deals/${dealEdit.id}`;
       const method = dealEdit === 'new' ? 'POST' : 'PUT';
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dealForm) });
+      const res = await aFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(dealForm) });
       if (!res.ok) throw new Error('Failed');
       setDealMsg('✅ Saved!');
       setTimeout(() => { setDealEdit(null); setDealMsg(''); }, 800);
@@ -1140,7 +1140,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   const handleDeleteDeal = async (id) => {
     if (!confirm('Delete this deal?')) return;
-    await fetch(`/api/admin/deals/${id}`, { method: 'DELETE' });
+    await aFetch(`/api/admin/deals/${id}`, { method: 'DELETE' });
     loadDeals();
   };
 
@@ -1181,7 +1181,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
     try {
       const url = annEdit === 'new' ? '/api/admin/announcements' : `/api/admin/announcements/${annEdit.id}`;
       const method = annEdit === 'new' ? 'POST' : 'PUT';
-      const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }, body: JSON.stringify(annForm) });
+      const res = await aFetch(url, { method, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` }, body: JSON.stringify(annForm) });
       if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Failed'); }
       setAnnMsg('✅ Saved!');
       setTimeout(() => { setAnnEdit(null); setAnnMsg(''); }, 800);
@@ -1191,7 +1191,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
   const handleDeleteAnn = async (id) => {
     if (!confirm('Delete this announcement?')) return;
-    const res = await fetch(`/api/admin/announcements/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${authToken}` } });
+    const res = await aFetch(`/api/admin/announcements/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${authToken}` } });
     if (res.ok) loadAnns();
     else { const d = await res.json().catch(() => ({})); setAnnMsg(`❌ ${d.error || 'Delete failed'}`); }
   };
@@ -2680,7 +2680,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                             <td style={{ padding: '0.875rem' }}>
                               <div style={{ display: 'flex', gap: '0.375rem' }} onClick={e => e.stopPropagation()}>
                                 {b.status === 'pending' && (<>
-                                  <button onClick={async () => { setBkgMsg(''); const res = await fetch(`/api/admin/bookings/${b.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approvedBy: 'Admin' }) }); if (res.ok) { const data = await res.json(); setBkgMsg('✅ Booking approved.'); setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Failed.'); }} style={{ padding: '0.3rem 0.55rem', background: '#d1fae5', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#065f46' }}>✓</button>
+                                  <button onClick={async () => { setBkgMsg(''); const res = await aFetch(`/api/admin/bookings/${b.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approvedBy: 'Admin' }) }); if (res.ok) { const data = await res.json(); setBkgMsg('✅ Booking approved.'); setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Failed.'); }} style={{ padding: '0.3rem 0.55rem', background: '#d1fae5', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#065f46' }}>✓</button>
                                   <button onClick={() => { setRejectBkg(b); setRejectReason(''); }} style={{ padding: '0.3rem 0.55rem', background: '#fee2e2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#dc2626' }}>✕</button>
                                 </>)}
                                 {b.status === 'confirmed' && (
@@ -3154,7 +3154,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                   <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem' }}>Provide a reason for rejecting <strong>{rejectBkg.bookingRef}</strong>:</p>
                   <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Enter rejection reason..." rows={3} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: '0.85rem', resize: 'vertical', boxSizing: 'border-box' }} />
                   <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
-                    <button onClick={async () => { const res = await fetch(`/api/admin/bookings/${rejectBkg.id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: rejectReason, rejectedBy: 'Admin' }) }); if (res.ok) { setBkgMsg('✅ Booking rejected.'); setRejectBkg(null); setRejectReason(''); setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Failed.'); }} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#dc2626', borderColor: 'transparent' }}>Confirm Reject</button>
+                    <button onClick={async () => { const res = await aFetch(`/api/admin/bookings/${rejectBkg.id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: rejectReason, rejectedBy: 'Admin' }) }); if (res.ok) { setBkgMsg('✅ Booking rejected.'); setRejectBkg(null); setRejectReason(''); setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Failed.'); }} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#dc2626', borderColor: 'transparent' }}>Confirm Reject</button>
                     <button onClick={() => setRejectBkg(null)} className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }}>Cancel</button>
                   </div>
                 </div>
