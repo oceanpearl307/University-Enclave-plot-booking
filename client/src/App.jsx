@@ -87,29 +87,35 @@ export default function App() {
     } catch {}
   }, [customer]);
 
-  // Route guard: redirect staff roles away from pages they must not access
-  useEffect(() => {
-    if (!dealer || dealer.role !== 'operations') return;
-    const role = dealer.staffRole;
-    if (role === 'Sales Staff') {
-      if (page === 'ops-dashboard' || page === 'admin-dashboard') {
-        setPage('sales-agent-dashboard');
-      }
-    } else if (role === 'Operations Manager' || role === 'Operations Staff') {
-      if (page === 'admin-dashboard') {
-        setPage('ops-dashboard');
+  // Compute the permitted page synchronously during render so forbidden content
+  // never mounts even for a single frame. The useEffect below keeps localStorage
+  // in sync with whatever the resolved page turns out to be.
+  function resolveEffectivePage(rawPage, currentDealer) {
+    if (currentDealer && currentDealer.role === 'operations') {
+      const role = currentDealer.staffRole;
+      if (role === 'Sales Staff') {
+        if (rawPage === 'ops-dashboard' || rawPage === 'admin-dashboard') {
+          return 'sales-agent-dashboard';
+        }
+      } else if (role === 'Operations Manager' || role === 'Operations Staff') {
+        if (rawPage === 'admin-dashboard') {
+          return 'ops-dashboard';
+        }
       }
     }
-  }, [page, dealer]);
+    return rawPage;
+  }
+
+  const effectivePage = resolveEffectivePage(page, dealer);
 
   useEffect(() => {
-    const safePage = ['home', 'plots', 'status', 'about'].includes(page) ? page :
-      (page === 'dashboard' && dealer && dealer.role === 'dealer') ? 'dashboard' :
-      (page === 'admin-dashboard' && dealer && dealer.role === 'admin') ? 'admin-dashboard' :
-      (page === 'sales-agent-dashboard' && dealer && dealer.role === 'operations' && dealer.staffRole === 'Sales Staff') ? 'sales-agent-dashboard' :
-      (page === 'ops-dashboard' && dealer && dealer.role === 'operations') ? 'ops-dashboard' : 'home';
+    const safePage = ['home', 'plots', 'status', 'about'].includes(effectivePage) ? effectivePage :
+      (effectivePage === 'dashboard' && dealer && dealer.role === 'dealer') ? 'dashboard' :
+      (effectivePage === 'admin-dashboard' && dealer && dealer.role === 'admin') ? 'admin-dashboard' :
+      (effectivePage === 'sales-agent-dashboard' && dealer && dealer.role === 'operations' && dealer.staffRole === 'Sales Staff') ? 'sales-agent-dashboard' :
+      (effectivePage === 'ops-dashboard' && dealer && dealer.role === 'operations') ? 'ops-dashboard' : 'home';
     try { localStorage.setItem('ue_page', safePage); } catch {}
-  }, [page, dealer]);
+  }, [effectivePage, dealer]);
 
   const navigate = (p, data = null) => {
     setPage(p);
@@ -148,7 +154,7 @@ export default function App() {
     onLogout: handleLogout,
   };
 
-  const isFullscreenPage = page === 'dashboard' || page === 'admin-dashboard' || page === 'ops-dashboard' || page === 'sales-agent-dashboard';
+  const isFullscreenPage = effectivePage === 'dashboard' || effectivePage === 'admin-dashboard' || effectivePage === 'ops-dashboard' || effectivePage === 'sales-agent-dashboard';
 
   if (!sessionChecked) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a' }}>
@@ -162,26 +168,26 @@ export default function App() {
   return (
     <div>
       {!isFullscreenPage && (
-        <Navbar currentPage={page} navigate={navigate} dealer={dealer} customer={customer} onLogout={handleLogout} />
+        <Navbar currentPage={effectivePage} navigate={navigate} dealer={dealer} customer={customer} onLogout={handleLogout} />
       )}
       <main>
-        {page === 'home' && <Home navigate={navigate} {...authProps} />}
-        {page === 'plots' && (dealer || customer ? <Plots navigate={navigate} dealer={dealer} /> : <Home navigate={navigate} {...authProps} />)}
-        {page === 'booking' && (dealer || customer ? <BookingForm plot={selectedPlot} navigate={navigate} dealer={dealer} /> : <Home navigate={navigate} {...authProps} />)}
-        {page === 'status' && (dealer || customer ? <BookingStatus navigate={navigate} /> : <Home navigate={navigate} {...authProps} />)}
-        {page === 'about' && <About navigate={navigate} />}
-        {page === 'receipt-preview' && <ReceiptPreview navigate={navigate} />}
-        {page === 'announcements' && <Announcements navigate={navigate} />}
-        {page === 'dashboard' && dealer && dealer.role === 'dealer' && (
+        {effectivePage === 'home' && <Home navigate={navigate} {...authProps} />}
+        {effectivePage === 'plots' && (dealer || customer ? <Plots navigate={navigate} dealer={dealer} /> : <Home navigate={navigate} {...authProps} />)}
+        {effectivePage === 'booking' && (dealer || customer ? <BookingForm plot={selectedPlot} navigate={navigate} dealer={dealer} /> : <Home navigate={navigate} {...authProps} />)}
+        {effectivePage === 'status' && (dealer || customer ? <BookingStatus navigate={navigate} /> : <Home navigate={navigate} {...authProps} />)}
+        {effectivePage === 'about' && <About navigate={navigate} />}
+        {effectivePage === 'receipt-preview' && <ReceiptPreview navigate={navigate} />}
+        {effectivePage === 'announcements' && <Announcements navigate={navigate} />}
+        {effectivePage === 'dashboard' && dealer && dealer.role === 'dealer' && (
           <DealerDashboard dealer={dealer} authToken={authToken} onLogout={handleLogout} navigate={navigate} />
         )}
-        {page === 'admin-dashboard' && dealer && dealer.role === 'admin' && (
+        {effectivePage === 'admin-dashboard' && dealer && dealer.role === 'admin' && (
           <AdminDashboard dealer={dealer} authToken={authToken} onLogout={handleLogout} navigate={navigate} />
         )}
-        {page === 'ops-dashboard' && dealer && dealer.role === 'operations' && dealer.staffRole !== 'Sales Staff' && (
+        {effectivePage === 'ops-dashboard' && dealer && dealer.role === 'operations' && dealer.staffRole !== 'Sales Staff' && (
           <OperationsDashboard staff={dealer} authToken={authToken} onLogout={handleLogout} navigate={navigate} />
         )}
-        {page === 'sales-agent-dashboard' && dealer && dealer.role === 'operations' && dealer.staffRole === 'Sales Staff' && (
+        {effectivePage === 'sales-agent-dashboard' && dealer && dealer.role === 'operations' && dealer.staffRole === 'Sales Staff' && (
           <SalesAgentDashboard dealer={dealer} authToken={authToken} onLogout={handleLogout} navigate={navigate} />
         )}
       </main>
