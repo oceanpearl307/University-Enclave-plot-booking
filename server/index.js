@@ -862,6 +862,7 @@ app.get('/api/admin/sectors', (req, res) => {
 });
 
 app.post('/api/admin/sectors', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const { name, type, description } = req.body;
   if (!name) return res.status(400).json({ error: 'Sector name is required' });
   if (sectors.find(s => s.name.toLowerCase() === name.trim().toLowerCase()))
@@ -878,6 +879,7 @@ app.post('/api/admin/sectors', (req, res) => {
 });
 
 app.put('/api/admin/sectors/:id', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const sector = sectors.find(s => s.id === parseInt(req.params.id));
   if (!sector) return res.status(404).json({ error: 'Sector not found' });
   const { name, type, description } = req.body;
@@ -894,6 +896,7 @@ app.put('/api/admin/sectors/:id', (req, res) => {
 });
 
 app.delete('/api/admin/sectors/:id', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const idx = sectors.findIndex(s => s.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Sector not found' });
   const sectorName = sectors[idx].name;
@@ -1182,11 +1185,13 @@ app.get('/api/admin/dealers', (req, res) => {
 
 // ─── Admin: Dealer Targets ────────────────────────────────────────────────────
 app.get('/api/admin/targets/:dealerId', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const dealerId = parseInt(req.params.dealerId);
   res.json(dealerTargets[dealerId] || null);
 });
 
 app.post('/api/admin/targets/:dealerId', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const dealerId = parseInt(req.params.dealerId);
   const dealer = dealers.find(d => d.id === dealerId && d.role !== 'admin');
   if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
@@ -1226,6 +1231,7 @@ app.post('/api/admin/targets/:dealerId', (req, res) => {
 
 // ─── Admin: Dealer Security Deposit ──────────────────────────────────────────
 app.post('/api/admin/dealers/:id/deposit', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
   if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
   const { paid, amount } = req.body;
@@ -1260,6 +1266,7 @@ app.patch('/api/admin/dealers/:id/commission-payout', (req, res) => {
 
 // ─── Admin: Commission Payout History ─────────────────────────────────────────
 app.get('/api/admin/dealers/:id/commission-payouts', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
   if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
   res.json([...(dealer.commissionPayouts || [])].reverse());
@@ -1359,6 +1366,7 @@ app.patch('/api/admin/dealers/:id/commission', (req, res) => {
 });
 
 app.post('/api/admin/dealers/:id/reward', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
   if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
   dealer.rewardGiven = !!req.body.given;
@@ -1367,6 +1375,7 @@ app.post('/api/admin/dealers/:id/reward', (req, res) => {
 
 // ─── Admin: Generate / Set Password ──────────────────────────────────────────
 app.post('/api/admin/dealers/:id/generate-password', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
   if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
   const custom = req.body?.password;
@@ -1382,6 +1391,7 @@ app.post('/api/admin/dealers/:id/generate-password', (req, res) => {
 
 // ─── Admin: Security Settings ─────────────────────────────────────────────────
 app.get('/api/admin/dealers/:id/security', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
   if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
   res.json({
@@ -1394,6 +1404,7 @@ app.get('/api/admin/dealers/:id/security', (req, res) => {
 });
 
 app.put('/api/admin/dealers/:id/security', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
   if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
   if (typeof req.body.vpnRestricted === 'boolean') dealer.vpnRestricted = req.body.vpnRestricted;
@@ -1404,6 +1415,7 @@ app.put('/api/admin/dealers/:id/security', (req, res) => {
 
 // ─── Admin: Login History ─────────────────────────────────────────────────────
 app.get('/api/admin/dealers/:id/login-history', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const dealer = dealers.find(d => d.id === parseInt(req.params.id) && d.role !== 'admin');
   if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
   res.json(dealer.loginHistory || []);
@@ -1452,6 +1464,7 @@ app.get('/api/admin/packages', (req, res) => {
 });
 
 app.post('/api/admin/packages', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const { name, sizes, rewardDescription, rewardAmount, commissionPct } = req.body;
   if (!name || !sizes) return res.status(400).json({ error: 'name and sizes required' });
   const totalPlots = sizes.reduce((sum, s) => sum + (parseInt(s.quota) || 0), 0);
@@ -1471,6 +1484,7 @@ app.post('/api/admin/packages', (req, res) => {
 });
 
 app.put('/api/admin/packages/:id', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const pkg = packages.find(p => p.id === parseInt(req.params.id));
   if (!pkg) return res.status(404).json({ error: 'Package not found' });
   const { name, sizes, rewardDescription, rewardAmount, commissionPct } = req.body;
@@ -1489,6 +1503,7 @@ app.put('/api/admin/packages/:id', (req, res) => {
 });
 
 app.delete('/api/admin/packages/:id', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const idx = packages.findIndex(p => p.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Package not found' });
   packages.splice(idx, 1);
@@ -1497,6 +1512,7 @@ app.delete('/api/admin/packages/:id', (req, res) => {
 
 // ─── Admin: Bulk Import Plots ─────────────────────────────────────────────────
 app.post('/api/admin/plots/bulk', (req, res) => {
+  if (!viewSession(req, res, ['manageInventory'])) return;
   const { plots: incoming } = req.body;
   if (!Array.isArray(incoming) || incoming.length === 0)
     return res.status(400).json({ error: 'plots array required' });
@@ -1532,6 +1548,7 @@ app.post('/api/admin/plots/bulk', (req, res) => {
 
 // ─── Admin: Plot Inventory CRUD ───────────────────────────────────────────────
 app.post('/api/admin/plots', (req, res) => {
+  if (!viewSession(req, res, ['manageInventory'])) return;
   const { number, size, price, status, category, description, area, tags } = req.body;
   if (!number || !size || !price || !area) return res.status(400).json({ error: 'number, size, price, area required' });
   if (plots.find(p => p.number === number)) return res.status(409).json({ error: 'Plot number already exists' });
@@ -1546,6 +1563,7 @@ app.post('/api/admin/plots', (req, res) => {
 });
 
 app.put('/api/admin/plots/:id', (req, res) => {
+  if (!viewSession(req, res, ['manageInventory'])) return;
   const plot = plots.find(p => p.id === parseInt(req.params.id));
   if (!plot) return res.status(404).json({ error: 'Plot not found' });
   const { number, size, price, status, category, description, area, tags } = req.body;
@@ -1561,6 +1579,7 @@ app.put('/api/admin/plots/:id', (req, res) => {
 });
 
 app.delete('/api/admin/plots/:id', (req, res) => {
+  if (!viewSession(req, res, ['manageInventory'])) return;
   const idx = plots.findIndex(p => p.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Plot not found' });
   if (plots[idx].status !== 'available' && !req.query.force) {
@@ -1581,6 +1600,7 @@ app.get('/api/admin/deals', (req, res) => {
 });
 
 app.post('/api/admin/deals', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const { name, description, plotIds, specialPrice, paymentPlanInfo, validFrom, validUntil, highlighted } = req.body;
   if (!name || !validFrom || !validUntil) return res.status(400).json({ error: 'name, validFrom, validUntil required' });
   const deal = {
@@ -1594,6 +1614,7 @@ app.post('/api/admin/deals', (req, res) => {
 });
 
 app.put('/api/admin/deals/:id', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const deal = deals.find(d => d.id === parseInt(req.params.id));
   if (!deal) return res.status(404).json({ error: 'Deal not found' });
   Object.assign(deal, req.body);
@@ -1601,6 +1622,7 @@ app.put('/api/admin/deals/:id', (req, res) => {
 });
 
 app.delete('/api/admin/deals/:id', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const idx = deals.findIndex(d => d.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Deal not found' });
   deals.splice(idx, 1);

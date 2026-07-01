@@ -18,6 +18,12 @@ per-route checks still run on top of the baseline: `viewSession(privKeys)`,
 low-privilege ops user passing the gate still gets 403 from the inner check on
 admin-only routes that have one.
 
+**Inner guards on content-management routes:** plots CRUD + bulk use
+`viewSession(req,res,['manageInventory'])` (admin OR ops w/ that priv). Deals,
+packages, sectors, and all dealer targets & meta routes (targets, deposit,
+reward, generate-password, security, login-history, commission-payouts) are
+`requireAdmin` only. Read-only staff (e.g. Sales Staff) get 403 on all of these.
+
 **SSE exception:** `/api/admin/notifications/stream` is exempted in the
 middleware (`req.path === '/notifications/stream'`) because `EventSource` can't
 send an Authorization header — it authenticates via a `?token=` query param
