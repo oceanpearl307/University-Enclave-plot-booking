@@ -322,6 +322,17 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const [staffSaving, setStaffSaving] = useState(false);
   const [staffMsg, setStaffMsg] = useState('');
 
+  // ── Agent Plot Assignment panel ──
+  const [agentAssignPanel, setAgentAssignPanel] = useState(null);
+  const [agentAssignment, setAgentAssignment] = useState({});
+  const [agentAssignLoading, setAgentAssignLoading] = useState(false);
+  const [agentAssignSaving, setAgentAssignSaving] = useState(false);
+  const [agentAssignMsg, setAgentAssignMsg] = useState('');
+  const [agentCommission, setAgentCommission] = useState('');
+  const [agentCommSaving, setAgentCommSaving] = useState(false);
+  const [agentCommMsg, setAgentCommMsg] = useState('');
+  const [agentPlotFilter, setAgentPlotFilter] = useState('');
+
   const loadDealers = () => {
     setDealersLoading(true);
     aFetch('/api/admin/dealers').then(r => { if (r.status === 401) { onLogout(); return []; } return r.json(); }).then(d => { setDealers(Array.isArray(d) ? d : []); setDealersLoading(false); }).catch(() => setDealersLoading(false));
@@ -1194,6 +1205,81 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
       setStaffEdit('new');
       setStaffForm({ name: '', username: '', password: '', staffRole: 'Operations Staff', privileges: defaultPrivs() });
     }
+  };
+
+  const openAgentAssignPanel = async (s) => {
+    setAgentAssignPanel(s);
+    setAgentAssignMsg('');
+    setAgentPlotFilter('');
+    setAgentCommission(s.commission !== undefined && s.commission !== null ? String(s.commission) : '0');
+    setAgentAssignLoading(true);
+    setAgentAssignment({});
+    try {
+      const res = await aFetch(`/api/admin/agent-targets/${s.id}`);
+      const data = await res.json();
+      if (data && data.assignedPlots) {
+        setAgentAssignment(data.assignedPlots);
+      } else {
+        setAgentAssignment({});
+      }
+    } catch {}
+    setAgentAssignLoading(false);
+    if (plots.length === 0) loadPlots();
+  };
+
+  const toggleAgentPlot = (plotId) => {
+    const p = plots.find(x => x.id === plotId);
+    if (!p) return;
+    const size = p.size;
+    setAgentAssignment(prev => {
+      const current = prev[size] || [];
+      if (current.includes(plotId)) {
+        return { ...prev, [size]: current.filter(id => id !== plotId) };
+      } else {
+        return { ...prev, [size]: [...current, plotId] };
+      }
+    });
+  };
+
+  const handleSaveAgentAssignment = async () => {
+    if (!agentAssignPanel) return;
+    setAgentAssignSaving(true); setAgentAssignMsg('');
+    try {
+      const res = await aFetch(`/api/admin/agent-targets/${agentAssignPanel.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignedPlots: agentAssignment }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAgentAssignMsg('✅ Plot assignment saved');
+        setTimeout(() => setAgentAssignMsg(''), 3000);
+      } else {
+        setAgentAssignMsg('❌ ' + (data.error || 'Save failed'));
+      }
+    } catch { setAgentAssignMsg('❌ Save failed'); }
+    setAgentAssignSaving(false);
+  };
+
+  const handleSaveAgentCommission = async () => {
+    if (!agentAssignPanel) return;
+    setAgentCommSaving(true); setAgentCommMsg('');
+    try {
+      const res = await aFetch(`/api/admin/agent-commission/${agentAssignPanel.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ commission: parseFloat(agentCommission) || 0 }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAgentCommMsg('✅ Commission saved');
+        setStaff(prev => prev.map(s => s.id === agentAssignPanel.id ? { ...s, commission: data.commission } : s));
+        setTimeout(() => setAgentCommMsg(''), 3000);
+      } else {
+        setAgentCommMsg('❌ ' + (data.error || 'Save failed'));
+      }
+    } catch { setAgentCommMsg('❌ Save failed'); }
+    setAgentCommSaving(false);
   };
 
   const handleSaveStaff = async (e) => {
@@ -4003,7 +4089,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
 
         {/* ─── STAFF TAB ─── */}
         {tab === 'Staff' && (
-          <div className="side-panel-layout" style={{ gridTemplateColumns: staffEdit ? '1fr 420px' : '1fr' }}>
+          <div className="side-panel-layout" style={{ gridTemplateColumns: (staffEdit || agentAssignPanel) ? '1fr 460px' : '1fr' }}>
             <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                 <div>
@@ -4024,7 +4110,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     const roleInfo = STAFF_ROLES.find(r => r.value === s.staffRole) || STAFF_ROLES[0];
                     const activePrivs = PRIV_OPTIONS.filter(p => s.privileges?.[p.key]);
                     return (
-                      <div key={s.id} style={{ border: `1.5px solid ${staffEdit?.id === s.id ? '#bfdbfe' : '#f1f5f9'}`, borderRadius: 12, padding: '1rem 1.25rem', background: staffEdit?.id === s.id ? '#f0f9ff' : '#fff' }}>
+                      <div key={s.id} style={{ border: `1.5px solid ${staffEdit?.id === s.id || agentAssignPanel?.id === s.id ? '#bfdbfe' : '#f1f5f9'}`, borderRadius: 12, padding: '1rem 1.25rem', background: staffEdit?.id === s.id || agentAssignPanel?.id === s.id ? '#f0f9ff' : '#fff' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap' }}>
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.875rem' }}>
                             <div style={{ width: 40, height: 40, borderRadius: '50%', background: `linear-gradient(135deg, ${roleInfo.color}, ${roleInfo.color}cc)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: '1rem', flexShrink: 0 }}>{s.name.charAt(0)}</div>
@@ -4032,6 +4118,11 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
                                 <div style={{ fontWeight: 800, color: '#0f172a' }}>{s.name}</div>
                                 <span style={{ background: roleInfo.bg, color: roleInfo.color, borderRadius: 9999, padding: '0.1rem 0.5rem', fontSize: '0.68rem', fontWeight: 700, border: `1px solid ${roleInfo.color}33` }}>{roleInfo.icon} {s.staffRole || 'Operations Staff'}</span>
+                                {s.staffRole === 'Sales Staff' && s.commission !== undefined && (
+                                  <span style={{ background: '#fef3c7', color: '#92400e', borderRadius: 9999, padding: '0.1rem 0.5rem', fontSize: '0.68rem', fontWeight: 700, border: '1px solid #fde68a' }}>
+                                    💰 {s.commission}% commission
+                                  </span>
+                                )}
                               </div>
                               <div style={{ fontSize: '0.78rem', color: '#64748b', fontFamily: 'monospace', marginBottom: '0.625rem' }}>@{s.username}</div>
                               <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
@@ -4045,8 +4136,11 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                               </div>
                             </div>
                           </div>
-                          <div style={{ display: 'flex', gap: '0.375rem', flexShrink: 0 }}>
-                            <button onClick={() => openStaffForm(s)} style={{ padding: '0.35rem 0.625rem', background: '#f1f5f9', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#374151' }}>✏️ Edit</button>
+                          <div style={{ display: 'flex', gap: '0.375rem', flexShrink: 0, flexWrap: 'wrap' }}>
+                            {s.staffRole === 'Sales Staff' && (
+                              <button onClick={() => { setStaffEdit(null); openAgentAssignPanel(s); }} style={{ padding: '0.35rem 0.75rem', background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#15803d' }}>🏘️ Assign Plots</button>
+                            )}
+                            <button onClick={() => { setAgentAssignPanel(null); openStaffForm(s); }} style={{ padding: '0.35rem 0.625rem', background: '#f1f5f9', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#374151' }}>✏️ Edit</button>
                             <button onClick={() => handleDeleteStaff(s.id)} style={{ padding: '0.35rem 0.625rem', background: '#fef2f2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.75rem', fontWeight: 700, color: '#dc2626' }}>🗑️</button>
                           </div>
                         </div>
@@ -4117,6 +4211,108 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     {staffSaving ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> Saving...</> : '✓ Save Staff Account'}
                   </button>
                 </form>
+              </div>
+            )}
+
+            {agentAssignPanel && (
+              <div style={{ background: '#fff', borderRadius: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #e2e8f0', position: 'sticky', top: 80, overflow: 'hidden', maxHeight: '90vh', overflowY: 'auto' }}>
+                <div style={{ background: 'linear-gradient(135deg, #059669, #047857)', color: '#fff', padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>🏘️ Assign Plots — {agentAssignPanel.name}</div>
+                    <div style={{ fontSize: '0.75rem', opacity: 0.85, marginTop: '0.2rem' }}>@{agentAssignPanel.username} · Sales Agent</div>
+                  </div>
+                  <button onClick={() => { setAgentAssignPanel(null); setAgentAssignMsg(''); }} style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff', borderRadius: 8, width: 30, height: 30, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                </div>
+
+                <div style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #f1f5f9' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151', marginBottom: '0.5rem' }}>💰 Commission Rate (Admin Only)</div>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input
+                      type="number" min="0" max="100" step="0.1"
+                      value={agentCommission}
+                      onChange={e => setAgentCommission(e.target.value)}
+                      placeholder="e.g. 5"
+                      style={{ padding: '0.4rem 0.65rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.85rem', width: 100, outline: 'none', color: '#0f172a' }}
+                    />
+                    <span style={{ fontSize: '0.85rem', color: '#374151', fontWeight: 600 }}>%</span>
+                    <button onClick={handleSaveAgentCommission} disabled={agentCommSaving} style={{ padding: '0.4rem 0.875rem', background: '#0284c7', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700, color: '#fff' }}>
+                      {agentCommSaving ? '...' : 'Save'}
+                    </button>
+                  </div>
+                  {agentCommMsg && <div style={{ fontSize: '0.78rem', marginTop: '0.375rem', color: agentCommMsg.startsWith('✅') ? '#059669' : '#dc2626' }}>{agentCommMsg}</div>}
+                  <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '0.3rem' }}>This figure is never shown to the agent.</div>
+                </div>
+
+                <div style={{ padding: '1.25rem 1.5rem' }}>
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#374151', marginBottom: '0.625rem' }}>Select Plots to Assign</div>
+                  <input
+                    value={agentPlotFilter}
+                    onChange={e => setAgentPlotFilter(e.target.value)}
+                    placeholder="Filter by number, area, size…"
+                    style={{ width: '100%', padding: '0.4rem 0.65rem', border: '1.5px solid #e2e8f0', borderRadius: 8, fontSize: '0.82rem', outline: 'none', color: '#0f172a', marginBottom: '0.875rem', boxSizing: 'border-box' }}
+                  />
+
+                  {agentAssignLoading ? (
+                    <div className="loading" style={{ padding: '1.5rem 0' }}><div className="spinner"></div>Loading...</div>
+                  ) : (() => {
+                    const allAssigned = Object.values(agentAssignment).flat();
+                    const totalAssigned = allAssigned.length;
+                    const filterLower = agentPlotFilter.toLowerCase();
+                    const filteredPlots = plots.filter(p => {
+                      if (filterLower && !p.number.toLowerCase().includes(filterLower) && !p.area.toLowerCase().includes(filterLower) && !p.size.toLowerCase().includes(filterLower)) return false;
+                      return true;
+                    });
+                    const bySize = {};
+                    filteredPlots.forEach(p => { if (!bySize[p.size]) bySize[p.size] = []; bySize[p.size].push(p); });
+
+                    return (
+                      <div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between' }}>
+                          <span>{totalAssigned} plot{totalAssigned !== 1 ? 's' : ''} assigned</span>
+                          <button onClick={() => setAgentAssignment({})} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, padding: 0 }}>Clear all</button>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem', maxHeight: 400, overflowY: 'auto' }}>
+                          {Object.entries(bySize).map(([size, sizePlots]) => {
+                            const assignedForSize = agentAssignment[size] || [];
+                            return (
+                              <div key={size}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.375rem' }}>
+                                  <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#374151' }}>{size}</div>
+                                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{assignedForSize.length} assigned</div>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                  {sizePlots.map(p => {
+                                    const checked = (agentAssignment[size] || []).includes(p.id);
+                                    return (
+                                      <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.4rem 0.625rem', background: checked ? '#dcfce7' : '#f8fafc', borderRadius: 7, border: `1.5px solid ${checked ? '#86efac' : '#e2e8f0'}`, transition: 'all 0.1s' }}>
+                                        <input type="checkbox" checked={checked} onChange={() => toggleAgentPlot(p.id)} style={{ width: 14, height: 14, flexShrink: 0 }} />
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                          <div style={{ fontWeight: 700, fontSize: '0.78rem', color: checked ? '#15803d' : '#0f172a', fontFamily: 'monospace' }}>{p.number}</div>
+                                          <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{p.area} · {p.status}</div>
+                                        </div>
+                                        <span style={{ fontSize: '0.68rem', fontWeight: 700, padding: '0.1rem 0.4rem', borderRadius: 9999, background: p.status === 'available' ? '#dcfce7' : p.status === 'booked' ? '#fef3c7' : '#fee2e2', color: p.status === 'available' ? '#15803d' : p.status === 'booked' ? '#92400e' : '#dc2626' }}>
+                                          {p.status}
+                                        </span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {Object.keys(bySize).length === 0 && (
+                            <div style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8', fontSize: '0.875rem' }}>No plots match your filter</div>
+                          )}
+                        </div>
+
+                        {agentAssignMsg && <div style={{ fontSize: '0.82rem', marginTop: '0.875rem', color: agentAssignMsg.startsWith('✅') ? '#059669' : '#dc2626', fontWeight: 600 }}>{agentAssignMsg}</div>}
+                        <button onClick={handleSaveAgentAssignment} disabled={agentAssignSaving} className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: '1rem', background: '#059669', border: 'none', padding: '0.7rem' }}>
+                          {agentAssignSaving ? <><div className="spinner" style={{ width: 16, height: 16, borderWidth: 2 }}></div> Saving...</> : '✓ Save Plot Assignment'}
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
             )}
           </div>

@@ -7,10 +7,16 @@ export default function Plots({ navigate, dealer }) {
   const [filters, setFilters] = useState({ status: '', category: '', area: '' });
 
   const isDealer = dealer?.role === 'dealer';
+  const isSalesAgent = dealer?.role === 'operations' && dealer?.staffRole === 'Sales Staff';
+
+  const addScopedParam = (params) => {
+    if (isDealer) params.set('dealerId', dealer.id);
+    if (isSalesAgent) params.set('agentId', dealer.id);
+  };
 
   useEffect(() => {
     const params = new URLSearchParams();
-    if (isDealer) params.set('dealerId', dealer.id);
+    addScopedParam(params);
     fetch('/api/plots?' + params)
       .then(r => r.json())
       .then(data => {
@@ -26,7 +32,7 @@ export default function Plots({ navigate, dealer }) {
     if (filters.status) params.set('status', filters.status);
     if (filters.category) params.set('category', filters.category);
     if (filters.area) params.set('area', filters.area);
-    if (isDealer) params.set('dealerId', dealer.id);
+    addScopedParam(params);
     fetch('/api/plots?' + params)
       .then(r => r.json())
       .then(data => { setPlots(data); setLoading(false); })
@@ -55,6 +61,12 @@ export default function Plots({ navigate, dealer }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', background: '#eff6ff', border: '1.5px solid #bfdbfe', borderRadius: 10, padding: '0.625rem 1rem', marginBottom: '2rem', fontSize: '0.82rem', color: '#1d4ed8', fontWeight: 600 }}>
           <span style={{ fontSize: '1rem' }}>🔒</span>
           Showing only plots assigned to your package — contact admin to update your allocation.
+        </div>
+      )}
+      {isSalesAgent && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', background: '#f0fdf4', border: '1.5px solid #bbf7d0', borderRadius: 10, padding: '0.625rem 1rem', marginBottom: '2rem', fontSize: '0.82rem', color: '#15803d', fontWeight: 600 }}>
+          <span style={{ fontSize: '1rem' }}>🏘️</span>
+          Showing only your assigned plots — contact admin to update your assignment.
         </div>
       )}
 

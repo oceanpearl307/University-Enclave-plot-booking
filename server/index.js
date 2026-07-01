@@ -506,6 +506,7 @@ const ROLE_PRESETS = {
   'Operations Staff':   { ...blankPrivs(), approveBookings: true, editBookings: true },
 };
 let rbacSeeded = false;
+let agentAssignments = {};
 let operationsStaff = [
   { id: 1, username: 'ops1', password: 'ops123', name: 'Operations Staff', role: 'operations', staffRole: 'Operations Staff', privileges: { ...ROLE_PRESETS['Operations Staff'] }, createdAt: '2026-01-01T00:00:00.000Z' },
   { id: 2, username: 'manager1', password: 'manager123', name: 'Operations Manager', role: 'operations', staffRole: 'Operations Manager', privileges: { ...ROLE_PRESETS['Operations Manager'] }, createdAt: '2026-01-01T00:00:00.000Z' },
@@ -577,6 +578,7 @@ function applyDb(db) {
   if (db.receiptSettings)      { receiptSettings = { ...receiptSettings, ...db.receiptSettings }; }
   if (db.notifications)        { notifications = db.notifications;            }
   if (db.notifCounter !== undefined) { notifCounter = db.notifCounter;        }
+  if (db.agentAssignments)     { agentAssignments = db.agentAssignments;      }
 }
 
 function loadDb() {
@@ -646,6 +648,7 @@ function saveDb() {
         ledgerIdCounter,
         receiptSettings,
         notifications, notifCounter,
+        agentAssignments,
       };
       fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
     } catch (e) {
@@ -677,6 +680,10 @@ loadDb();
   operationsStaff.forEach(s => {
     if (!s.staffRole) s.staffRole = 'Operations Staff';
     s.privileges = { ...blankPrivs(), ...(s.privileges || {}) };
+    if (s.staffRole === 'Sales Staff') {
+      if (s.commission === undefined || s.commission === null) s.commission = 0;
+      if (!s.assignedPlots) s.assignedPlots = {};
+    }
   });
   if (!rbacSeeded) {
     const ops1 = operationsStaff.find(s => s.username === 'ops1');
@@ -688,11 +695,18 @@ loadDb();
       }
     };
     ensure({ username: 'manager1', password: 'manager123', name: 'Operations Manager', role: 'operations', staffRole: 'Operations Manager', privileges: { ...ROLE_PRESETS['Operations Manager'] }, createdAt: new Date().toISOString() });
-    ensure({ username: 'sales1', password: 'sales123', name: 'Sales Staff', role: 'operations', staffRole: 'Sales Staff', privileges: { ...ROLE_PRESETS['Sales Staff'] }, createdAt: new Date().toISOString() });
+    ensure({ username: 'sales1', password: 'sales123', name: 'Sales Staff', role: 'operations', staffRole: 'Sales Staff', privileges: { ...ROLE_PRESETS['Sales Staff'] }, commission: 5, assignedPlots: {}, createdAt: new Date().toISOString() });
     rbacSeeded = true;
     saveDb();
     console.log('[RBAC] Seeded staff roles — accounts:', operationsStaff.map(s => `${s.username}(${s.staffRole})`).join(', '));
   }
+  // Backfill commission/assignedPlots on any Sales Staff missing them
+  operationsStaff.forEach(s => {
+    if (s.staffRole === 'Sales Staff') {
+      if (s.commission === undefined || s.commission === null) s.commission = 0;
+      if (!s.assignedPlots) s.assignedPlots = {};
+    }
+  });
 })();
 
 // ─── Seed demo confirmed bookings for dealer1 (id=2) if none exist ────────────
@@ -911,8 +925,8 @@ app.post('/api/dealer/login', async (req, res) => {
     const ops = operationsStaff.find(o => o.username === username && o.password === password);
     if (ops) {
       const token = `ops-${ops.id}-${Date.now()}`;
-      sessions[token] = { dealerId: ops.id, role: 'operations', username: ops.username, privileges: ops.privileges || {} };
-      const { password: _, ...safe } = ops;
+      sessions[token] = { dealerId: ops.id, role: 'operations', username: ops.username, privileges: ops.privileges || {}, staffRole: ops.staffRole };
+      const { password: _, commission: _c, assignedPlots: _ap, ...safe } = ops;
       return res.json({ success: true, dealer: safe, token });
     }
 
@@ -1529,7 +1543,7 @@ app.post('/api/customers/register', (req, res) => {
 
 // ─── Plots (public) ───────────────────────────────────────────────────────────
 app.get('/api/plots', (req, res) => {
-  const { status, category, area, dealerId } = req.query;
+  const { status, category, area, dealerId, agentId: agentIdParam } = req.query;
   let filtered = [...plots];
   if (status) filtered = filtered.filter(p => p.status === status);
   if (category) filtered = filtered.filter(p => p.category === category);
@@ -1551,7 +1565,112 @@ app.get('/api/plots', (req, res) => {
     }
   }
 
+  // ── Agent-scoped filter (server-derived for authenticated Sales Staff sessions)
+  const session = validateSession(req);
+  const sessionAgentId = (session && session.role === 'operations' && session.staffRole === 'Sales Staff')
+    ? session.dealerId
+    : (agentIdParam ? parseInt(agentIdParam) : null);
+
+  if (sessionAgentId) {
+    const assignment = agentAssignments[sessionAgentId];
+    if (assignment && assignment.assignedPlots) {
+      const allowedIds = new Set(Object.values(assignment.assignedPlots).flat());
+      filtered = allowedIds.size > 0 ? filtered.filter(p => allowedIds.has(p.id)) : [];
+    } else {
+      filtered = [];
+    }
+  }
+
   res.json(filtered.map(withEffectivePrice));
+});
+
+// ─── Agent: Scoped Stats (no commission) ─────────────────────────────────────
+app.get('/api/agent/:id/stats', (req, res) => {
+  const session = validateSession(req);
+  if (!session) return res.status(401).json({ error: 'Authentication required' });
+  const agentId = parseInt(req.params.id);
+  const isAdmin = session.role === 'admin';
+  const isSelf = session.role === 'operations' && session.dealerId === agentId && session.staffRole === 'Sales Staff';
+  if (!isAdmin && !isSelf) return res.status(403).json({ error: 'Access denied' });
+
+  const agent = operationsStaff.find(s => s.id === agentId && s.staffRole === 'Sales Staff');
+  if (!agent) return res.status(404).json({ error: 'Sales agent not found' });
+
+  const assignment = agentAssignments[agentId];
+  const allAssignedIds = assignment ? Object.values(assignment.assignedPlots || {}).flat() : [];
+  const assignedPlots = allAssignedIds.length > 0 ? plots.filter(p => allAssignedIds.includes(p.id)) : [];
+
+  const recentBookings = [...bookings]
+    .filter(b => allAssignedIds.includes(b.plotId))
+    .reverse()
+    .slice(0, 10)
+    .map(b => ({
+      ref: b.bookingRef, plot: b.plotNumber, customer: b.name,
+      amount: b.plotPrice, status: b.status, date: b.createdAt, size: b.plotSize,
+    }));
+
+  const assignedBySizeSorted = Object.entries(assignment?.assignedPlots || {}).map(([size, ids]) => ({
+    size,
+    assignedCount: ids.length,
+    availableCount: ids.filter(id => { const p = plots.find(x => x.id === id); return p && p.status === 'available'; }).length,
+    bookedCount: ids.filter(id => { const p = plots.find(x => x.id === id); return p && p.status === 'booked'; }).length,
+    soldCount: ids.filter(id => { const p = plots.find(x => x.id === id); return p && p.status === 'sold'; }).length,
+    plots: ids.map(id => plots.find(p => p.id === id)).filter(Boolean)
+      .filter(p => p.status === 'available')
+      .map(p => ({ id: p.id, number: p.number, area: p.area, size: p.size, price: computeEffectivePrice(p.price, p.tags || []), description: p.description || '', tags: p.tags || [] })),
+  }));
+
+  res.json({
+    agent: { id: agent.id, name: agent.name, username: agent.username },
+    stats: {
+      assignedTotal: allAssignedIds.length,
+      available: assignedPlots.filter(p => p.status === 'available').length,
+      booked: assignedPlots.filter(p => p.status === 'booked').length,
+      sold: assignedPlots.filter(p => p.status === 'sold').length,
+    },
+    assignedBySizeSorted,
+    recentBookings,
+  });
+});
+
+// ─── Admin: Agent Plot Assignments ────────────────────────────────────────────
+app.get('/api/admin/agent-targets/:staffId', (req, res) => {
+  const session = validateSession(req);
+  if (!session || session.role !== 'admin') return res.status(session ? 403 : 401).json({ error: session ? 'Access denied' : 'Authentication required' });
+  const staffId = parseInt(req.params.staffId);
+  res.json(agentAssignments[staffId] || null);
+});
+
+app.post('/api/admin/agent-targets/:staffId', (req, res) => {
+  const session = validateSession(req);
+  if (!session || session.role !== 'admin') return res.status(session ? 403 : 401).json({ error: session ? 'Access denied' : 'Authentication required' });
+  const staffId = parseInt(req.params.staffId);
+  const agent = operationsStaff.find(s => s.id === staffId && s.staffRole === 'Sales Staff');
+  if (!agent) return res.status(404).json({ error: 'Sales agent not found' });
+
+  const { assignedPlots } = req.body;
+  if (!assignedPlots || typeof assignedPlots !== 'object') return res.status(400).json({ error: 'assignedPlots object required' });
+
+  const normalized = Object.fromEntries(
+    Object.entries(assignedPlots).map(([size, ids]) => [size, Array.isArray(ids) ? ids.map(Number) : []])
+  );
+  agentAssignments[staffId] = { staffId, assignedPlots: normalized, assignedAt: new Date().toISOString() };
+  agent.assignedPlots = normalized;
+  saveDb();
+  res.json({ success: true, assignment: agentAssignments[staffId] });
+});
+
+// ─── Admin: Set Agent Commission ──────────────────────────────────────────────
+app.patch('/api/admin/agent-commission/:staffId', (req, res) => {
+  const session = validateSession(req);
+  if (!session || session.role !== 'admin') return res.status(session ? 403 : 401).json({ error: session ? 'Access denied' : 'Authentication required' });
+  const staffId = parseInt(req.params.staffId);
+  const agent = operationsStaff.find(s => s.id === staffId && s.staffRole === 'Sales Staff');
+  if (!agent) return res.status(404).json({ error: 'Sales agent not found' });
+  const pct = req.body.commission;
+  agent.commission = (pct === null || pct === '' || pct === undefined) ? 0 : parseFloat(pct) || 0;
+  saveDb();
+  res.json({ success: true, commission: agent.commission });
 });
 
 app.get('/api/plots/:id', (req, res) => {
