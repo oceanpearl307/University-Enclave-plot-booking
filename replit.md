@@ -49,8 +49,8 @@ A web application for booking residential and commercial plots in University Enc
 
 ### Staff Roles & Permissions
 
-- **Super Admin** — full control over every panel and action.
-- **Operations Manager** — view-only across all data (inventory, dealers/targets, deals, registrations, customers, ledger, reports, export) plus the ability to assign Sales Staff and Operations Staff roles. Cannot approve/edit bookings or manage inventory.
+- **Super Admin** — full control over every panel and action, including a **read-only Finance dashboard** tab (same views as Accounts).
+- **Operations Manager** — view-only across all data (inventory, dealers/targets, deals, registrations, customers, ledger, reports, export) plus a **read-only Finance dashboard** (overview, dealer sales, client ledgers, installments, payment history) and the ability to assign Sales Staff and Operations Staff roles. Cannot approve/edit bookings, manage inventory, or record payments.
 - **Sales Staff** — read-only view of plot inventory, dealers/targets, and customer records.
 - **Operations Staff** — confirm (approve/reject) bookings and correct booking form data.
 - **Accounts** — full financial dashboard: overview totals + revenue chart, dealer sales & commission, client ledger drill-down, consolidated installments feed with filters, payment history, plus record-payment and regenerate-ledger actions. Assignable by Super Admin only.

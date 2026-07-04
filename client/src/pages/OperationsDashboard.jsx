@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import BookingReceipt from '../components/BookingReceipt.jsx';
+import AccountsDashboard from './AccountsDashboard.jsx';
 
 const fmt = n => n >= 1000000 ? 'PKR ' + (n / 1000000).toFixed(1) + 'M' : n > 0 ? 'PKR ' + (n / 1000).toFixed(0) + 'K' : 'PKR 0';
 const statusColor = { pending: '#d97706', confirmed: '#059669', rejected: '#dc2626' };
@@ -15,6 +16,7 @@ const PRIV_TABS = [
   { key: 'viewCustomers',       label: 'Customers',     icon: '🙍' },
   { key: 'manageStaff',         label: 'Staff',         icon: '🛡️' },
   { key: 'viewReports',         label: 'Reports',       icon: '📊' },
+  { key: 'viewFinance',         label: 'Finance',       icon: '💵' },
   { key: 'manageAnnouncements', label: 'Announcements', icon: '📢' },
   { key: 'exportData',          label: 'Export',        icon: '📤' },
 ];
@@ -1741,6 +1743,10 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
               </div>
             </div>
           </div>
+        )}
+
+        {tab === 'viewFinance' && (
+          <AccountsDashboard dealer={staff} authToken={authToken} onLogout={onLogout} navigate={() => {}} embedded />
         )}
 
       </div>

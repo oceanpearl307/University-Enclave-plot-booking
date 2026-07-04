@@ -52,7 +52,7 @@ const SECTIONS = [
   { key: 'history',      label: 'Payment History', icon: '🧾' },
 ];
 
-export default function AccountsDashboard({ dealer: staff, authToken, onLogout, navigate }) {
+export default function AccountsDashboard({ dealer: staff, authToken, onLogout, navigate, embedded = false }) {
   const aFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { Authorization: `Bearer ${authToken}`, ...(opts.headers || {}) } });
   const canManage = !!(staff?.privileges?.manageLedger);
 
@@ -96,7 +96,7 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
       aFetch('/api/finance/installments').then(r => r.json()).catch(() => []),
       aFetch('/api/finance/history').then(r => r.json()).catch(() => []),
     ]).then(([ov, dl, lg, inst, hist]) => {
-      if (ov && ov.error === 'Authentication required') { onLogout(); return; }
+      if (ov && ov.error === 'Authentication required') { onLogout?.(); return; }
       setOverview(ov);
       setDealerRows(Array.isArray(dl) ? dl : []);
       setLedgers(Array.isArray(lg) ? lg : []);
@@ -207,8 +207,8 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
   };
 
   return (
-    <div style={{ background: '#f8fafc', minHeight: '100vh', padding: '1.5rem 1.5rem 3rem' }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+    <div style={{ background: embedded ? 'transparent' : '#f8fafc', minHeight: embedded ? 'auto' : '100vh', padding: embedded ? 0 : '1.5rem 1.5rem 3rem' }}>
+      <div style={{ maxWidth: embedded ? 'none' : 1280, margin: '0 auto' }}>
 
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
@@ -222,7 +222,7 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
           </div>
           <div style={{ display: 'flex', gap: '0.6rem' }}>
             <button className="btn btn-outline btn-sm" onClick={loadAll}>🔄 Refresh</button>
-            <button className="btn btn-primary btn-sm" onClick={onLogout}>Logout</button>
+            {!embedded && <button className="btn btn-primary btn-sm" onClick={onLogout}>Logout</button>}
           </div>
         </div>
 

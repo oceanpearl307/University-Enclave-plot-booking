@@ -4,6 +4,7 @@ import {
 } from 'recharts';
 import * as XLSX from 'xlsx-js-style';
 import BookingReceipt from '../components/BookingReceipt.jsx';
+import AccountsDashboard from './AccountsDashboard.jsx';
 
 const fmt = n => n >= 1000000 ? 'PKR ' + (n / 1000000).toFixed(1) + 'M' : n > 0 ? 'PKR ' + (n / 1000).toFixed(0) + 'K' : 'PKR 0';
 const fmtFull = n => 'PKR ' + Number(n || 0).toLocaleString('en-US');
@@ -23,7 +24,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-const TABS = ['Dealers', 'Registrations', 'Bookings', 'Packages', 'Inventory', 'Deals', 'Staff', 'Backups', 'Announcements', 'Receipt'];
+const TABS = ['Dealers', 'Registrations', 'Bookings', 'Packages', 'Inventory', 'Deals', 'Finance', 'Staff', 'Backups', 'Announcements', 'Receipt'];
 const tabIcons = { Dealers: '👥', Registrations: '📋', Bookings: '📩', Packages: '📦', Inventory: '🏘️', Deals: '🏷️', Staff: '⚙️', Backups: '🗄️', Announcements: '📢', Receipt: '🧾' };
 const PRIV_OPTIONS = [
   { key: 'approveBookings',     label: 'Confirm Bookings',           icon: '✅', group: 'Bookings'   },
@@ -52,7 +53,7 @@ const STAFF_ROLES = [
 const ALL_PRIV_KEYS = PRIV_OPTIONS.map(p => p.key);
 const blankAllPrivs = () => Object.fromEntries(ALL_PRIV_KEYS.map(k => [k, false]));
 const ROLE_PRESETS = {
-  'Operations Manager': { ...blankAllPrivs(), viewLedger: true, viewPlots: true, viewDealers: true, viewDeals: true, viewRegistrations: true, viewCustomers: true, manageStaff: true, viewReports: true, exportData: true },
+  'Operations Manager': { ...blankAllPrivs(), viewLedger: true, viewFinance: true, viewPlots: true, viewDealers: true, viewDeals: true, viewRegistrations: true, viewCustomers: true, manageStaff: true, viewReports: true, exportData: true },
   'Sales Staff':        { ...blankAllPrivs(), viewPlots: true, viewDealers: true, viewCustomers: true },
   'Operations Staff':   { ...blankAllPrivs(), approveBookings: true, editBookings: true },
   'Accounts':           { ...blankAllPrivs(), viewFinance: true, manageLedger: true, viewLedger: true },
@@ -4602,6 +4603,10 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
               </form>
             )}
           </div>
+        )}
+
+        {tab === 'Finance' && (
+          <AccountsDashboard dealer={admin} authToken={authToken} onLogout={onLogout} navigate={navigate} embedded />
         )}
 
       </div>

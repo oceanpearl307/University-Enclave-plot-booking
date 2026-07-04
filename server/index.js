@@ -557,7 +557,7 @@ let customerCounter = 100;
 const STAFF_PRIV_KEYS = ['approveBookings', 'editBookings', 'viewLedger', 'viewPlots', 'manageInventory', 'viewDealers', 'viewDeals', 'viewRegistrations', 'viewCustomers', 'manageStaff', 'viewReports', 'exportData', 'manageAnnouncements', 'viewFinance', 'manageLedger'];
 const blankPrivs = () => Object.fromEntries(STAFF_PRIV_KEYS.map(k => [k, false]));
 const ROLE_PRESETS = {
-  'Operations Manager': { ...blankPrivs(), viewLedger: true, viewPlots: true, viewDealers: true, viewDeals: true, viewRegistrations: true, viewCustomers: true, manageStaff: true, viewReports: true, exportData: true },
+  'Operations Manager': { ...blankPrivs(), viewLedger: true, viewFinance: true, viewPlots: true, viewDealers: true, viewDeals: true, viewRegistrations: true, viewCustomers: true, manageStaff: true, viewReports: true, exportData: true },
   'Sales Staff':        { ...blankPrivs(), viewPlots: true, viewDealers: true, viewCustomers: true },
   'Operations Staff':   { ...blankPrivs(), approveBookings: true, editBookings: true },
   'Accounts':           { ...blankPrivs(), viewFinance: true, manageLedger: true, viewLedger: true },
@@ -765,6 +765,18 @@ loadDb();
       if (!s.assignedPlots) s.assignedPlots = {};
     }
   });
+  // Idempotent backfill: grant read-only finance visibility to existing Operations Managers
+  let opsMgrPatched = false;
+  operationsStaff.forEach(s => {
+    if (s.staffRole === 'Operations Manager' && !s.privileges?.viewFinance) {
+      s.privileges = { ...blankPrivs(), ...(s.privileges || {}), viewFinance: true };
+      opsMgrPatched = true;
+    }
+  });
+  if (opsMgrPatched) {
+    saveDb();
+    console.log('[RBAC] Backfilled viewFinance for Operations Manager(s)');
+  }
   // Idempotent seed for the Accounts demo account (runs even on already-seeded DBs)
   if (!operationsStaff.some(s => s.username === 'accounts1')) {
     operationsStaff.push({
