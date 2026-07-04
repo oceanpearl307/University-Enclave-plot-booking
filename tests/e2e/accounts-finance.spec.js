@@ -113,6 +113,12 @@ test.describe('Finance API access control', () => {
 
 /** Create a confirmed booking (as admin) so the test owns its own ledger data. */
 async function createConfirmedBooking(ctx, adminToken) {
+  const { id } = await createConfirmedBookingDetailed(ctx, adminToken);
+  return id;
+}
+
+/** Like createConfirmedBooking but returns the booking's id, customer name and ref. */
+async function createConfirmedBookingDetailed(ctx, adminToken) {
   const plotsRes = await ctx.get('/api/plots');
   expect(plotsRes.status()).toBe(200);
   const plots = await plotsRes.json();
@@ -120,10 +126,11 @@ async function createConfirmedBooking(ctx, adminToken) {
   expect(available, 'need at least one available plot to book').toBeTruthy();
 
   const unique = Date.now();
+  const customerName = `Test Buyer ${unique}`;
   const bookingRes = await ctx.post('/api/bookings', {
     data: {
       plotId: available.id,
-      name: `Test Buyer ${unique}`,
+      name: customerName,
       fatherName: 'Test Father',
       cnic: `35202-${unique.toString().slice(-7)}-1`,
       phone: '03001234567',
@@ -146,7 +153,7 @@ async function createConfirmedBooking(ctx, adminToken) {
   const approveRes = await ctx.post(`/api/admin/bookings/${booking.id}/approve`, { headers: authHeader(adminToken) });
   expect(approveRes.status(), 'admin should be able to approve the booking').toBe(200);
 
-  return booking.id;
+  return { id: booking.id, customerName, bookingRef: booking.bookingRef };
 }
 
 test.describe('Accounts payment + ledger regeneration', () => {
@@ -205,5 +212,82 @@ test.describe('Accounts payment + ledger regeneration', () => {
     expect(persisted, 'the paid installment should still exist after regeneration').toBeTruthy();
     expect(persisted.paidBy).toBe('Accounts');
     expect(persisted.paidAmount).toBe(pending.amount);
+  });
+});
+
+// ─── UI: AccountsDashboard renders real numbers & records a payment on screen ──
+
+/**
+ * A green finance API doesn't guarantee the React dashboard actually renders the
+ * numbers or that the on-screen record-payment form works. These tests exercise
+ * the AccountsDashboard UI end-to-end:
+ *   1. Overview tab renders real totals (currency-formatted, never blank/NaN).
+ *   2. Client Ledgers tab drills into a ledger and records a payment through the
+ *      modal form; the installment's paid state updates on screen.
+ */
+test.describe('AccountsDashboard UI renders finance numbers end-to-end', () => {
+  let ctx;
+  let booking; // { id, customerName, bookingRef }
+
+  test.beforeAll(async ({ baseURL }) => {
+    ctx = await pwRequest.newContext({ baseURL });
+    const adminToken = await apiLogin(ctx, 'admin', 'admin123');
+    // Own our ledger data so the Client Ledgers list has a known, findable row.
+    booking = await createConfirmedBookingDetailed(ctx, adminToken);
+  });
+
+  test.afterAll(async () => {
+    await ctx.dispose();
+  });
+
+  test('Overview tab renders currency totals (not blank/NaN)', async ({ page }) => {
+    await loginAsStaff(page, 'accounts1', 'accounts123');
+    await expect(page.getByText('Accounts — Financial Control Center')).toBeVisible({ timeout: 10000 });
+
+    // Overview is the default section — all four stat cards must render.
+    for (const title of ['Total Sales', 'Payments Collected', 'Pending', 'Overdue']) {
+      await expect(page.getByText(title, { exact: true })).toBeVisible();
+    }
+
+    // Totals are currency-formatted ("PKR …") and must never render as NaN/blank.
+    const overview = page.locator('body');
+    await expect(overview).toContainText('PKR');
+    await expect(overview).not.toContainText('NaN');
+    await expect(overview).not.toContainText('PKR undefined');
+  });
+
+  test('Client Ledgers tab drills in and records a payment via the UI form', async ({ page }) => {
+    await loginAsStaff(page, 'accounts1', 'accounts123');
+    await expect(page.getByText('Accounts — Financial Control Center')).toBeVisible({ timeout: 10000 });
+
+    // Switch to the Client Ledgers section via its nav button.
+    await page.getByRole('button', { name: /Client Ledgers/i }).click();
+
+    // Find our own booking by its unique ref, then open its ledger.
+    await page.getByPlaceholder(/Search by name, ref, plot/i).fill(booking.bookingRef);
+    const card = page.getByRole('button').filter({ hasText: booking.bookingRef });
+    await expect(card).toBeVisible({ timeout: 10000 });
+    await card.click();
+
+    // The ledger detail must render the client's name and at least one recordable
+    // (pending) installment — proving the drill-down fetched real data.
+    await expect(page.getByRole('heading', { name: booking.customerName })).toBeVisible({ timeout: 10000 });
+    const recordButtons = page.getByRole('button', { name: 'Record', exact: true });
+    await expect(recordButtons.first()).toBeVisible();
+    const pendingBefore = await recordButtons.count();
+    expect(pendingBefore).toBeGreaterThan(0);
+
+    // Record the first pending installment through the on-screen modal form.
+    await recordButtons.first().click();
+    await expect(page.getByRole('heading', { name: 'Record Payment' })).toBeVisible();
+    // Amount is pre-filled from the installment; submit as-is.
+    await page.getByRole('button', { name: 'Record Payment' }).click();
+
+    // Success flash confirms the write, and the paid state updates on screen:
+    // the modal closes and one fewer installment remains recordable.
+    await expect(page.getByText(/Payment recorded/i)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Record Payment' })).not.toBeVisible();
+    await expect(recordButtons).toHaveCount(pendingBefore - 1);
+    await expect(page.getByText('Paid').first()).toBeVisible();
   });
 });
