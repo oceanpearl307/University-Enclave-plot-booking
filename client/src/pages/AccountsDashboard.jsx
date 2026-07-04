@@ -85,6 +85,12 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
   const [instFilter, setInstFilter] = useState('all');
   const [instSearch, setInstSearch] = useState('');
 
+  // Aging threshold (configurable overdue-escalation window)
+  const [overdueAlertDays, setOverdueAlertDays] = useState(30);
+  const [defaultOverdueAlertDays, setDefaultOverdueAlertDays] = useState(30);
+  const [thresholdDraft, setThresholdDraft] = useState('30');
+  const [savingThreshold, setSavingThreshold] = useState(false);
+
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 4000); };
 
   const downloadCSV = (rows, filename) => {
@@ -128,15 +134,42 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
       aFetch('/api/finance/ledgers').then(r => r.json()).catch(() => []),
       aFetch('/api/finance/installments').then(r => r.json()).catch(() => []),
       aFetch('/api/finance/history').then(r => r.json()).catch(() => []),
-    ]).then(([ov, dl, lg, inst, hist]) => {
+      aFetch('/api/finance/settings').then(r => r.json()).catch(() => null),
+    ]).then(([ov, dl, lg, inst, hist, settings]) => {
       if (ov && ov.error === 'Authentication required') { onLogout?.(); return; }
       setOverview(ov);
       setDealerRows(Array.isArray(dl) ? dl : []);
       setLedgers(Array.isArray(lg) ? lg : []);
       setInstallments(Array.isArray(inst) ? inst : []);
       setHistory(Array.isArray(hist) ? hist : []);
+      if (settings && typeof settings.overdueAlertDays === 'number') {
+        setOverdueAlertDays(settings.overdueAlertDays);
+        setThresholdDraft(String(settings.overdueAlertDays));
+        if (typeof settings.defaultOverdueAlertDays === 'number') setDefaultOverdueAlertDays(settings.defaultOverdueAlertDays);
+      }
       setLoading(false);
     });
+  };
+
+  const saveThreshold = () => {
+    const n = Math.trunc(Number(thresholdDraft));
+    if (!Number.isFinite(n) || n < 1 || n > 3650) { flash('Enter a whole number of days between 1 and 3650.'); return; }
+    setSavingThreshold(true);
+    aFetch('/api/finance/settings', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ overdueAlertDays: n }),
+    }).then(r => r.json()).then(d => {
+      setSavingThreshold(false);
+      if (d && d.success) {
+        setOverdueAlertDays(d.overdueAlertDays);
+        setThresholdDraft(String(d.overdueAlertDays));
+        flash(`Aging threshold updated to ${d.overdueAlertDays} days.`);
+        loadAll();
+      } else {
+        flash(d?.error || 'Could not update the threshold.');
+      }
+    }).catch(() => { setSavingThreshold(false); flash('Could not update the threshold.'); });
   };
 
   useEffect(() => { loadAll(); }, []);
@@ -514,7 +547,7 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
                     <span style={{ fontSize: '1.3rem' }}>🚨</span>
                     <div style={{ flex: 1, minWidth: 220 }}>
                       <div style={{ fontWeight: 800, color: '#b91c1c', fontSize: '0.9rem' }}>
-                        {agingCount} installment{agingCount === 1 ? '' : 's'} overdue more than 30 days
+                        {agingCount} installment{agingCount === 1 ? '' : 's'} overdue more than {overdueAlertDays} days
                       </div>
                       <div style={{ fontSize: '0.8rem', color: '#7f1d1d' }}>
                         {fmtFull(agingAmount)} at risk · oldest is {maxDaysOverdue} days past due. Follow up before it becomes bad debt.
@@ -528,6 +561,37 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
                     )}
                   </div>
                 )}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap',
+                  background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12,
+                  padding: '0.7rem 1rem', marginBottom: '1rem',
+                }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#475569' }}>
+                    Aging threshold
+                  </span>
+                  {canManage ? (
+                    <>
+                      <input
+                        type="number" min={1} max={3650} value={thresholdDraft}
+                        onChange={e => setThresholdDraft(e.target.value)}
+                        style={{ width: 90, padding: '0.4rem 0.6rem', borderRadius: 8, border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                      />
+                      <span style={{ fontSize: '0.82rem', color: '#64748b' }}>days past due</span>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={saveThreshold}
+                        disabled={savingThreshold || String(overdueAlertDays) === thresholdDraft.trim()}
+                      >{savingThreshold ? 'Saving…' : 'Save'}</button>
+                      <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+                        Currently escalating after {overdueAlertDays} days · default {defaultOverdueAlertDays}
+                      </span>
+                    </>
+                  ) : (
+                    <span style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                      Installments escalate after <strong>{overdueAlertDays} days</strong> past due
+                    </span>
+                  )}
+                </div>
                 <input
                   value={instSearch}
                   onChange={e => setInstSearch(e.target.value)}

@@ -592,6 +592,19 @@ let receiptSettings = {
   footerNote: '',
 };
 
+// Number of days an unpaid installment must be past due before it is flagged as
+// an aging risk to the Accounts team. Configurable at runtime by Accounts staff;
+// a safe default (30) is used when unset, optionally seeded from OVERDUE_ALERT_DAYS.
+const DEFAULT_OVERDUE_ALERT_DAYS = 30;
+function normalizeOverdueDays(value, fallback = DEFAULT_OVERDUE_ALERT_DAYS) {
+  const n = Math.trunc(Number(value));
+  if (!Number.isFinite(n) || n < 1 || n > 3650) return fallback;
+  return n;
+}
+let financeSettings = {
+  overdueAlertDays: normalizeOverdueDays(process.env.OVERDUE_ALERT_DAYS),
+};
+
 // ─── File-based Persistence ───────────────────────────────────────────────────
 const DB_PATH = path.join(__dirname, 'data', 'db.json');
 const DB_DIR = path.dirname(DB_PATH);
@@ -634,6 +647,7 @@ function applyDb(db) {
   if (db.annCounter)           { annCounter = db.annCounter;                  }
   if (db.ledgerIdCounter)      { ledgerIdCounter = db.ledgerIdCounter;        }
   if (db.receiptSettings)      { receiptSettings = { ...receiptSettings, ...db.receiptSettings }; }
+  if (db.financeSettings)      { financeSettings = { ...financeSettings, ...db.financeSettings, overdueAlertDays: normalizeOverdueDays(db.financeSettings.overdueAlertDays, financeSettings.overdueAlertDays) }; }
   if (db.notifications)        { notifications = db.notifications;            }
   if (db.notifCounter !== undefined) { notifCounter = db.notifCounter;        }
   if (db.agentAssignments)     { agentAssignments = db.agentAssignments;      }
@@ -705,6 +719,7 @@ function saveDb() {
         announcements, annCounter,
         ledgerIdCounter,
         receiptSettings,
+        financeSettings,
         notifications, notifCounter,
         agentAssignments,
       };
@@ -1902,10 +1917,6 @@ function generateLedger(booking) {
   return items;
 }
 
-// Number of days an unpaid installment must be past due before it is flagged
-// as an aging risk to the Accounts team.
-const OVERDUE_ALERT_DAYS = 30;
-
 function daysBetween(fromDate, toDate) {
   const a = new Date(fromDate + 'T00:00:00Z');
   const b = new Date(toDate + 'T00:00:00Z');
@@ -1921,7 +1932,7 @@ function recomputeOverdue(ledger) {
       ...item,
       status,
       daysOverdue,
-      aging: status === 'overdue' && daysOverdue > OVERDUE_ALERT_DAYS,
+      aging: status === 'overdue' && daysOverdue > financeSettings.overdueAlertDays,
     };
   });
 }
@@ -2109,6 +2120,27 @@ function ensureLedger(b) {
   if (!b.ledger || b.ledger.length === 0) b.ledger = generateLedger(b);
   return b;
 }
+
+// Finance settings — currently the aging (overdue escalation) threshold.
+// Any finance viewer can read it; only manageLedger can change it.
+app.get('/api/finance/settings', (req, res) => {
+  if (!viewSession(req, res, ['viewFinance'])) return;
+  res.json({ overdueAlertDays: financeSettings.overdueAlertDays, defaultOverdueAlertDays: DEFAULT_OVERDUE_ALERT_DAYS });
+});
+
+app.put('/api/finance/settings', (req, res) => {
+  if (!viewSession(req, res, ['manageLedger'])) return;
+  if (req.body.overdueAlertDays !== undefined) {
+    const raw = req.body.overdueAlertDays;
+    const n = Math.trunc(Number(raw));
+    if (!Number.isFinite(n) || n < 1 || n > 3650) {
+      return res.status(400).json({ error: 'overdueAlertDays must be a whole number between 1 and 3650' });
+    }
+    financeSettings.overdueAlertDays = n;
+  }
+  saveDb();
+  res.json({ success: true, overdueAlertDays: financeSettings.overdueAlertDays, defaultOverdueAlertDays: DEFAULT_OVERDUE_ALERT_DAYS });
+});
 
 // Aggregate financials: total sales, collected, pending, overdue + revenue trend
 app.get('/api/finance/overview', (req, res) => {

@@ -27,3 +27,14 @@ already-persisted staff. To grant a new privilege to an existing role you must a
 
 **How to apply:** any time you add a privilege key to an existing role preset, add a backfill
 that patches existing staff of that role, or existing users will silently lack the new access.
+
+## Configurable finance settings
+The aging/overdue-escalation window is a persisted `financeSettings.overdueAlertDays`
+(env-seedable via `OVERDUE_ALERT_DAYS`, safe default 30, clamped 1–3650 by
+`normalizeOverdueDays`). `recomputeOverdue` reads it live, so changing it re-flags every
+`aging` installment immediately. Read via `GET /api/finance/settings` (viewFinance),
+write via `PUT /api/finance/settings` (manageLedger). Dashboard banner/labels must render
+the value dynamically, never a literal "30 days".
+
+**Why:** collections policy varies (45/60/90); baking the threshold into a const or a UI
+string forces a code change and drifts the banner copy out of sync with the real flag.
