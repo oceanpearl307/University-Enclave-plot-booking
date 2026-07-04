@@ -1902,12 +1902,28 @@ function generateLedger(booking) {
   return items;
 }
 
+// Number of days an unpaid installment must be past due before it is flagged
+// as an aging risk to the Accounts team.
+const OVERDUE_ALERT_DAYS = 30;
+
+function daysBetween(fromDate, toDate) {
+  const a = new Date(fromDate + 'T00:00:00Z');
+  const b = new Date(toDate + 'T00:00:00Z');
+  return Math.round((b - a) / 86400000);
+}
+
 function recomputeOverdue(ledger) {
   const today = new Date().toISOString().split('T')[0];
-  return ledger.map(item => ({
-    ...item,
-    status: item.status === 'paid' ? 'paid' : (item.dueDate < today ? 'overdue' : 'pending'),
-  }));
+  return ledger.map(item => {
+    const status = item.status === 'paid' ? 'paid' : (item.dueDate < today ? 'overdue' : 'pending');
+    const daysOverdue = status === 'overdue' ? Math.max(0, daysBetween(item.dueDate, today)) : 0;
+    return {
+      ...item,
+      status,
+      daysOverdue,
+      aging: status === 'overdue' && daysOverdue > OVERDUE_ALERT_DAYS,
+    };
+  });
 }
 
 function ledgerSummary(ledger) {

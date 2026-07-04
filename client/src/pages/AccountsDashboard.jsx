@@ -112,7 +112,7 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
   const exportInstallments = () => downloadCSV(filteredInst.map(i => ({
     Client: i.customerName || '', 'Booking Ref': i.bookingRef, Plot: i.plotNumber, Size: i.plotSize,
     Installment: i.label, Amount: i.status === 'paid' ? (i.paidAmount || i.amount) : i.amount,
-    'Due Date': i.dueDate || '', Status: statusLabel(i.status),
+    'Due Date': i.dueDate || '', Status: statusLabel(i.status), 'Days Overdue': i.daysOverdue || 0,
   })), `installments_${csvDate()}.csv`);
 
   const exportHistory = () => downloadCSV(history.map(h => ({
@@ -204,8 +204,14 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
       .filter(Boolean).some(v => String(v).toLowerCase().includes(q));
   });
 
+  const agingItems = installments.filter(i => i.aging);
+  const agingCount = agingItems.length;
+  const agingAmount = agingItems.reduce((s, i) => s + (i.amount || 0), 0);
+  const maxDaysOverdue = agingItems.reduce((m, i) => Math.max(m, i.daysOverdue || 0), 0);
+
   const filteredInst = installments.filter(i => {
-    if (instFilter !== 'all' && i.status !== instFilter) return false;
+    if (instFilter === 'aging') { if (!i.aging) return false; }
+    else if (instFilter !== 'all' && i.status !== instFilter) return false;
     const q = instSearch.trim().toLowerCase();
     if (!q) return true;
     return [i.customerName, i.bookingRef, i.plotNumber, i.label].filter(Boolean).some(v => String(v).toLowerCase().includes(q));
@@ -486,16 +492,42 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
                     <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Consolidated view across every confirmed booking</p>
                   </div>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                    {['all', 'paid', 'pending', 'overdue'].map(f => (
+                    {['all', 'paid', 'pending', 'overdue', 'aging'].map(f => (
                       <button key={f} onClick={() => setInstFilter(f)} style={{
-                        padding: '0.4rem 0.85rem', borderRadius: 8, border: '1px solid #e2e8f0', cursor: 'pointer',
+                        padding: '0.4rem 0.85rem', borderRadius: 8,
+                        border: f === 'aging' ? '1px solid #fecaca' : '1px solid #e2e8f0', cursor: 'pointer',
                         fontSize: '0.78rem', fontWeight: 700, textTransform: 'capitalize',
-                        background: instFilter === f ? '#d97706' : '#fff', color: instFilter === f ? '#fff' : '#475569',
-                      }}>{f}</button>
+                        background: instFilter === f ? (f === 'aging' ? '#b91c1c' : '#d97706') : '#fff',
+                        color: instFilter === f ? '#fff' : (f === 'aging' ? '#b91c1c' : '#475569'),
+                      }}>{f === 'aging' ? `Aging${agingCount ? ` (${agingCount})` : ''}` : f}</button>
                     ))}
                     <button className="btn btn-outline btn-sm" onClick={exportInstallments} disabled={filteredInst.length === 0}>⬇ Export CSV</button>
                   </div>
                 </div>
+
+                {agingCount > 0 && (
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap',
+                    background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 12,
+                    padding: '0.85rem 1.1rem', marginBottom: '1rem',
+                  }}>
+                    <span style={{ fontSize: '1.3rem' }}>🚨</span>
+                    <div style={{ flex: 1, minWidth: 220 }}>
+                      <div style={{ fontWeight: 800, color: '#b91c1c', fontSize: '0.9rem' }}>
+                        {agingCount} installment{agingCount === 1 ? '' : 's'} overdue more than 30 days
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#7f1d1d' }}>
+                        {fmtFull(agingAmount)} at risk · oldest is {maxDaysOverdue} days past due. Follow up before it becomes bad debt.
+                      </div>
+                    </div>
+                    {instFilter !== 'aging' && (
+                      <button onClick={() => setInstFilter('aging')} style={{
+                        padding: '0.4rem 0.9rem', borderRadius: 8, border: 'none', cursor: 'pointer',
+                        fontSize: '0.78rem', fontWeight: 700, background: '#b91c1c', color: '#fff',
+                      }}>Review now</button>
+                    )}
+                  </div>
+                )}
                 <input
                   value={instSearch}
                   onChange={e => setInstSearch(e.target.value)}
@@ -513,12 +545,13 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
                         <Th>Installment</Th>
                         <Th align="right">Amount</Th>
                         <Th>Due</Th>
+                        <Th align="right">Days Overdue</Th>
                         <Th>Status</Th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredInst.map((i, idx) => (
-                        <tr key={`${i.bookingId}-${i.id}-${idx}`}>
+                        <tr key={`${i.bookingId}-${i.id}-${idx}`} style={i.aging ? { background: '#fef2f2' } : undefined}>
                           <Td>
                             <div style={{ fontWeight: 700 }}>{i.customerName || '—'}</div>
                             <div style={{ fontSize: '0.72rem', color: '#94a3b8', fontFamily: 'monospace' }}>{i.bookingRef}</div>
@@ -527,6 +560,13 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
                           <Td>{TYPE_ICON[i.type] || '•'} {i.label}</Td>
                           <Td align="right">{fmtFull(i.status === 'paid' ? (i.paidAmount || i.amount) : i.amount)}</Td>
                           <Td>{fmtDate(i.dueDate)}</Td>
+                          <Td align="right">
+                            {i.status === 'overdue' ? (
+                              <span style={{ fontWeight: 700, color: i.aging ? '#b91c1c' : '#64748b' }}>
+                                {i.daysOverdue}{i.aging ? ' 🚩' : ''}
+                              </span>
+                            ) : '—'}
+                          </Td>
                           <Td><StatusBadge status={i.status} /></Td>
                         </tr>
                       ))}

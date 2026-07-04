@@ -456,4 +456,48 @@ test.describe('Overdue installments surface in finance feeds', () => {
     // The overview aggregates all confirmed bookings, so it must be at least our contribution.
     expect(overview.overdue, 'overview overdue total must include the back-dated booking').toBeGreaterThanOrEqual(myOverdueSum);
   });
+
+  test('overdue installments expose an accurate aging (daysOverdue) value and aging flag', async () => {
+    const bookingId = await createConfirmedBooking(ctx, adminToken);
+
+    // Back-date the booking two years so every scheduled item is firmly in the past.
+    const pastDate = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString();
+    const patchRes = await ctx.patch(`/api/admin/bookings/${bookingId}`, {
+      headers: authHeader(adminToken),
+      data: { createdAt: pastDate },
+    });
+    expect(patchRes.status()).toBe(200);
+
+    const genRes = await ctx.post(`/api/finance/ledger/${bookingId}/generate`, { headers: authHeader(accountsToken) });
+    expect(genRes.status()).toBe(200);
+
+    const today = new Date().toISOString().split('T')[0];
+    const daysBetween = (from, to) =>
+      Math.round((new Date(to + 'T00:00:00Z') - new Date(from + 'T00:00:00Z')) / 86400000);
+
+    const instRes = await ctx.get('/api/finance/installments', { headers: authHeader(accountsToken) });
+    expect(instRes.status()).toBe(200);
+    const installments = await instRes.json();
+    const mine = installments.filter(i => i.bookingId === bookingId);
+    const myOverdue = mine.filter(i => i.status === 'overdue');
+    expect(myOverdue.length, 'the back-dated booking must have overdue installments').toBeGreaterThan(0);
+
+    for (const i of mine) {
+      if (i.status === 'overdue') {
+        // daysOverdue must equal the exact whole-day gap between due date and today.
+        expect(i.daysOverdue, `daysOverdue for ${i.label} must match the due-date gap`).toBe(daysBetween(i.dueDate, today));
+        expect(i.daysOverdue, `overdue installment ${i.label} must have positive aging`).toBeGreaterThan(0);
+        // The aging flag must fire precisely when overdue beyond the 30-day threshold.
+        expect(i.aging, `aging flag for ${i.label} must reflect the 30-day threshold`).toBe(i.daysOverdue > 30);
+      } else {
+        // Non-overdue items carry no aging debt.
+        expect(i.daysOverdue || 0, `non-overdue installment ${i.label} must have 0 daysOverdue`).toBe(0);
+        expect(!!i.aging, `non-overdue installment ${i.label} must not be flagged aging`).toBe(false);
+      }
+    }
+
+    // A two-year back-dated booking is guaranteed to have items aging past 30 days.
+    const aging = mine.filter(i => i.aging);
+    expect(aging.length, 'a two-year-old booking must have installments aging beyond 30 days').toBeGreaterThan(0);
+  });
 });
