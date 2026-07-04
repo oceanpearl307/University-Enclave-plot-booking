@@ -53,7 +53,7 @@ export default function Navbar({ currentPage, navigate, dealer, customer, onLogo
           onClick={() => navigate('home')}
           style={{ background: 'none', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', flexShrink: 0 }}
         >
-          <div style={{ width: 38, height: 38, background: 'linear-gradient(135deg, #1a6b3c, #0f4a28)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, boxShadow: '0 2px 8px rgba(26,107,60,0.5)' }}>🏘️</div>
+          <img src="/logo-mark.png" alt="University Enclave" style={{ height: 44, width: 'auto', display: 'block' }} />
           <div style={{ textAlign: 'left' }}>
             <div style={{ fontWeight: 800, fontSize: '0.9rem', lineHeight: 1.2, letterSpacing: '-0.01em' }}>University Enclave</div>
             <div style={{ fontSize: '0.65rem', color: '#64748b', lineHeight: 1.2, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Plot Booking Portal</div>
