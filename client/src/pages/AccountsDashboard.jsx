@@ -87,6 +87,39 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 4000); };
 
+  const downloadCSV = (rows, filename) => {
+    if (!rows.length) { flash('Nothing to export.'); return; }
+    const keys = Object.keys(rows[0]);
+    const csv = [keys.join(','), ...rows.map(r => keys.map(k => `"${(r[k] ?? '').toString().replace(/"/g, '""')}"`).join(','))].join('\n');
+    const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })), download: filename });
+    a.click();
+  };
+  const csvDate = () => new Date().toISOString().slice(0, 10);
+  const statusLabel = s => STATUS_STYLE[s]?.label || s || '';
+
+  const exportDealers = () => downloadCSV(dealerRows.map(d => ({
+    Dealer: d.name, Username: d.username, Sales: d.salesCount, 'Sales Value': d.salesValue,
+    Collected: d.collected, 'Commission Earned': d.commissionEarned, 'Commission Paid': d.commissionPaid,
+    'Commission Outstanding': d.commissionOutstanding,
+  })), `dealer_sales_${csvDate()}.csv`);
+
+  const exportLedgers = () => downloadCSV(filteredLedgers.map(l => ({
+    Client: l.customerName || '', 'Booking Ref': l.bookingRef, Plot: l.plotNumber, Size: l.plotSize,
+    'Plot Price': l.plotPrice, Phone: l.customerPhone || '', CNIC: l.customerCnic || '', Dealer: l.dealerName || '',
+    Paid: l.totalPaid, Pending: l.totalPending, Overdue: l.totalOverdue,
+  })), `client_ledgers_${csvDate()}.csv`);
+
+  const exportInstallments = () => downloadCSV(filteredInst.map(i => ({
+    Client: i.customerName || '', 'Booking Ref': i.bookingRef, Plot: i.plotNumber, Size: i.plotSize,
+    Installment: i.label, Amount: i.status === 'paid' ? (i.paidAmount || i.amount) : i.amount,
+    'Due Date': i.dueDate || '', Status: statusLabel(i.status),
+  })), `installments_${csvDate()}.csv`);
+
+  const exportHistory = () => downloadCSV(history.map(h => ({
+    'Paid Date': h.paidDate || '', Client: h.customerName || '', 'Booking Ref': h.bookingRef,
+    Plot: h.plotNumber, Installment: h.label, Amount: h.amount, 'Recorded By': h.paidBy || '',
+  })), `payment_history_${csvDate()}.csv`);
+
   const loadAll = () => {
     setLoading(true);
     Promise.all([
@@ -281,8 +314,13 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
             {/* ── DEALER SALES ── */}
             {section === 'dealers' && (
               <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', overflowX: 'auto' }}>
-                <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Dealer Sales & Commission</h3>
-                <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1.25rem' }}>Sales achieved, payments collected and commission status per dealer</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
+                  <div>
+                    <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Dealer Sales & Commission</h3>
+                    <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1.25rem' }}>Sales achieved, payments collected and commission status per dealer</p>
+                  </div>
+                  <button className="btn btn-outline btn-sm" onClick={exportDealers} disabled={dealerRows.length === 0}>⬇ Export CSV</button>
+                </div>
                 {dealerRows.length === 0 ? (
                   <div style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem', fontSize: '0.9rem' }}>No dealers found.</div>
                 ) : (
@@ -323,8 +361,13 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
             {section === 'ledgers' && (
               <div style={{ display: 'grid', gridTemplateColumns: selectedBooking ? 'minmax(0, 1fr) minmax(0, 1.3fr)' : '1fr', gap: '1.25rem', alignItems: 'start' }}>
                 <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
-                  <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Client Ledgers</h3>
-                  <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1rem' }}>Select a client to view their full installment ledger</p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
+                    <div>
+                      <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Client Ledgers</h3>
+                      <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1rem' }}>Select a client to view their full installment ledger</p>
+                    </div>
+                    <button className="btn btn-outline btn-sm" onClick={exportLedgers} disabled={filteredLedgers.length === 0}>⬇ Export CSV</button>
+                  </div>
                   <input
                     value={ledgerSearch}
                     onChange={e => setLedgerSearch(e.target.value)}
@@ -442,7 +485,7 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
                     <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>All Installments</h3>
                     <p style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Consolidated view across every confirmed booking</p>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                     {['all', 'paid', 'pending', 'overdue'].map(f => (
                       <button key={f} onClick={() => setInstFilter(f)} style={{
                         padding: '0.4rem 0.85rem', borderRadius: 8, border: '1px solid #e2e8f0', cursor: 'pointer',
@@ -450,6 +493,7 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
                         background: instFilter === f ? '#d97706' : '#fff', color: instFilter === f ? '#fff' : '#475569',
                       }}>{f}</button>
                     ))}
+                    <button className="btn btn-outline btn-sm" onClick={exportInstallments} disabled={filteredInst.length === 0}>⬇ Export CSV</button>
                   </div>
                 </div>
                 <input
@@ -495,8 +539,13 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
             {/* ── HISTORY ── */}
             {section === 'history' && (
               <div style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9', overflowX: 'auto' }}>
-                <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Payment History</h3>
-                <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1.25rem' }}>Every recorded payment, newest first</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
+                  <div>
+                    <h3 style={{ fontWeight: 800, color: '#0f172a', marginBottom: '0.25rem' }}>Payment History</h3>
+                    <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: '1.25rem' }}>Every recorded payment, newest first</p>
+                  </div>
+                  <button className="btn btn-outline btn-sm" onClick={exportHistory} disabled={history.length === 0}>⬇ Export CSV</button>
+                </div>
                 {history.length === 0 ? (
                   <div style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem', fontSize: '0.9rem' }}>No payments recorded yet.</div>
                 ) : (
