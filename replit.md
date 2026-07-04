@@ -45,6 +45,7 @@ A web application for booking residential and commercial plots in University Enc
 | Operations Manager  | manager1  | manager123  |
 | Sales Staff         | sales1    | sales123    |
 | Operations Staff    | ops1      | ops123      |
+| Accounts            | accounts1 | accounts123 |
 
 ### Staff Roles & Permissions
 
@@ -52,6 +53,7 @@ A web application for booking residential and commercial plots in University Enc
 - **Operations Manager** — view-only across all data (inventory, dealers/targets, deals, registrations, customers, ledger, reports, export) plus the ability to assign Sales Staff and Operations Staff roles. Cannot approve/edit bookings or manage inventory.
 - **Sales Staff** — read-only view of plot inventory, dealers/targets, and customer records.
 - **Operations Staff** — confirm (approve/reject) bookings and correct booking form data.
+- **Accounts** — full financial dashboard: overview totals + revenue chart, dealer sales & commission, client ledger drill-down, consolidated installments feed with filters, payment history, plus record-payment and regenerate-ledger actions. Assignable by Super Admin only.
 
 ## Features
 
@@ -93,6 +95,15 @@ A web application for booking residential and commercial plots in University Enc
 
 ### Dealer
 - `GET /api/dealer/dashboard/:dealerId` — full dashboard data
+
+### Finance (Accounts role — `viewFinance` / `manageLedger`)
+- `GET /api/finance/overview` — totals (sales, collected, pending, overdue) + monthly revenue trend
+- `GET /api/finance/dealers` — per-dealer sales & commission summary
+- `GET /api/finance/ledgers` — confirmed bookings with ledger summaries
+- `GET /api/finance/installments` — consolidated installments feed
+- `GET /api/finance/history` — chronological payment history
+- `POST /api/finance/ledger/:bookingId/generate` — (re)generate a booking's ledger (preserves paid items)
+- `GET /api/ledger/:bookingId` and `POST /api/ledger/:bookingId/:installmentId/pay` also accept Accounts staff
 
 ### Admin
 - `GET/POST /api/admin/dealers` + `/api/admin/dealers/:id/deposit` + `/api/admin/dealers/:id/reward`

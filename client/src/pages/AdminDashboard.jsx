@@ -39,12 +39,15 @@ const PRIV_OPTIONS = [
   { key: 'viewReports',         label: 'View Sales Reports',         icon: '📊', group: 'Reports'    },
   { key: 'exportData',          label: 'Export Data to CSV',         icon: '📤', group: 'Reports'    },
   { key: 'manageAnnouncements', label: 'Manage Announcements',       icon: '📢', group: 'Content'    },
+  { key: 'viewFinance',         label: 'View Financial Dashboard',   icon: '💵', group: 'Finance'    },
+  { key: 'manageLedger',        label: 'Record Payments & Ledgers',  icon: '🧾', group: 'Finance'    },
 ];
-const PRIV_GROUPS = ['Bookings', 'Inventory', 'Dealers', 'People', 'Reports', 'Content'];
+const PRIV_GROUPS = ['Bookings', 'Inventory', 'Dealers', 'People', 'Reports', 'Content', 'Finance'];
 const STAFF_ROLES = [
   { value: 'Operations Manager', color: '#7c3aed', bg: '#f5f3ff', icon: '🏆'  },
   { value: 'Sales Staff',        color: '#059669', bg: '#d1fae5', icon: '💼'  },
   { value: 'Operations Staff',   color: '#0284c7', bg: '#e0f2fe', icon: '⚙️'  },
+  { value: 'Accounts',           color: '#d97706', bg: '#fef3c7', icon: '💰'  },
 ];
 const ALL_PRIV_KEYS = PRIV_OPTIONS.map(p => p.key);
 const blankAllPrivs = () => Object.fromEntries(ALL_PRIV_KEYS.map(k => [k, false]));
@@ -52,6 +55,7 @@ const ROLE_PRESETS = {
   'Operations Manager': { ...blankAllPrivs(), viewLedger: true, viewPlots: true, viewDealers: true, viewDeals: true, viewRegistrations: true, viewCustomers: true, manageStaff: true, viewReports: true, exportData: true },
   'Sales Staff':        { ...blankAllPrivs(), viewPlots: true, viewDealers: true, viewCustomers: true },
   'Operations Staff':   { ...blankAllPrivs(), approveBookings: true, editBookings: true },
+  'Accounts':           { ...blankAllPrivs(), viewFinance: true, manageLedger: true, viewLedger: true },
 };
 
 export default function AdminDashboard({ dealer: admin, authToken, onLogout, navigate }) {

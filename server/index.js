@@ -554,12 +554,13 @@ let customers = [];
 let customerCounter = 100;
 
 // ─── Operations Staff ─────────────────────────────────────────────────────────
-const STAFF_PRIV_KEYS = ['approveBookings', 'editBookings', 'viewLedger', 'viewPlots', 'manageInventory', 'viewDealers', 'viewDeals', 'viewRegistrations', 'viewCustomers', 'manageStaff', 'viewReports', 'exportData', 'manageAnnouncements'];
+const STAFF_PRIV_KEYS = ['approveBookings', 'editBookings', 'viewLedger', 'viewPlots', 'manageInventory', 'viewDealers', 'viewDeals', 'viewRegistrations', 'viewCustomers', 'manageStaff', 'viewReports', 'exportData', 'manageAnnouncements', 'viewFinance', 'manageLedger'];
 const blankPrivs = () => Object.fromEntries(STAFF_PRIV_KEYS.map(k => [k, false]));
 const ROLE_PRESETS = {
   'Operations Manager': { ...blankPrivs(), viewLedger: true, viewPlots: true, viewDealers: true, viewDeals: true, viewRegistrations: true, viewCustomers: true, manageStaff: true, viewReports: true, exportData: true },
   'Sales Staff':        { ...blankPrivs(), viewPlots: true, viewDealers: true, viewCustomers: true },
   'Operations Staff':   { ...blankPrivs(), approveBookings: true, editBookings: true },
+  'Accounts':           { ...blankPrivs(), viewFinance: true, manageLedger: true, viewLedger: true },
 };
 let rbacSeeded = false;
 let agentAssignments = {};
@@ -567,8 +568,9 @@ let operationsStaff = [
   { id: 1, username: 'ops1', password: 'ops123', name: 'Operations Staff', role: 'operations', staffRole: 'Operations Staff', privileges: { ...ROLE_PRESETS['Operations Staff'] }, createdAt: '2026-01-01T00:00:00.000Z' },
   { id: 2, username: 'manager1', password: 'manager123', name: 'Operations Manager', role: 'operations', staffRole: 'Operations Manager', privileges: { ...ROLE_PRESETS['Operations Manager'] }, createdAt: '2026-01-01T00:00:00.000Z' },
   { id: 3, username: 'sales1', password: 'sales123', name: 'Sales Staff', role: 'operations', staffRole: 'Sales Staff', privileges: { ...ROLE_PRESETS['Sales Staff'] }, createdAt: '2026-01-01T00:00:00.000Z' },
+  { id: 4, username: 'accounts1', password: 'accounts123', name: 'Accounts', role: 'operations', staffRole: 'Accounts', privileges: { ...ROLE_PRESETS['Accounts'] }, createdAt: '2026-01-01T00:00:00.000Z' },
 ];
-let opsCounter = 3;
+let opsCounter = 4;
 
 let announcements = [
   { id: 1, title: 'Rose Area Plots Now Available!', body: 'We are pleased to announce the launch of 246 residential plots in the Rose area. All plots are 1 Kanal in size. Limited availability — book early to secure your preferred plot.', date: '2026-04-20', tag: 'New Launch', important: true, images: [] },
@@ -763,6 +765,16 @@ loadDb();
       if (!s.assignedPlots) s.assignedPlots = {};
     }
   });
+  // Idempotent seed for the Accounts demo account (runs even on already-seeded DBs)
+  if (!operationsStaff.some(s => s.username === 'accounts1')) {
+    operationsStaff.push({
+      id: ++opsCounter, username: 'accounts1', password: 'accounts123', name: 'Accounts',
+      role: 'operations', staffRole: 'Accounts', privileges: { ...ROLE_PRESETS['Accounts'] },
+      createdAt: new Date().toISOString(),
+    });
+    saveDb();
+    console.log('[RBAC] Seeded Accounts demo account (accounts1)');
+  }
 })();
 
 // ─── Seed demo confirmed bookings for dealer1 (id=2) if none exist ────────────
@@ -2018,7 +2030,7 @@ app.get('/api/ledger/:bookingId', (req, res) => {
 
   const isAdmin = session.role === 'admin';
   const isOwner = session.role === 'dealer' && booking.dealerId === session.dealerId;
-  const isOpsLedger = session.role === 'operations' && session.privileges?.viewLedger;
+  const isOpsLedger = session.role === 'operations' && (session.privileges?.viewLedger || session.privileges?.viewFinance);
   if (!isAdmin && !isOwner && !isOpsLedger) return res.status(403).json({ error: 'Access denied' });
 
   if (!booking.ledger || booking.ledger.length === 0) {
@@ -2038,14 +2050,15 @@ app.post('/api/ledger/:bookingId/:installmentId/pay', (req, res) => {
 
   const isAdmin = session.role === 'admin';
   const isOwner = session.role === 'dealer' && booking.dealerId === session.dealerId;
-  if (!isAdmin && !isOwner) return res.status(403).json({ error: 'Access denied' });
+  const isFinance = session.role === 'operations' && session.privileges?.manageLedger;
+  if (!isAdmin && !isOwner && !isFinance) return res.status(403).json({ error: 'Access denied' });
 
   if (!booking.ledger) return res.status(400).json({ error: 'No ledger found' });
   const item = booking.ledger.find(i => i.id === parseInt(req.params.installmentId));
   if (!item) return res.status(404).json({ error: 'Installment not found' });
   if (item.status === 'paid') return res.status(409).json({ error: 'Already paid' });
 
-  const { paidAmount, paidDate, notes, paidBy } = req.body;
+  const { paidAmount, paidDate, notes } = req.body;
   const amount = Number(paidAmount);
   if (!amount || amount <= 0) return res.status(400).json({ error: 'paidAmount must be a positive number' });
   const dateStr = paidDate || new Date().toISOString().split('T')[0];
@@ -2054,10 +2067,148 @@ app.post('/api/ledger/:bookingId/:installmentId/pay', (req, res) => {
   item.status = 'paid';
   item.paidAmount = amount;
   item.paidDate = dateStr;
-  item.paidBy = paidBy || (isAdmin ? 'Admin' : 'Dealer');
+  // Derive the recorder identity from the authenticated session — never trust client input (audit integrity)
+  item.paidBy = isAdmin ? 'Admin' : isFinance ? 'Accounts' : 'Dealer';
   item.notes = notes || null;
   booking.ledger = recomputeOverdue(booking.ledger);
+  saveDb();
   res.json({ success: true, item, summary: ledgerSummary(booking.ledger) });
+});
+
+// ─── Finance API (Accounts role) ──────────────────────────────────────────────
+// Ensures a confirmed booking has a live ledger, generating one lazily if needed.
+function ensureLedger(b) {
+  if (!b.ledger || b.ledger.length === 0) b.ledger = generateLedger(b);
+  return b;
+}
+
+// Aggregate financials: total sales, collected, pending, overdue + revenue trend
+app.get('/api/finance/overview', (req, res) => {
+  if (!viewSession(req, res, ['viewFinance'])) return;
+  const confirmed = bookings.filter(b => b.status === 'confirmed');
+  let totalSales = 0, collected = 0, pending = 0, overdue = 0;
+  const monthly = {};
+  confirmed.forEach(b => {
+    totalSales += b.plotPrice || 0;
+    ensureLedger(b);
+    recomputeOverdue(b.ledger).forEach(i => {
+      if (i.status === 'paid') {
+        const amt = i.paidAmount || i.amount;
+        collected += amt;
+        const m = (i.paidDate || '').slice(0, 7);
+        if (m) monthly[m] = (monthly[m] || 0) + amt;
+      } else if (i.status === 'overdue') overdue += i.amount;
+      else pending += i.amount;
+    });
+  });
+  const revenueOverTime = Object.keys(monthly).sort().map(m => ({ month: m, collected: monthly[m] }));
+  res.json({
+    totalSales, collected, pending, overdue,
+    confirmedCount: confirmed.length,
+    pendingCount: bookings.filter(b => b.status === 'pending').length,
+    revenueOverTime,
+  });
+});
+
+// Per-dealer sales & commission summary
+app.get('/api/finance/dealers', (req, res) => {
+  if (!viewSession(req, res, ['viewFinance'])) return;
+  const list = dealers.filter(d => d.role !== 'admin').map(d => {
+    const myBookings = bookings.filter(b => b.dealerId === d.id);
+    const confirmed = myBookings.filter(b => b.status === 'confirmed');
+    let collected = 0;
+    confirmed.forEach(b => { ensureLedger(b); collected += ledgerSummary(b.ledger).totalPaid; });
+    const commissionEarned = myBookings.reduce((s, b) => s + (b.commissionAmount || 0), 0);
+    const commissionPaid = d.commissionPaidAmount || 0;
+    return {
+      id: d.id, name: d.name, username: d.username,
+      salesCount: confirmed.length,
+      salesValue: confirmed.reduce((s, b) => s + (b.plotPrice || 0), 0),
+      collected,
+      commissionEarned,
+      commissionPaid,
+      commissionOutstanding: Math.max(0, commissionEarned - commissionPaid),
+    };
+  }).sort((a, b) => b.salesValue - a.salesValue);
+  res.json(list);
+});
+
+// Client ledgers: all confirmed bookings with per-booking ledger summaries
+app.get('/api/finance/ledgers', (req, res) => {
+  if (!viewSession(req, res, ['viewFinance'])) return;
+  const list = bookings.filter(b => b.status === 'confirmed').map(b => {
+    ensureLedger(b);
+    const summary = ledgerSummary(b.ledger);
+    return {
+      bookingId: b.id, bookingRef: b.bookingRef,
+      customerName: b.name, customerPhone: b.phone, customerCnic: b.cnic,
+      plotNumber: b.plotNumber, plotSize: b.plotSize, plotPrice: b.plotPrice,
+      dealerName: b.dealerId ? (dealers.find(d => d.id === b.dealerId)?.name || 'Unknown') : 'Walk-in',
+      approvedAt: b.approvedAt, ...summary,
+    };
+  }).sort((a, b) => new Date(b.approvedAt || 0) - new Date(a.approvedAt || 0));
+  res.json(list);
+});
+
+// Consolidated installments feed across all confirmed bookings
+app.get('/api/finance/installments', (req, res) => {
+  if (!viewSession(req, res, ['viewFinance'])) return;
+  const items = [];
+  bookings.filter(b => b.status === 'confirmed').forEach(b => {
+    ensureLedger(b);
+    recomputeOverdue(b.ledger).forEach(i => {
+      items.push({
+        ...i,
+        bookingId: b.id, bookingRef: b.bookingRef,
+        customerName: b.name, plotNumber: b.plotNumber, plotSize: b.plotSize,
+      });
+    });
+  });
+  items.sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
+  res.json(items);
+});
+
+// Chronological payment history (paid installments, newest first)
+app.get('/api/finance/history', (req, res) => {
+  if (!viewSession(req, res, ['viewFinance'])) return;
+  const items = [];
+  bookings.filter(b => b.status === 'confirmed').forEach(b => {
+    ensureLedger(b);
+    b.ledger.filter(i => i.status === 'paid').forEach(i => {
+      items.push({
+        id: i.id, label: i.label, type: i.type,
+        amount: i.paidAmount || i.amount, paidDate: i.paidDate, paidBy: i.paidBy, notes: i.notes,
+        bookingId: b.id, bookingRef: b.bookingRef, customerName: b.name, plotNumber: b.plotNumber,
+      });
+    });
+  });
+  items.sort((a, b) => (b.paidDate || '').localeCompare(a.paidDate || ''));
+  res.json(items);
+});
+
+// (Re)generate an installment ledger for a confirmed booking, preserving paid items
+app.post('/api/finance/ledger/:bookingId/generate', (req, res) => {
+  if (!viewSession(req, res, ['manageLedger'])) return;
+  const booking = bookings.find(b => b.id === parseInt(req.params.bookingId) || b.bookingRef === req.params.bookingId);
+  if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  if (booking.status !== 'confirmed') return res.status(400).json({ error: 'Ledger can only be generated for confirmed bookings' });
+
+  const paidByType = {};
+  for (const item of (booking.ledger || [])) {
+    if (item.status === 'paid') { (paidByType[item.type] = paidByType[item.type] || []).push({ ...item }); }
+  }
+  const newLedger = generateLedger(booking);
+  booking.ledger = newLedger.map(item => {
+    const q = paidByType[item.type];
+    if (q && q.length) {
+      const p = q.shift();
+      return { ...item, status: 'paid', paidDate: p.paidDate, paidAmount: p.paidAmount, paidBy: p.paidBy, notes: p.notes };
+    }
+    return item;
+  });
+  booking.updatedAt = new Date().toISOString();
+  saveDb();
+  res.json({ success: true, ledger: recomputeOverdue(booking.ledger), summary: ledgerSummary(booking.ledger) });
 });
 
 app.get('/api/dealer/:dealerId/ledger-summary', (req, res) => {

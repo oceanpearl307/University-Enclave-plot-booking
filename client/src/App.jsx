@@ -10,6 +10,7 @@ import DealerDashboard from './pages/DealerDashboard.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import OperationsDashboard from './pages/OperationsDashboard.jsx';
 import SalesAgentDashboard from './pages/SalesAgentDashboard.jsx';
+import AccountsDashboard from './pages/AccountsDashboard.jsx';
 import ReceiptPreview from './pages/ReceiptPreview.jsx';
 
 function loadSession() {
@@ -24,7 +25,7 @@ function loadSession() {
     const p = localStorage.getItem('ue_page');
     const t = localStorage.getItem('ue_token');
     // Never restore a dashboard page directly — always require fresh login
-    const dashboardPages = ['dashboard', 'admin-dashboard', 'ops-dashboard', 'sales-agent-dashboard'];
+    const dashboardPages = ['dashboard', 'admin-dashboard', 'ops-dashboard', 'sales-agent-dashboard', 'accounts-dashboard'];
     const safePage = dashboardPages.includes(p) ? 'home' : (p || 'home');
     return {
       dealer: d ? JSON.parse(d) : null,
@@ -94,11 +95,15 @@ export default function App() {
     if (currentDealer && currentDealer.role === 'operations') {
       const role = currentDealer.staffRole;
       if (role === 'Sales Staff') {
-        if (rawPage === 'ops-dashboard' || rawPage === 'admin-dashboard') {
+        if (rawPage === 'ops-dashboard' || rawPage === 'admin-dashboard' || rawPage === 'accounts-dashboard') {
           return 'sales-agent-dashboard';
         }
+      } else if (role === 'Accounts') {
+        if (rawPage === 'admin-dashboard' || rawPage === 'ops-dashboard' || rawPage === 'sales-agent-dashboard') {
+          return 'accounts-dashboard';
+        }
       } else if (role === 'Operations Manager' || role === 'Operations Staff') {
-        if (rawPage === 'admin-dashboard') {
+        if (rawPage === 'admin-dashboard' || rawPage === 'accounts-dashboard') {
           return 'ops-dashboard';
         }
       }
@@ -113,6 +118,7 @@ export default function App() {
       (effectivePage === 'dashboard' && dealer && dealer.role === 'dealer') ? 'dashboard' :
       (effectivePage === 'admin-dashboard' && dealer && dealer.role === 'admin') ? 'admin-dashboard' :
       (effectivePage === 'sales-agent-dashboard' && dealer && dealer.role === 'operations' && dealer.staffRole === 'Sales Staff') ? 'sales-agent-dashboard' :
+      (effectivePage === 'accounts-dashboard' && dealer && dealer.role === 'operations' && dealer.staffRole === 'Accounts') ? 'accounts-dashboard' :
       (effectivePage === 'ops-dashboard' && dealer && dealer.role === 'operations') ? 'ops-dashboard' : 'home';
     try { localStorage.setItem('ue_page', safePage); } catch {}
   }, [effectivePage, dealer]);
@@ -134,6 +140,8 @@ export default function App() {
       navigate('admin-dashboard');
     } else if (d.role === 'operations' && d.staffRole === 'Sales Staff') {
       navigate('sales-agent-dashboard');
+    } else if (d.role === 'operations' && d.staffRole === 'Accounts') {
+      navigate('accounts-dashboard');
     } else if (d.role === 'operations') {
       navigate('ops-dashboard');
     } else {
@@ -162,7 +170,7 @@ export default function App() {
     onLogout: handleLogout,
   };
 
-  const isFullscreenPage = effectivePage === 'dashboard' || effectivePage === 'admin-dashboard' || effectivePage === 'ops-dashboard' || effectivePage === 'sales-agent-dashboard';
+  const isFullscreenPage = effectivePage === 'dashboard' || effectivePage === 'admin-dashboard' || effectivePage === 'ops-dashboard' || effectivePage === 'sales-agent-dashboard' || effectivePage === 'accounts-dashboard';
 
   if (!sessionChecked) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0f172a' }}>
@@ -192,11 +200,14 @@ export default function App() {
         {effectivePage === 'admin-dashboard' && dealer && dealer.role === 'admin' && (
           <AdminDashboard dealer={dealer} authToken={authToken} onLogout={handleLogout} navigate={navigate} />
         )}
-        {effectivePage === 'ops-dashboard' && dealer && dealer.role === 'operations' && dealer.staffRole !== 'Sales Staff' && (
+        {effectivePage === 'ops-dashboard' && dealer && dealer.role === 'operations' && dealer.staffRole !== 'Sales Staff' && dealer.staffRole !== 'Accounts' && (
           <OperationsDashboard staff={dealer} authToken={authToken} onLogout={handleLogout} navigate={navigate} />
         )}
         {effectivePage === 'sales-agent-dashboard' && dealer && dealer.role === 'operations' && dealer.staffRole === 'Sales Staff' && (
           <SalesAgentDashboard dealer={dealer} authToken={authToken} onLogout={handleLogout} navigate={navigate} />
+        )}
+        {effectivePage === 'accounts-dashboard' && dealer && dealer.role === 'operations' && dealer.staffRole === 'Accounts' && (
+          <AccountsDashboard dealer={dealer} authToken={authToken} onLogout={handleLogout} navigate={navigate} />
         )}
       </main>
       {!isFullscreenPage && (

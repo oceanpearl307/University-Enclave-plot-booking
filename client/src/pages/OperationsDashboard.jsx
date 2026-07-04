@@ -31,6 +31,7 @@ const ROLE_COLOR = {
   'Operations Manager': { color: '#7c3aed', bg: '#f5f3ff' },
   'Sales Staff':        { color: '#059669', bg: '#d1fae5' },
   'Finance Staff':      { color: '#d97706', bg: '#fef3c7' },
+  'Accounts':           { color: '#d97706', bg: '#fef3c7' },
   'Marketing Staff':    { color: '#dc2626', bg: '#fee2e2' },
   'Operations Staff':   { color: '#0284c7', bg: '#e0f2fe' },
 };
