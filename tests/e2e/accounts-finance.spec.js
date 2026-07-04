@@ -224,6 +224,10 @@ test.describe('Accounts payment + ledger regeneration', () => {
  *   1. Overview tab renders real totals (currency-formatted, never blank/NaN).
  *   2. Client Ledgers tab drills into a ledger and records a payment through the
  *      modal form; the installment's paid state updates on screen.
+ *   3. Dealer Sales tab renders real dealer rows (currency-formatted, not blank/NaN).
+ *   4. Installments tab renders real rows and the all/paid/pending/overdue filter
+ *      actually changes the visible rows.
+ *   5. Payment History tab renders real recorded-payment rows (currency, not NaN).
  */
 test.describe('AccountsDashboard UI renders finance numbers end-to-end', () => {
   let ctx;
@@ -289,6 +293,89 @@ test.describe('AccountsDashboard UI renders finance numbers end-to-end', () => {
     await expect(page.getByRole('heading', { name: 'Record Payment' })).not.toBeVisible();
     await expect(recordButtons).toHaveCount(pendingBefore - 1);
     await expect(page.getByText('Paid').first()).toBeVisible();
+  });
+
+  test('Dealer Sales tab renders currency-formatted dealer rows (not blank/NaN)', async ({ page }) => {
+    await loginAsStaff(page, 'accounts1', 'accounts123');
+    await expect(page.getByText('Accounts — Financial Control Center')).toBeVisible({ timeout: 10000 });
+
+    await page.getByRole('button', { name: /Dealer Sales/i }).click();
+    await expect(page.getByRole('heading', { name: /Dealer Sales & Commission/i })).toBeVisible();
+
+    // Seeded dealers must render as real table rows, never the empty state.
+    await expect(page.getByText('No dealers found.')).not.toBeVisible();
+    const rows = page.locator('table tbody tr');
+    expect(await rows.count(), 'dealer sales table should have at least one row').toBeGreaterThan(0);
+
+    // Every money column is currency-formatted; nothing renders as NaN/undefined.
+    const body = page.locator('body');
+    await expect(body).toContainText('PKR');
+    await expect(body).not.toContainText('NaN');
+    await expect(body).not.toContainText('PKR undefined');
+  });
+
+  test('Installments tab renders rows and the status filter changes the visible rows', async ({ page }) => {
+    await loginAsStaff(page, 'accounts1', 'accounts123');
+    await expect(page.getByText('Accounts — Financial Control Center')).toBeVisible({ timeout: 10000 });
+
+    await page.getByRole('button', { name: /Installments/i }).click();
+    await expect(page.getByRole('heading', { name: /All Installments/i })).toBeVisible();
+
+    // Scope to our own booking's installments so filter counts are deterministic.
+    await page.getByPlaceholder(/Search by client, ref, plot, installment/i).fill(booking.bookingRef);
+    const rows = page.locator('table tbody tr');
+
+    // "all" — full set for our booking (paid down payment + several pending items).
+    await page.getByRole('button', { name: 'all', exact: true }).click();
+    await expect(page.getByText(booking.customerName).first()).toBeVisible();
+    const allCount = await rows.count();
+    expect(allCount, 'our booking should expose several installments').toBeGreaterThan(1);
+
+    // Amounts are currency-formatted and never NaN/blank/undefined.
+    const body = page.locator('body');
+    await expect(body).toContainText('PKR');
+    await expect(body).not.toContainText('NaN');
+    await expect(body).not.toContainText('PKR undefined');
+
+    // "paid" — the down payment is recorded at booking, so a non-empty subset shows.
+    await page.getByRole('button', { name: 'paid', exact: true }).click();
+    const paidCount = await rows.count();
+    expect(paidCount, 'at least the down payment should be paid').toBeGreaterThan(0);
+    expect(paidCount, 'paid subset must be smaller than the full set').toBeLessThan(allCount);
+
+    // "pending" — the remaining unpaid installments.
+    await page.getByRole('button', { name: 'pending', exact: true }).click();
+    const pendingCount = await rows.count();
+    expect(pendingCount, 'there should be pending installments').toBeGreaterThan(0);
+    expect(pendingCount, 'pending subset must be smaller than the full set').toBeLessThan(allCount);
+
+    // "overdue" — a freshly confirmed booking has no past-due items, so our view empties.
+    await page.getByRole('button', { name: 'overdue', exact: true }).click();
+    await expect(page.getByText('No installments match.')).toBeVisible();
+    expect(await rows.count(), 'a fresh booking has no overdue installments').toBe(0);
+
+    // The filter partitions the set cleanly: paid + pending == all (no overdue for us).
+    expect(paidCount + pendingCount, 'filters should partition the installment set').toBe(allCount);
+  });
+
+  test('Payment History tab renders recorded-payment rows (currency, not blank/NaN)', async ({ page }) => {
+    await loginAsStaff(page, 'accounts1', 'accounts123');
+    await expect(page.getByText('Accounts — Financial Control Center')).toBeVisible({ timeout: 10000 });
+
+    await page.getByRole('button', { name: /Payment History/i }).click();
+    await expect(page.getByRole('heading', { name: /Payment History/i })).toBeVisible();
+
+    // Our confirmed booking's down payment is recorded at booking, so history is non-empty.
+    await expect(page.getByText('No payments recorded yet.')).not.toBeVisible();
+    const rows = page.locator('table tbody tr');
+    expect(await rows.count(), 'payment history should have at least one row').toBeGreaterThan(0);
+
+    // Our own booking's down payment appears, with a currency amount and no NaN.
+    await expect(page.getByText(booking.customerName).first()).toBeVisible();
+    const body = page.locator('body');
+    await expect(body).toContainText('PKR');
+    await expect(body).not.toContainText('NaN');
+    await expect(body).not.toContainText('PKR undefined');
   });
 });
 
