@@ -39,6 +39,8 @@ export default function Navbar({ currentPage, navigate, dealer, customer, onLogo
       zIndex: 100,
       boxShadow: '0 2px 12px rgba(0,0,0,0.4)',
       borderBottom: '1px solid rgba(255,255,255,0.06)',
+      textAlign: 'center',
+      fontSize: '18px',
     }}>
       <div style={{
         maxWidth: 1200,
@@ -51,9 +53,9 @@ export default function Navbar({ currentPage, navigate, dealer, customer, onLogo
       }}>
         <button
           onClick={() => navigate('home')}
-          style={{ background: 'none', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', flexShrink: 0 }}
+          style={{ background: 'none', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.625rem', cursor: 'pointer', flexShrink: 0, fontSize: '15px' }}
         >
-          <img src="/logo-mark.png" alt="University Enclave" style={{ height: 44, width: 'auto', display: 'block' }} />
+          <img src="/logo-mark.png" alt="University Enclave" style={{ height: 44, width: 'auto', display: 'block', marginLeft: 6, marginRight: 6 }} />
           <div style={{ textAlign: 'left' }}>
             <div style={{ fontWeight: 800, fontSize: '0.9rem', lineHeight: 1.2, letterSpacing: '-0.01em' }}>University Enclave</div>
             <div style={{ fontSize: '0.65rem', color: '#64748b', lineHeight: 1.2, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Plot Booking Portal</div>
@@ -70,10 +72,12 @@ export default function Navbar({ currentPage, navigate, dealer, customer, onLogo
                 border: 'none',
                 color: currentPage === link.id ? '#fff' : '#94a3b8',
                 padding: '0.5rem 0.875rem',
-                borderRadius: 8,
+                borderRadius: 10,
+                marginLeft: 4,
+                marginRight: 4,
                 cursor: 'pointer',
                 fontWeight: currentPage === link.id ? 700 : 500,
-                fontSize: '0.85rem',
+                fontSize: '15px',
                 transition: 'all 0.15s',
                 whiteSpace: 'nowrap',
               }}
