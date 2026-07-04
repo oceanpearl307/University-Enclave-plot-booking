@@ -501,3 +501,172 @@ test.describe('Overdue installments surface in finance feeds', () => {
     expect(aging.length, 'a two-year-old booking must have installments aging beyond 30 days').toBeGreaterThan(0);
   });
 });
+
+// ─── Finance settings: the configurable aging threshold ───────────────────────
+
+/**
+ * The aging threshold (`financeSettings.overdueAlertDays`, GET/PUT
+ * /api/finance/settings) directly controls which overdue installments get the
+ * `aging` flag and, in the UI, the "overdue more than N days" banner. This suite
+ * locks in the whole contract end to end:
+ *
+ *   1. Changing the threshold actually re-flags installments: an installment
+ *      ~40 days overdue is NOT aging at 45 but IS aging at 30.
+ *   2. RBAC: only manageLedger (Accounts) may PUT; viewFinance-only (Operations
+ *      Manager) gets 403; unauthenticated gets 401. Both roles may GET (viewFinance).
+ *   3. Invalid values (0, negative, non-numeric, >3650) are rejected 400 and the
+ *      stored value is left untouched.
+ *   4. A PUT value persists — a subsequent GET (endpoint reload) returns it.
+ */
+test.describe('Finance aging threshold (overdueAlertDays)', () => {
+  let ctx;
+  let adminToken;
+  let accountsToken;
+  let managerToken;
+  let originalThreshold;
+
+  /** Read the current threshold as Accounts. */
+  async function getThreshold(token = accountsToken) {
+    const res = await ctx.get('/api/finance/settings', { headers: authHeader(token) });
+    expect(res.status()).toBe(200);
+    return (await res.json()).overdueAlertDays;
+  }
+
+  /** Set the threshold as Accounts and assert success. */
+  async function setThreshold(days) {
+    const res = await ctx.put('/api/finance/settings', {
+      headers: authHeader(accountsToken),
+      data: { overdueAlertDays: days },
+    });
+    expect(res.status(), `setting threshold to ${days} should succeed`).toBe(200);
+    expect((await res.json()).overdueAlertDays).toBe(days);
+  }
+
+  /** Fetch this booking's installments from the consolidated feed. */
+  async function myInstallments(bookingId) {
+    const res = await ctx.get('/api/finance/installments', { headers: authHeader(accountsToken) });
+    expect(res.status()).toBe(200);
+    return (await res.json()).filter(i => i.bookingId === bookingId);
+  }
+
+  test.beforeAll(async ({ baseURL }) => {
+    ctx = await pwRequest.newContext({ baseURL });
+    adminToken = await apiLogin(ctx, 'admin', 'admin123');
+    accountsToken = await apiLogin(ctx, 'accounts1', 'accounts123');
+    managerToken = await apiLogin(ctx, 'manager1', 'manager123');
+    // Capture the ambient threshold so we can restore it — this is global server
+    // state shared with the other overdue/aging tests in this file.
+    originalThreshold = await getThreshold();
+  });
+
+  test.afterAll(async () => {
+    // Restore the threshold so we don't leak state into other suites/runs.
+    await setThreshold(originalThreshold);
+    await ctx.dispose();
+  });
+
+  test('lowering the threshold re-flags a ~40-day-overdue installment as aging', async () => {
+    const bookingId = await createConfirmedBooking(ctx, adminToken);
+
+    // Back-date the booking 70 days: the Confirmation installment falls due
+    // exactly 30 days after start, i.e. ~40 days before today.
+    const start = new Date(Date.now() - 70 * 24 * 60 * 60 * 1000).toISOString();
+    const patchRes = await ctx.patch(`/api/admin/bookings/${bookingId}`, {
+      headers: authHeader(adminToken),
+      data: { createdAt: start },
+    });
+    expect(patchRes.status()).toBe(200);
+
+    // Regenerate so due dates recompute off the back-dated createdAt.
+    const genRes = await ctx.post(`/api/finance/ledger/${bookingId}/generate`, { headers: authHeader(accountsToken) });
+    expect(genRes.status()).toBe(200);
+
+    // The Confirmation installment is our ~40-day-overdue probe.
+    const confirmation = (await myInstallments(bookingId)).find(i => i.type === 'confirmation');
+    expect(confirmation, 'the back-dated booking should expose a confirmation installment').toBeTruthy();
+    expect(confirmation.status, 'confirmation should be overdue').toBe('overdue');
+    // Sanity: it really is ~40 days overdue, so 45 and 30 straddle it.
+    expect(confirmation.daysOverdue).toBeGreaterThan(30);
+    expect(confirmation.daysOverdue).toBeLessThan(45);
+
+    // At a HIGH threshold (45) the ~40-day item is under the line → NOT aging.
+    await setThreshold(45);
+    let probe = (await myInstallments(bookingId)).find(i => i.type === 'confirmation');
+    expect(probe.aging, 'at threshold 45 a ~40-day-overdue item must NOT be aging').toBe(false);
+
+    // At a LOW threshold (30) the same item is over the line → IS aging.
+    await setThreshold(30);
+    probe = (await myInstallments(bookingId)).find(i => i.type === 'confirmation');
+    expect(probe.aging, 'at threshold 30 a ~40-day-overdue item MUST be aging').toBe(true);
+
+    // The flag tracks the threshold precisely: aging === (daysOverdue > threshold).
+    const all = await myInstallments(bookingId);
+    for (const i of all) {
+      const expectedAging = i.status === 'overdue' && i.daysOverdue > 30;
+      expect(!!i.aging, `aging for ${i.label} must equal daysOverdue(${i.daysOverdue}) > 30`).toBe(expectedAging);
+    }
+  });
+
+  test('PUT is gated on manageLedger: Accounts 200, Operations Manager 403, unauthenticated 401', async () => {
+    // Both finance viewers may READ the setting (viewFinance).
+    const acctGet = await ctx.get('/api/finance/settings', { headers: authHeader(accountsToken) });
+    expect(acctGet.status(), 'Accounts may read settings').toBe(200);
+    const mgrGet = await ctx.get('/api/finance/settings', { headers: authHeader(managerToken) });
+    expect(mgrGet.status(), 'Operations Manager (viewFinance) may read settings').toBe(200);
+    const unauthGet = await ctx.get('/api/finance/settings');
+    expect(unauthGet.status(), 'unauthenticated read is rejected').toBe(401);
+
+    // Only manageLedger may WRITE.
+    const acctPut = await ctx.put('/api/finance/settings', { headers: authHeader(accountsToken), data: { overdueAlertDays: 60 } });
+    expect(acctPut.status(), 'Accounts (manageLedger) may write settings').toBe(200);
+
+    const before = await getThreshold();
+    const mgrPut = await ctx.put('/api/finance/settings', { headers: authHeader(managerToken), data: { overdueAlertDays: 90 } });
+    expect(mgrPut.status(), 'Operations Manager (no manageLedger) must be forbidden').toBe(403);
+
+    const unauthPut = await ctx.put('/api/finance/settings', { data: { overdueAlertDays: 90 } });
+    expect(unauthPut.status(), 'unauthenticated write is rejected').toBe(401);
+
+    // Neither forbidden nor unauthenticated write may have mutated the value.
+    expect(await getThreshold(), 'a rejected write must not change the stored threshold').toBe(before);
+  });
+
+  test('invalid values are rejected 400 and leave the stored threshold unchanged', async () => {
+    // Establish a known-good baseline first.
+    await setThreshold(30);
+    const baseline = await getThreshold();
+    expect(baseline).toBe(30);
+
+    const invalid = [
+      { overdueAlertDays: 0 },          // below the minimum of 1
+      { overdueAlertDays: -5 },         // negative
+      { overdueAlertDays: 'abc' },      // non-numeric
+      { overdueAlertDays: 3651 },       // above the maximum of 3650
+    ];
+
+    for (const data of invalid) {
+      const res = await ctx.put('/api/finance/settings', { headers: authHeader(accountsToken), data });
+      expect(res.status(), `${JSON.stringify(data)} must be rejected 400`).toBe(400);
+      // The stored value must be untouched after each rejected write.
+      expect(await getThreshold(), `${JSON.stringify(data)} must not change the stored threshold`).toBe(baseline);
+    }
+
+    // Boundary values are accepted (1 and 3650 are the inclusive limits).
+    await setThreshold(1);
+    expect(await getThreshold()).toBe(1);
+    await setThreshold(3650);
+    expect(await getThreshold()).toBe(3650);
+  });
+
+  test('a written threshold persists — a subsequent settings reload returns it', async () => {
+    await setThreshold(37);
+    // A fresh GET (endpoint reload) must return the value we just wrote, proving
+    // the change is held in the persisted financeSettings, not just the response.
+    expect(await getThreshold(), 'the reloaded settings must reflect the written value').toBe(37);
+
+    // And it is visible to a different session/role too (server-side, not per-token).
+    const mgrGet = await ctx.get('/api/finance/settings', { headers: authHeader(managerToken) });
+    expect(mgrGet.status()).toBe(200);
+    expect((await mgrGet.json()).overdueAlertDays, 'the persisted value is shared across sessions').toBe(37);
+  });
+});
