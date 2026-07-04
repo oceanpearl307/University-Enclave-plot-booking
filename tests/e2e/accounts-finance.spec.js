@@ -291,3 +291,82 @@ test.describe('AccountsDashboard UI renders finance numbers end-to-end', () => {
     await expect(page.getByText('Paid').first()).toBeVisible();
   });
 });
+
+// ─── API: overdue installments surface for Accounts ───────────────────────────
+
+/**
+ * A past-due installment must never be silently hidden from the Accounts team.
+ * recomputeOverdue (server/index.js) classifies any unpaid installment whose
+ * dueDate is before today as "overdue". This must flow through to both
+ * /api/finance/overview (the overdue total) and /api/finance/installments.
+ *
+ * A fresh booking only has future-dated installments, so we back-date the
+ * booking's createdAt (via the admin booking-correction endpoint) and regenerate
+ * the ledger so its confirmation/monthly installments fall in the past. This
+ * keeps the test deterministic regardless of whatever ambient data exists.
+ */
+test.describe('Overdue installments surface in finance feeds', () => {
+  let ctx;
+  let adminToken;
+  let accountsToken;
+
+  test.beforeAll(async ({ baseURL }) => {
+    ctx = await pwRequest.newContext({ baseURL });
+    adminToken = await apiLogin(ctx, 'admin', 'admin123');
+    accountsToken = await apiLogin(ctx, 'accounts1', 'accounts123');
+  });
+
+  test.afterAll(async () => {
+    await ctx.dispose();
+  });
+
+  test('a back-dated installment shows as "overdue" in /installments and the overview total', async () => {
+    const bookingId = await createConfirmedBooking(ctx, adminToken);
+
+    // Back-date the booking two years so its schedule is firmly in the past.
+    const pastDate = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000).toISOString();
+    const patchRes = await ctx.patch(`/api/admin/bookings/${bookingId}`, {
+      headers: authHeader(adminToken),
+      data: { createdAt: pastDate },
+    });
+    expect(patchRes.status(), 'admin should be able to correct the booking date').toBe(200);
+
+    // Regenerate the ledger so due dates recompute off the back-dated createdAt.
+    const genRes = await ctx.post(`/api/finance/ledger/${bookingId}/generate`, { headers: authHeader(accountsToken) });
+    expect(genRes.status()).toBe(200);
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // 1) /api/finance/installments must expose this booking's past-due items as overdue.
+    const instRes = await ctx.get('/api/finance/installments', { headers: authHeader(accountsToken) });
+    expect(instRes.status()).toBe(200);
+    const installments = await instRes.json();
+    const mine = installments.filter(i => i.bookingId === bookingId);
+    expect(mine.length, 'the back-dated booking should have installments in the feed').toBeGreaterThan(0);
+
+    const myOverdue = mine.filter(i => i.status === 'overdue');
+    expect(myOverdue.length, 'a back-dated booking must have at least one overdue installment').toBeGreaterThan(0);
+
+    // Every past-due unpaid installment must be classified overdue — never left as "pending".
+    for (const i of mine) {
+      if (i.status !== 'paid' && i.dueDate < today) {
+        expect(i.status, `installment ${i.label} due ${i.dueDate} is past-due and must be overdue`).toBe('overdue');
+      }
+      // Conversely, nothing overdue may have a future or paid state misclassified.
+      if (i.status === 'overdue') {
+        expect(i.dueDate < today, `overdue installment ${i.label} must have a past due date`).toBe(true);
+      }
+    }
+
+    const myOverdueSum = myOverdue.reduce((s, i) => s + i.amount, 0);
+    expect(myOverdueSum, 'overdue installments should carry real amounts').toBeGreaterThan(0);
+
+    // 2) /api/finance/overview overdue total must reflect that past-due money.
+    const overviewRes = await ctx.get('/api/finance/overview', { headers: authHeader(accountsToken) });
+    expect(overviewRes.status()).toBe(200);
+    const overview = await overviewRes.json();
+    expect(overview.overdue, 'overview overdue total must be positive once money is past-due').toBeGreaterThan(0);
+    // The overview aggregates all confirmed bookings, so it must be at least our contribution.
+    expect(overview.overdue, 'overview overdue total must include the back-dated booking').toBeGreaterThanOrEqual(myOverdueSum);
+  });
+});

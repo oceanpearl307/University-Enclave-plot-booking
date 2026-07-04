@@ -2381,6 +2381,11 @@ app.patch('/api/admin/bookings/:id', (req, res) => {
     return res.status(403).json({ error: 'Insufficient privileges — editBookings required to correct booking data' });
   const booking = bookings.find(b => b.id === parseInt(req.params.id));
   if (!booking) return res.status(404).json({ error: 'Booking not found' });
+  if (req.body.createdAt !== undefined) {
+    const parsed = new Date(req.body.createdAt);
+    if (isNaN(parsed.getTime())) return res.status(400).json({ error: 'createdAt must be a valid date' });
+    booking.createdAt = parsed.toISOString();
+  }
   const allowed = ['name', 'fatherName', 'cnic', 'phone', 'email', 'residentialAddress', 'postalAddress', 'address', 'plotPrice', 'downPayment', 'notes', 'nominee'];
   allowed.forEach(k => { if (req.body[k] !== undefined) booking[k] = req.body[k]; });
   booking.updatedAt = new Date().toISOString();
