@@ -476,6 +476,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
         setNotifList(prev => [notif, ...prev]);
         setNotifUnread(c => c + 1);
         setSoundMuted(muted => { if (!muted) playChime(); return muted; });
+        if (notif.type === 'new_booking') { loadPlots(); loadBookings(); }
       } catch (_) {}
     };
     return () => es.close();
