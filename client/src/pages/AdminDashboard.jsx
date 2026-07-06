@@ -208,7 +208,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
   const pendingBkgCount = bkgs.filter(b => b.status === 'pending').length;
   const handleDeleteBkg = async (b) => {
     const res = await aFetch(`/api/admin/bookings/${b.id}`, { method: 'DELETE' });
-    if (res.ok) { setBkgMsg('✅ Booking deleted — plot released.'); if (selectedBkg?.id === b.id) setSelectedBkg(null); setDeleteBkg(null); loadBookings(); }
+    if (res.ok) { setBkgMsg('✅ Booking deleted — plot released.'); if (selectedBkg?.id === b.id) setSelectedBkg(null); setDeleteBkg(null); loadBookings(); loadPlots(); }
     else { const data = await res.json().catch(() => ({})); setBkgMsg(`❌ Delete failed: ${data.error || res.status}`); setDeleteBkg(null); }
   };
 
@@ -2686,7 +2686,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                             <td style={{ padding: '0.875rem' }}>
                               <div style={{ display: 'flex', gap: '0.375rem' }} onClick={e => e.stopPropagation()}>
                                 {b.status === 'pending' && (<>
-                                  <button onClick={async () => { setBkgMsg(''); const res = await aFetch(`/api/admin/bookings/${b.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approvedBy: 'Admin' }) }); if (res.ok) { const data = await res.json(); setBkgMsg('✅ Booking approved.'); setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Failed.'); }} style={{ padding: '0.3rem 0.55rem', background: '#d1fae5', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#065f46' }}>✓</button>
+                                  <button onClick={async () => { setBkgMsg(''); const res = await aFetch(`/api/admin/bookings/${b.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ approvedBy: 'Admin' }) }); if (res.ok) { const data = await res.json(); setBkgMsg('✅ Booking approved.'); setSelectedBkg(null); loadBookings(); loadPlots(); } else setBkgMsg('❌ Failed.'); }} style={{ padding: '0.3rem 0.55rem', background: '#d1fae5', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#065f46' }}>✓</button>
                                   <button onClick={() => { setRejectBkg(b); setRejectReason(''); }} style={{ padding: '0.3rem 0.55rem', background: '#fee2e2', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, color: '#dc2626' }}>✕</button>
                                 </>)}
                                 {b.status === 'confirmed' && (
@@ -2851,7 +2851,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                     )}
                     {selectedBkg.status === 'pending' && (
                       <div style={{ display: 'flex', gap: '0.75rem' }}>
-                        <button onClick={async () => { setBkgMsg(''); const res = await aFetch(`/api/admin/bookings/${selectedBkg.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }); if (res.ok) { const data = await res.json(); setBkgMsg('✅ Booking approved.'); setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Failed.'); }} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#059669', borderColor: 'transparent' }}>✓ Approve</button>
+                        <button onClick={async () => { setBkgMsg(''); const res = await aFetch(`/api/admin/bookings/${selectedBkg.id}/approve`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) }); if (res.ok) { const data = await res.json(); setBkgMsg('✅ Booking approved.'); setSelectedBkg(null); loadBookings(); loadPlots(); } else setBkgMsg('❌ Failed.'); }} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#059669', borderColor: 'transparent' }}>✓ Approve</button>
                         <button onClick={() => { setRejectBkg(selectedBkg); setRejectReason(''); }} className="btn btn-outline" style={{ flex: 1, justifyContent: 'center', color: '#dc2626', borderColor: '#dc2626' }}>✕ Reject</button>
                       </div>
                     )}
@@ -3160,7 +3160,7 @@ export default function AdminDashboard({ dealer: admin, authToken, onLogout, nav
                   <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1rem' }}>Provide a reason for rejecting <strong>{rejectBkg.bookingRef}</strong>:</p>
                   <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} placeholder="Enter rejection reason..." rows={3} style={{ width: '100%', padding: '0.75rem', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: '0.85rem', resize: 'vertical', boxSizing: 'border-box' }} />
                   <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
-                    <button onClick={async () => { const res = await aFetch(`/api/admin/bookings/${rejectBkg.id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: rejectReason, rejectedBy: 'Admin' }) }); if (res.ok) { setBkgMsg('✅ Booking rejected.'); setRejectBkg(null); setRejectReason(''); setSelectedBkg(null); loadBookings(); } else setBkgMsg('❌ Failed.'); }} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#dc2626', borderColor: 'transparent' }}>Confirm Reject</button>
+                    <button onClick={async () => { const res = await aFetch(`/api/admin/bookings/${rejectBkg.id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reason: rejectReason, rejectedBy: 'Admin' }) }); if (res.ok) { setBkgMsg('✅ Booking rejected.'); setRejectBkg(null); setRejectReason(''); setSelectedBkg(null); loadBookings(); loadPlots(); } else setBkgMsg('❌ Failed.'); }} className="btn btn-primary" style={{ flex: 1, justifyContent: 'center', background: '#dc2626', borderColor: 'transparent' }}>Confirm Reject</button>
                     <button onClick={() => setRejectBkg(null)} className="btn btn-outline" style={{ flex: 1, justifyContent: 'center' }}>Cancel</button>
                   </div>
                 </div>

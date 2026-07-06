@@ -205,6 +205,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
         setLiveToast(notif);
         setTimeout(() => setLiveToast(null), 5000);
         setSoundMuted(muted => { if (!muted) playChime(); return muted; });
+        if (notif.type === 'new_booking') { reloadBookings(); reloadPlots(); }
       } catch (_) {}
     };
     return () => es.close();
@@ -243,6 +244,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
       setActionMsg('✅ Booking approved — plot marked as sold.');
       setSelectedBooking(null);
       reloadBookings();
+      reloadPlots();
       setShowReceipt(data.booking);
     } else setActionMsg('❌ Failed to approve booking.');
   };
@@ -254,7 +256,7 @@ export default function OperationsDashboard({ staff, authToken, onLogout }) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason: rejectReason, rejectedBy: staff.name }),
     });
-    if (res.ok) { setActionMsg('✅ Booking rejected — plot is now available again.'); setRejectModal(null); setRejectReason(''); setSelectedBooking(null); reloadBookings(); }
+    if (res.ok) { setActionMsg('✅ Booking rejected — plot is now available again.'); setRejectModal(null); setRejectReason(''); setSelectedBooking(null); reloadBookings(); reloadPlots(); }
     else setActionMsg('❌ Failed to reject booking.');
   };
 
