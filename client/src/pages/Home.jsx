@@ -155,27 +155,6 @@ export default function Home({ navigate, dealer, customer, authToken, onDealerLo
             </div>
           )}
 
-          {stats && (
-            <div>
-              {stats._isPackage && stats._packageName && (
-                <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                  📦 {stats._packageName} Package Inventory
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                {[
-                  { label: stats._isPackage ? 'My Package' : 'Total Plots', value: stats.total, icon: '📍', color: '#94a3b8' },
-                  { label: 'Booked', value: stats.booked, icon: '📋', color: '#fbbf24' },
-                  { label: stats._isPackage ? 'Available' : 'Sold', value: stats._isPackage ? stats.available : stats.sold, icon: stats._isPackage ? '✅' : '🏠', color: stats._isPackage ? '#34d399' : '#f87171' },
-                ].map(s => (
-                  <div key={s.label} style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.75rem', fontWeight: 900, color: s.color }}>{s.value}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>{s.icon} {s.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </section>
 
