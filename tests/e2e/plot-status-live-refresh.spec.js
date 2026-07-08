@@ -104,6 +104,50 @@ async function loginAsStaff(page, username, password) {
 }
 
 /**
+ * Provision an Operations Staff account that has BOTH approve rights and plot
+ * visibility. No default staff role combines these (ops1 approves but has no
+ * Plots tab; manager1 sees plots but cannot approve), so we create one via the
+ * admin staff API with custom privileges. Only the Super Admin may set custom
+ * privileges — an Operations Manager is forced onto role presets.
+ * Returns { username, password } for a fresh, uniquely-named account.
+ */
+async function provisionOpsWithPlots(ctx) {
+  const adminToken = await apiLogin(ctx, 'admin', 'admin123');
+  const unique = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
+  const username = `opsplots${unique}`;
+  const password = 'opsplots123';
+  const res = await ctx.post('/api/admin/staff', {
+    headers: authHeader(adminToken),
+    data: {
+      username,
+      password,
+      name: `Ops Plots Tester ${unique}`,
+      staffRole: 'Operations Staff',
+      privileges: { approveBookings: true, editBookings: true, viewPlots: true },
+    },
+  });
+  expect(res.status(), 'admin should create a combined approve+viewPlots staff account').toBe(201);
+  const staff = await res.json();
+  expect(staff.privileges.approveBookings, 'account must be able to approve').toBe(true);
+  expect(staff.privileges.viewPlots, 'account must be able to view plots').toBe(true);
+  return { username, password };
+}
+
+/**
+ * From the Operations dashboard, open the Plots tab and assert a single plot's
+ * status badge. The Ops Plots table has no search box, so we locate the row by
+ * its (unique) plot number. Uses only in-app navigation — never a page reload.
+ */
+async function assertOpsPlotStatus(page, plotNumber, expectedStatus) {
+  await page.getByRole('button', { name: /🏘️ Plots/ }).click();
+  await expect(page.getByRole('heading', { name: 'Plot Inventory' })).toBeVisible({ timeout: 10000 });
+  const row = page.locator('tbody tr').filter({ has: page.getByText(plotNumber, { exact: true }) });
+  await expect(row.first()).toBeVisible({ timeout: 10000 });
+  // Status text renders lowercase in the DOM (capitalized only via CSS).
+  await expect(row.first()).toContainText(expectedStatus);
+}
+
+/**
  * From the Admin dashboard, open the Inventory tab, filter to a single plot and
  * assert its status badge. Uses only in-app navigation — never a page reload.
  */
@@ -194,10 +238,11 @@ test.describe('Admin inventory reflects plot status after booking actions (no re
 // ─── Operations Staff approve / reject flow ───────────────────────────────────
 //
 // NOTE: the default Operations Staff role (ops1) has approveBookings but NOT
-// viewPlots, so it has no Plots tab to inspect. We instead assert the booking
+// viewPlots, so it has no Plots tab to inspect. These tests assert the booking
 // row updates live in the ops bookings table (no reload) and confirm the plot
-// transition server-side. The in-UI plots-table refresh itself is covered by the
-// Admin tests above (both dashboards reuse the same reloadPlots mechanism).
+// transition server-side. The Ops-facing Plots-table refresh itself is covered
+// by the "Operations staff with plot visibility" describe below, which
+// provisions a combined approve+viewPlots account.
 
 test.describe('Operations Staff approve/reject flow updates booking + plot', () => {
   let ctx;
@@ -257,6 +302,77 @@ test.describe('Operations Staff approve/reject flow updates booking + plot', () 
     // The server released the plot back to "available".
     const plot = await (await ctx.get(`/api/plots/${bkg.plotId}`)).json();
     expect(plot.status).toBe('available');
+  });
+});
+
+// ─── Operations staff WITH plot visibility → Plots table updates (no reload) ──
+//
+// Closes the coverage gap noted above: provisions a staff account that has BOTH
+// approveBookings and viewPlots, actions a booking, then asserts the Ops-facing
+// Plots table flips the plot's status with no browser reload — only in-app SPA
+// navigation between the Bookings and Plots tabs.
+
+test.describe('Operations staff with plot visibility see Plots table update after actions', () => {
+  let ctx;
+  let creds;
+
+  test.beforeAll(async ({ baseURL }) => {
+    ctx = await pwRequest.newContext({ baseURL });
+    creds = await provisionOpsWithPlots(ctx);
+  });
+
+  test.afterAll(async () => {
+    await ctx.dispose();
+  });
+
+  test('approve → plot shows "sold" in the Ops Plots table', async ({ page }) => {
+    const bkg = await createPendingBooking(ctx);
+
+    await loginAsStaff(page, creds.username, creds.password);
+    await expect(page.getByText('Staff Portal')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Plot Bookings' })).toBeVisible({ timeout: 10000 });
+
+    // Confirm the plot starts out "booked" in the Ops Plots table.
+    await assertOpsPlotStatus(page, bkg.plotNumber, 'booked');
+
+    // Back to Bookings and approve.
+    await page.getByRole('button', { name: /📋 Bookings/ }).click();
+    const row = page.locator('tbody tr').filter({ hasText: bkg.bookingRef });
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.getByRole('button', { name: '✓', exact: true }).click();
+    await expect(page.getByText('✅ Booking approved — plot marked as sold.')).toBeVisible({ timeout: 10000 });
+
+    // A receipt modal opens after approval — dismiss it.
+    await page.getByRole('button', { name: '✕ Close' }).click();
+
+    // The Ops Plots table must show "sold" without a browser reload.
+    await assertOpsPlotStatus(page, bkg.plotNumber, 'sold');
+  });
+
+  test('reject → plot is released to "available" in the Ops Plots table', async ({ page }) => {
+    const bkg = await createPendingBooking(ctx);
+
+    await loginAsStaff(page, creds.username, creds.password);
+    await expect(page.getByText('Staff Portal')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('heading', { name: 'Plot Bookings' })).toBeVisible({ timeout: 10000 });
+
+    // Confirm the plot starts out "booked" in the Ops Plots table.
+    await assertOpsPlotStatus(page, bkg.plotNumber, 'booked');
+
+    // Back to Bookings and reject.
+    await page.getByRole('button', { name: /📋 Bookings/ }).click();
+    const row = page.locator('tbody tr').filter({ hasText: bkg.bookingRef });
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await row.getByRole('button', { name: '✕', exact: true }).click();
+
+    await expect(page.getByRole('heading', { name: 'Reject Booking' })).toBeVisible();
+    const reason = page.getByPlaceholder(/reason/i);
+    if (await reason.count()) await reason.first().fill('e2e reject');
+    await page.getByRole('button', { name: /Confirm Reject|Reject Booking/i }).last().click();
+    await expect(page.getByText('✅ Booking rejected — plot is now available again.')).toBeVisible({ timeout: 10000 });
+
+    // The Ops Plots table must show "available" without a browser reload.
+    await assertOpsPlotStatus(page, bkg.plotNumber, 'available');
   });
 });
 
