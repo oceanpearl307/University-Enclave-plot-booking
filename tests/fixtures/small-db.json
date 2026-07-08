@@ -1,0 +1,905 @@
+{
+  "plots": [
+    {
+      "id": 1,
+      "number": "UE-R01",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Corner",
+      "tags": [
+        "Corner Plot"
+      ]
+    },
+    {
+      "id": 2,
+      "number": "UE-R02",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 3,
+      "number": "UE-R03",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 4,
+      "number": "UE-R04",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 5,
+      "number": "UE-R05",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 6,
+      "number": "UE-R06",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 7,
+      "number": "UE-R07",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 8,
+      "number": "UE-R08",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 9,
+      "number": "UE-R09",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 10,
+      "number": "UE-R10",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 11,
+      "number": "UE-R11",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 12,
+      "number": "UE-R12",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Corner",
+      "tags": [
+        "Corner Plot"
+      ]
+    },
+    {
+      "id": 13,
+      "number": "UE-R13",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Corner",
+      "tags": [
+        "Corner Plot"
+      ]
+    },
+    {
+      "id": 14,
+      "number": "UE-R14",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 15,
+      "number": "UE-R15",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 16,
+      "number": "UE-R16",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 17,
+      "number": "UE-R17",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 18,
+      "number": "UE-R18",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 19,
+      "number": "UE-R19",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 20,
+      "number": "UE-R20",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 21,
+      "number": "UE-R21",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 22,
+      "number": "UE-R22",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 23,
+      "number": "UE-R23",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 24,
+      "number": "UE-R24",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Corner",
+      "tags": [
+        "Corner Plot"
+      ]
+    },
+    {
+      "id": 25,
+      "number": "UE-R25",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Corner",
+      "tags": [
+        "Corner Plot"
+      ]
+    },
+    {
+      "id": 26,
+      "number": "UE-R26",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 27,
+      "number": "UE-R27",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 28,
+      "number": "UE-R28",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 29,
+      "number": "UE-R29",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 30,
+      "number": "UE-R30",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 31,
+      "number": "UE-R31",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 32,
+      "number": "UE-R32",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 33,
+      "number": "UE-R33",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 34,
+      "number": "UE-R34",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 35,
+      "number": "UE-R35",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 36,
+      "number": "UE-R36",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Corner",
+      "tags": [
+        "Corner Plot"
+      ]
+    },
+    {
+      "id": 37,
+      "number": "UE-R37",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Corner",
+      "tags": [
+        "Corner Plot"
+      ]
+    },
+    {
+      "id": 38,
+      "number": "UE-R38",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 39,
+      "number": "UE-R39",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 40,
+      "number": "UE-R40",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 41,
+      "number": "UE-R41",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 42,
+      "number": "UE-R42",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 43,
+      "number": "UE-R43",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 44,
+      "number": "UE-R44",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 45,
+      "number": "UE-R45",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 46,
+      "number": "UE-R46",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 47,
+      "number": "UE-R47",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 48,
+      "number": "UE-R48",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Corner",
+      "tags": [
+        "Corner Plot"
+      ]
+    },
+    {
+      "id": 49,
+      "number": "UE-R49",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Corner",
+      "tags": [
+        "Corner Plot"
+      ]
+    },
+    {
+      "id": 50,
+      "number": "UE-R50",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 51,
+      "number": "UE-R51",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 52,
+      "number": "UE-R52",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 53,
+      "number": "UE-R53",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 54,
+      "number": "UE-R54",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 55,
+      "number": "UE-R55",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 56,
+      "number": "UE-R56",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 57,
+      "number": "UE-R57",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 58,
+      "number": "UE-R58",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 59,
+      "number": "UE-R59",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 60,
+      "number": "UE-R60",
+      "area": "Rose",
+      "size": "1 Kanal",
+      "price": 14400000,
+      "status": "available",
+      "category": "residential",
+      "description": "Corner",
+      "tags": [
+        "Corner Plot"
+      ]
+    },
+    {
+      "id": 61,
+      "number": "UE-C01",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 62,
+      "number": "UE-C02",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 63,
+      "number": "UE-C03",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 64,
+      "number": "UE-C04",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 65,
+      "number": "UE-C05",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 66,
+      "number": "UE-C06",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 67,
+      "number": "UE-C07",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 68,
+      "number": "UE-C08",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 69,
+      "number": "UE-C09",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 70,
+      "number": "UE-C10",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 71,
+      "number": "UE-C11",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 72,
+      "number": "UE-C12",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 73,
+      "number": "UE-C13",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 74,
+      "number": "UE-C14",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 75,
+      "number": "UE-C15",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 76,
+      "number": "UE-C16",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 77,
+      "number": "UE-C17",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 78,
+      "number": "UE-C18",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 79,
+      "number": "UE-C19",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    },
+    {
+      "id": 80,
+      "number": "UE-C20",
+      "area": "Commercial Hub",
+      "size": "5 Marla",
+      "price": 9000000,
+      "status": "available",
+      "category": "commercial",
+      "description": "Normal",
+      "tags": []
+    }
+  ],
+  "plotCounter": 80
+}

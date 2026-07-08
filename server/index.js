@@ -606,8 +606,13 @@ let financeSettings = {
 };
 
 // ─── File-based Persistence ───────────────────────────────────────────────────
-const DB_PATH = path.join(__dirname, 'data', 'db.json');
+// DB_PATH can be overridden (e.g. tests point at a small deterministic fixture).
+const DB_PATH = process.env.DB_PATH
+  ? path.resolve(process.env.DB_PATH)
+  : path.join(__dirname, 'data', 'db.json');
 const DB_DIR = path.dirname(DB_PATH);
+// Persistence can be disabled (e.g. tests) so runs never mutate the fixture/db.
+const DB_PERSIST = process.env.DB_PERSIST !== '0' && process.env.DB_PERSIST !== 'false';
 const MAX_BACKUPS = 5;
 let lastAutoRestore = null;
 
@@ -687,6 +692,7 @@ function loadDb() {
 
 let _saveTimer = null;
 function saveDb() {
+  if (!DB_PERSIST) return;
   if (_saveTimer) clearTimeout(_saveTimer);
   _saveTimer = setTimeout(() => {
     try {

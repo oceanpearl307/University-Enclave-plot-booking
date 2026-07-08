@@ -1,9 +1,9 @@
 import { test, expect, request as pwRequest } from '@playwright/test';
 
-// These flows drive the full React dashboards, which render a large plot
-// inventory (hundreds of rows) on every tab switch. Give each test extra
-// headroom beyond the 30s global default so heavy renders don't flake.
-test.describe.configure({ timeout: 60000 });
+// These flows drive the full React dashboards, which render the plot inventory
+// on every tab switch. Tests run against a small deterministic fixture (see
+// playwright.config.js → tests/fixtures/small-db.json), so renders are light
+// and the 30s global default timeout is ample — no per-test override needed.
 
 /**
  * Regression coverage for live plot-status refresh after booking actions.
