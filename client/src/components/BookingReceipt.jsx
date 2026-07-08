@@ -114,17 +114,29 @@ export default function BookingReceipt({ booking, onClose }) {
           body * { visibility: hidden !important; }
           #ue-print-copies, #ue-print-copies * { visibility: visible !important; }
           #ue-print-copies {
-            position: fixed !important;
-            inset: 0 !important;
-            width: 210mm !important;
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 202mm !important;
             margin: 0 !important;
             padding: 0 !important;
+            display: block !important;
+            background: #fff !important;
+          }
+          .ue-print-page {
+            break-after: page;
+            page-break-after: always;
             display: flex !important;
             flex-direction: column !important;
             background: #fff !important;
+            height: 288mm !important;
+            overflow: hidden !important;
+          }
+          .ue-print-page:last-child {
+            break-after: auto;
+            page-break-after: auto;
           }
           .no-print { display: none !important; }
-          .ue-cut-line { display: flex !important; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
         @page { size: A4 portrait; margin: 4mm; }
@@ -154,21 +166,6 @@ export default function BookingReceipt({ booking, onClose }) {
           text-align: center;
         }
 
-        .ue-cut-line {
-          display: none;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 0 4mm;
-          font-size: 0.6rem;
-          color: #999;
-          flex-shrink: 0;
-        }
-        .ue-cut-line::before,
-        .ue-cut-line::after {
-          content: '';
-          flex: 1;
-          border-top: 1px dashed #bbb;
-        }
       `}</style>
 
       {/* ── SCREEN OVERLAY ── */}
@@ -261,13 +258,11 @@ export default function BookingReceipt({ booking, onClose }) {
         </div>
       </div>
 
-      {/* ── PRINT-ONLY: 3 copies on one A4 sheet ── */}
+      {/* ── PRINT-ONLY: 3 copies, one per A4 page ── */}
       <div id="ue-print-copies" style={{ display: 'none' }}>
-        <ReceiptCopyBody {...copyData} copyLabel="Customer Copy" compact />
-        <div className="ue-cut-line">✂</div>
-        <ReceiptCopyBody {...copyData} copyLabel="Dealer's Copy" compact />
-        <div className="ue-cut-line">✂</div>
-        <ReceiptCopyBody {...copyData} copyLabel="Company Record Copy" compact />
+        <div className="ue-print-page"><ReceiptCopyBody {...copyData} copyLabel="Customer Copy" /></div>
+        <div className="ue-print-page"><ReceiptCopyBody {...copyData} copyLabel="Dealer's Copy" /></div>
+        <div className="ue-print-page"><ReceiptCopyBody {...copyData} copyLabel="Company Record Copy" /></div>
       </div>
     </>
   );
