@@ -651,6 +651,7 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
                         <Th>Plot</Th>
                         <Th>Installment</Th>
                         <Th align="right">Amount</Th>
+                        <Th>Mode</Th>
                         <Th>Due</Th>
                         <Th align="right">Days Overdue</Th>
                         <Th>Status</Th>
@@ -666,6 +667,16 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
                           <Td>{i.plotNumber} · {i.plotSize}</Td>
                           <Td>{TYPE_ICON[i.type] || '•'} {i.label}</Td>
                           <Td align="right">{fmtFull(i.status === 'paid' ? (i.paidAmount || i.amount) : i.amount)}</Td>
+                          <Td>
+                            {i.status === 'paid' && i.paymentMode ? (
+                              <>
+                                <div>{modeIcon(i.paymentMode)} {modeLabel(i.paymentMode)}</div>
+                                {(i.paymentRef || i.commodityDescription) && (
+                                  <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{i.paymentRef || i.commodityDescription}</div>
+                                )}
+                              </>
+                            ) : <span style={{ color: '#cbd5e1' }}>—</span>}
+                          </Td>
                           <Td>{fmtDate(i.dueDate)}</Td>
                           <Td align="right">
                             {i.status === 'overdue' ? (
@@ -775,7 +786,8 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#374151', marginBottom: '0.3rem' }}>Commodity Description</label>
                 <input type="text" value={payCommodityDesc} onChange={e => setPayCommodityDesc(e.target.value)} placeholder="e.g. Toyota Corolla 2018, Reg. ABC-123" style={{ width: '100%', padding: '0.6rem 0.85rem', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: '0.9rem', marginBottom: '1rem' }} />
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#374151', marginBottom: '0.3rem' }}>Market-Agreed Value (PKR)</label>
-                <input type="number" value={payAgreedValue} onChange={e => setPayAgreedValue(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.85rem', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: '0.9rem', marginBottom: '1rem' }} />
+                <input type="number" value={payAgreedValue} onChange={e => { setPayAgreedValue(e.target.value); setPayAmount(e.target.value); }} style={{ width: '100%', padding: '0.6rem 0.85rem', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: '0.9rem', marginBottom: '0.35rem' }} />
+                <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: '1rem' }}>Agreed value is credited as the amount paid; you can still override the amount above.</div>
               </>
             )}
             <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#374151', marginBottom: '0.3rem' }}>Notes (optional)</label>
