@@ -2086,6 +2086,44 @@ app.get('/api/ledger/:bookingId', (req, res) => {
   res.json({ bookingRef: booking.bookingRef, customerName: booking.name, plotNumber: booking.plotNumber, plotSize: booking.plotSize, plotPrice: booking.plotPrice, ledger, summary: ledgerSummary(booking.ledger) });
 });
 
+// Valid payment modes an accountant can record a receipt under.
+const VALID_PAYMENT_MODES = ['bank', 'cheque', 'cash', 'commodity'];
+
+// Validate and normalise the payment-mode metadata from a record-payment body.
+// Returns { error } on failure, or the normalised fields on success. Backwards
+// compatible: if no paymentMode is supplied (older clients), defaults to 'cash'.
+function buildPaymentMeta(body = {}) {
+  const paymentMode = body.paymentMode || 'cash';
+  if (!VALID_PAYMENT_MODES.includes(paymentMode)) {
+    return { error: `paymentMode must be one of: ${VALID_PAYMENT_MODES.join(', ')}` };
+  }
+  let paymentRef = null;
+  let commodityDescription = null;
+  let agreedValue = null;
+
+  if (paymentMode === 'bank' || paymentMode === 'cheque') {
+    const ref = (body.paymentRef || '').toString().trim();
+    if (ref.length < 2) {
+      return { error: paymentMode === 'cheque'
+        ? 'Cheque number / bank reference is required'
+        : 'Bank / transaction reference is required' };
+    }
+    paymentRef = ref;
+  } else if (paymentMode === 'commodity') {
+    const desc = (body.commodityDescription || '').toString().trim();
+    if (desc.length < 5) {
+      return { error: 'Commodity description is required (minimum 5 characters)' };
+    }
+    const val = Number(body.agreedValue);
+    if (!val || val <= 0) {
+      return { error: 'Commodity market-agreed value must be greater than 0' };
+    }
+    commodityDescription = desc;
+    agreedValue = val;
+  }
+  return { paymentMode, paymentRef, commodityDescription, agreedValue };
+}
+
 app.post('/api/ledger/:bookingId/:installmentId/pay', (req, res) => {
   const session = validateSession(req);
   if (!session) return res.status(401).json({ error: 'Authentication required' });
@@ -2109,12 +2147,19 @@ app.post('/api/ledger/:bookingId/:installmentId/pay', (req, res) => {
   const dateStr = paidDate || new Date().toISOString().split('T')[0];
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return res.status(400).json({ error: 'paidDate must be YYYY-MM-DD' });
 
+  const meta = buildPaymentMeta(req.body);
+  if (meta.error) return res.status(400).json({ error: meta.error });
+
   item.status = 'paid';
   item.paidAmount = amount;
   item.paidDate = dateStr;
   // Derive the recorder identity from the authenticated session — never trust client input (audit integrity)
   item.paidBy = isAdmin ? 'Admin' : isFinance ? 'Accounts' : 'Dealer';
   item.notes = notes || null;
+  item.paymentMode = meta.paymentMode;
+  item.paymentRef = meta.paymentRef;
+  item.commodityDescription = meta.commodityDescription;
+  item.agreedValue = meta.agreedValue;
   booking.ledger = recomputeOverdue(booking.ledger);
   saveDb();
   res.json({ success: true, item, summary: ledgerSummary(booking.ledger) });
@@ -2244,6 +2289,8 @@ app.get('/api/finance/history', (req, res) => {
       items.push({
         id: i.id, label: i.label, type: i.type,
         amount: i.paidAmount || i.amount, paidDate: i.paidDate, paidBy: i.paidBy, notes: i.notes,
+        paymentMode: i.paymentMode || null, paymentRef: i.paymentRef || null,
+        commodityDescription: i.commodityDescription || null, agreedValue: i.agreedValue || null,
         bookingId: b.id, bookingRef: b.bookingRef, customerName: b.name, plotNumber: b.plotNumber,
       });
     });
@@ -2268,7 +2315,8 @@ app.post('/api/finance/ledger/:bookingId/generate', (req, res) => {
     const q = paidByType[item.type];
     if (q && q.length) {
       const p = q.shift();
-      return { ...item, status: 'paid', paidDate: p.paidDate, paidAmount: p.paidAmount, paidBy: p.paidBy, notes: p.notes };
+      return { ...item, status: 'paid', paidDate: p.paidDate, paidAmount: p.paidAmount, paidBy: p.paidBy, notes: p.notes,
+        paymentMode: p.paymentMode, paymentRef: p.paymentRef, commodityDescription: p.commodityDescription, agreedValue: p.agreedValue };
     }
     return item;
   });
@@ -2528,7 +2576,8 @@ function handlePaymentPlanPatch(req, res) {
       const queue = paidByType[item.type];
       if (queue && queue.length > 0) {
         const paid = queue.shift();
-        return { ...item, status: 'paid', paidDate: paid.paidDate, paidAmount: paid.paidAmount, paidBy: paid.paidBy, notes: paid.notes };
+        return { ...item, status: 'paid', paidDate: paid.paidDate, paidAmount: paid.paidAmount, paidBy: paid.paidBy, notes: paid.notes,
+          paymentMode: paid.paymentMode, paymentRef: paid.paymentRef, commodityDescription: paid.commodityDescription, agreedValue: paid.agreedValue };
       }
       return item;
     });

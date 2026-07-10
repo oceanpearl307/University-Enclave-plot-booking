@@ -53,7 +53,7 @@ A web application for booking residential and commercial plots in University Enc
 - **Operations Manager** — view-only across all data (inventory, dealers/targets, deals, registrations, customers, ledger, reports, export) plus a **read-only Finance dashboard** (overview, dealer sales, client ledgers, installments, payment history) and the ability to assign Sales Staff and Operations Staff roles. Cannot approve/edit bookings, manage inventory, or record payments.
 - **Sales Staff** — read-only view of plot inventory, dealers/targets, and customer records.
 - **Operations Staff** — confirm (approve/reject) bookings and correct booking form data.
-- **Accounts** — full financial dashboard: overview totals + revenue chart, dealer sales & commission, client ledger drill-down, consolidated installments feed with filters, payment history, plus record-payment and regenerate-ledger actions. Assignable by Super Admin only.
+- **Accounts** — full financial dashboard: overview totals + revenue chart, dealer sales & commission, client ledger drill-down, consolidated installments feed with filters, payment history, plus record-payment and regenerate-ledger actions. Payments are recorded by **payment mode** (bank / cheque / cash / commodity) against the correct account head; bank/cheque capture a reference, commodity captures a description + market-agreed value. Assignable by Super Admin only.
 
 ## Features
 
@@ -103,7 +103,7 @@ A web application for booking residential and commercial plots in University Enc
 - `GET /api/finance/installments` — consolidated installments feed
 - `GET /api/finance/history` — chronological payment history
 - `POST /api/finance/ledger/:bookingId/generate` — (re)generate a booking's ledger (preserves paid items)
-- `GET /api/ledger/:bookingId` and `POST /api/ledger/:bookingId/:installmentId/pay` also accept Accounts staff
+- `GET /api/ledger/:bookingId` and `POST /api/ledger/:bookingId/:installmentId/pay` also accept Accounts staff. The pay endpoint accepts `paymentMode` (bank|cheque|cash|commodity); bank/cheque require `paymentRef`, commodity requires `commodityDescription` + `agreedValue`. Mode + reference are surfaced in the installments feed, payment history, and CSV exports.
 
 ### Admin
 - `GET/POST /api/admin/dealers` + `/api/admin/dealers/:id/deposit` + `/api/admin/dealers/:id/reward`

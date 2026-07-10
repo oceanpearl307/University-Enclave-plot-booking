@@ -14,6 +14,14 @@ const STATUS_STYLE = {
   overdue: { bg: '#fee2e2', color: '#dc2626', label: 'Overdue' },
 };
 const TYPE_ICON = { 'down-payment': '⬇', 'confirmation': '✓', 'monthly': '📅', 'semi-annual': '📆', 'possession': '🔑', 'exchange': '🔁' };
+const PAYMENT_MODES = [
+  { value: 'cash', label: 'Cash', icon: '💵' },
+  { value: 'bank', label: 'Bank Transfer', icon: '🏦' },
+  { value: 'cheque', label: 'Cheque', icon: '🧾' },
+  { value: 'commodity', label: 'Commodity / Adjustment', icon: '🔁' },
+];
+const modeLabel = m => PAYMENT_MODES.find(x => x.value === m)?.label || (m ? m.charAt(0).toUpperCase() + m.slice(1) : '—');
+const modeIcon = m => PAYMENT_MODES.find(x => x.value === m)?.icon || '';
 
 const StatCard = ({ title, value, sub, icon, color, bg }) => (
   <div style={{
@@ -78,6 +86,10 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
   const [payAmount, setPayAmount] = useState('');
   const [payDate, setPayDate] = useState('');
   const [payNotes, setPayNotes] = useState('');
+  const [payMode, setPayMode] = useState('cash');
+  const [payRef, setPayRef] = useState('');
+  const [payCommodityDesc, setPayCommodityDesc] = useState('');
+  const [payAgreedValue, setPayAgreedValue] = useState('');
   const [paySaving, setPaySaving] = useState(false);
   const [payError, setPayError] = useState('');
 
@@ -119,11 +131,15 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
     Client: i.customerName || '', 'Booking Ref': i.bookingRef, Plot: i.plotNumber, Size: i.plotSize,
     Installment: i.label, Amount: i.status === 'paid' ? (i.paidAmount || i.amount) : i.amount,
     'Due Date': i.dueDate || '', Status: statusLabel(i.status), 'Days Overdue': i.daysOverdue || 0,
+    'Payment Mode': i.status === 'paid' ? modeLabel(i.paymentMode) : '',
+    'Payment Reference': i.status === 'paid' ? (i.paymentRef || i.commodityDescription || '') : '',
   })), `installments_${csvDate()}.csv`);
 
   const exportHistory = () => downloadCSV(history.map(h => ({
     'Paid Date': h.paidDate || '', Client: h.customerName || '', 'Booking Ref': h.bookingRef,
-    Plot: h.plotNumber, Installment: h.label, Amount: h.amount, 'Recorded By': h.paidBy || '',
+    Plot: h.plotNumber, Installment: h.label, Amount: h.amount,
+    'Payment Mode': modeLabel(h.paymentMode), 'Payment Reference': h.paymentRef || h.commodityDescription || '',
+    'Recorded By': h.paidBy || '',
   })), `payment_history_${csvDate()}.csv`);
 
   const loadAll = () => {
@@ -193,18 +209,37 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
     setPayAmount(String(item.amount || ''));
     setPayDate(new Date().toISOString().split('T')[0]);
     setPayNotes('');
+    setPayMode('cash');
+    setPayRef('');
+    setPayCommodityDesc('');
+    setPayAgreedValue('');
     setPayError('');
   };
 
   const submitPay = async () => {
     if (!payItem || !selectedBooking) return;
+    if (!Number(payAmount) || Number(payAmount) <= 0) { setPayError('Enter a valid amount.'); return; }
+    if ((payMode === 'bank' || payMode === 'cheque') && payRef.trim().length < 2) {
+      setPayError(payMode === 'cheque' ? 'Enter the cheque number / bank reference.' : 'Enter the bank / transaction reference.');
+      return;
+    }
+    if (payMode === 'commodity') {
+      if (payCommodityDesc.trim().length < 5) { setPayError('Describe the commodity (at least 5 characters).'); return; }
+      if (!Number(payAgreedValue) || Number(payAgreedValue) <= 0) { setPayError('Enter the commodity market-agreed value.'); return; }
+    }
     setPaySaving(true);
     setPayError('');
     try {
       const res = await aFetch(`/api/ledger/${selectedBooking}/${payItem.id}/pay`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paidAmount: Number(payAmount), paidDate: payDate, notes: payNotes.trim() || undefined, paidBy: 'Accounts' }),
+        body: JSON.stringify({
+          paidAmount: Number(payAmount), paidDate: payDate, notes: payNotes.trim() || undefined, paidBy: 'Accounts',
+          paymentMode: payMode,
+          paymentRef: (payMode === 'bank' || payMode === 'cheque') ? payRef.trim() : undefined,
+          commodityDescription: payMode === 'commodity' ? payCommodityDesc.trim() : undefined,
+          agreedValue: payMode === 'commodity' ? Number(payAgreedValue) : undefined,
+        }),
       });
       const d = await res.json();
       if (res.ok) {
@@ -492,7 +527,15 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
                             <tbody>
                               {detail.ledger.map(item => (
                                 <tr key={item.id}>
-                                  <Td>{TYPE_ICON[item.type] || '•'} {item.label}</Td>
+                                  <Td>
+                                    <div>{TYPE_ICON[item.type] || '•'} {item.label}</div>
+                                    {item.status === 'paid' && item.paymentMode && (
+                                      <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                        {modeIcon(item.paymentMode)} {modeLabel(item.paymentMode)}
+                                        {(item.paymentRef || item.commodityDescription) ? ` · ${item.paymentRef || item.commodityDescription}` : ''}
+                                      </div>
+                                    )}
+                                  </Td>
                                   <Td align="right">{fmtFull(item.status === 'paid' ? (item.paidAmount || item.amount) : item.amount)}</Td>
                                   <Td>{fmtDate(item.dueDate)}</Td>
                                   <Td><StatusBadge status={item.status} /></Td>
@@ -661,6 +704,7 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
                         <Th>Plot</Th>
                         <Th>Installment</Th>
                         <Th align="right">Amount</Th>
+                        <Th>Mode</Th>
                         <Th>Recorded By</Th>
                       </tr>
                     </thead>
@@ -675,6 +719,12 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
                           <Td>{h.plotNumber}</Td>
                           <Td>{TYPE_ICON[h.type] || '•'} {h.label}</Td>
                           <Td align="right"><span style={{ color: '#059669', fontWeight: 700 }}>{fmtFull(h.amount)}</span></Td>
+                          <Td>
+                            <div>{modeIcon(h.paymentMode)} {modeLabel(h.paymentMode)}</div>
+                            {(h.paymentRef || h.commodityDescription) && (
+                              <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>{h.paymentRef || h.commodityDescription}</div>
+                            )}
+                          </Td>
                           <Td>{h.paidBy || '—'}</Td>
                         </tr>
                       ))}
@@ -697,6 +747,37 @@ export default function AccountsDashboard({ dealer: staff, authToken, onLogout, 
             <input type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.85rem', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: '0.9rem', marginBottom: '1rem' }} />
             <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#374151', marginBottom: '0.3rem' }}>Payment Date</label>
             <input type="date" value={payDate} onChange={e => setPayDate(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.85rem', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: '0.9rem', marginBottom: '1rem' }} />
+            <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#374151', marginBottom: '0.3rem' }}>Payment Mode</label>
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+              {PAYMENT_MODES.map(m => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setPayMode(m.value)}
+                  style={{
+                    flex: '1 1 45%', padding: '0.5rem 0.6rem', borderRadius: 10, cursor: 'pointer',
+                    border: payMode === m.value ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                    background: payMode === m.value ? '#eff6ff' : '#fff',
+                    color: payMode === m.value ? '#1d4ed8' : '#475569',
+                    fontSize: '0.82rem', fontWeight: 700,
+                  }}
+                >{m.icon} {m.label}</button>
+              ))}
+            </div>
+            {(payMode === 'bank' || payMode === 'cheque') && (
+              <>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#374151', marginBottom: '0.3rem' }}>{payMode === 'cheque' ? 'Cheque No. / Bank Reference' : 'Bank / Transaction Reference'}</label>
+                <input type="text" value={payRef} onChange={e => setPayRef(e.target.value)} placeholder={payMode === 'cheque' ? 'e.g. Cheque #123456 — HBL' : 'e.g. IBFT / TID 998877'} style={{ width: '100%', padding: '0.6rem 0.85rem', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: '0.9rem', marginBottom: '1rem' }} />
+              </>
+            )}
+            {payMode === 'commodity' && (
+              <>
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#374151', marginBottom: '0.3rem' }}>Commodity Description</label>
+                <input type="text" value={payCommodityDesc} onChange={e => setPayCommodityDesc(e.target.value)} placeholder="e.g. Toyota Corolla 2018, Reg. ABC-123" style={{ width: '100%', padding: '0.6rem 0.85rem', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: '0.9rem', marginBottom: '1rem' }} />
+                <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#374151', marginBottom: '0.3rem' }}>Market-Agreed Value (PKR)</label>
+                <input type="number" value={payAgreedValue} onChange={e => setPayAgreedValue(e.target.value)} style={{ width: '100%', padding: '0.6rem 0.85rem', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: '0.9rem', marginBottom: '1rem' }} />
+              </>
+            )}
             <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#374151', marginBottom: '0.3rem' }}>Notes (optional)</label>
             <textarea value={payNotes} onChange={e => setPayNotes(e.target.value)} rows={2} style={{ width: '100%', padding: '0.6rem 0.85rem', borderRadius: 10, border: '1px solid #e2e8f0', fontSize: '0.9rem', marginBottom: '1rem', resize: 'vertical' }} />
             {payError && <div style={{ color: '#dc2626', fontSize: '0.8rem', marginBottom: '1rem', fontWeight: 600 }}>{payError}</div>}
